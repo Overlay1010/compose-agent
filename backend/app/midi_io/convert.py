@@ -57,7 +57,8 @@ def midi_bytes_to_project(data: bytes, name: str = "Untitled") -> Project:
     if pm.time_signature_changes:
         first = pm.time_signature_changes[0]
         ts = (first.numerator, first.denominator)
-        if len(pm.time_signature_changes) > 1:
+        # 같은 박자가 중복으로 들어 있는 파일이 흔하다 (예: Cymatics 루프는 4/4가 0틱에 두 번). 값이 다를 때만 경고.
+        if len({(t.numerator, t.denominator) for t in pm.time_signature_changes}) > 1:
             warnings.append("박자 변화가 있어 첫 박자만 사용합니다.")
 
     # 초 -> 틱 -> 박 으로 바꾸면 템포가 바뀌는 파일에서도 박 위치가 정확하다.

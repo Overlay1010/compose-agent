@@ -1,3 +1,6 @@
+import io
+
+import pretty_midi
 import pytest
 
 from app.midi_io.convert import MidiParseError, looks_like_drum, midi_bytes_to_project, project_to_midi_bytes
@@ -62,6 +65,27 @@ def test_tempo_change_warns_but_keeps_beat_positions():
     # 템포가 바뀐 3마디 이후 음도 박 위치는 그대로여야 한다
     bass = next(t for t in p.tracks if t.name == "Bass")
     assert bass.notes[-1].start == pytest.approx(14, abs=1e-2)
+
+
+def _with_time_signatures(*sigs: tuple[int, int]) -> bytes:
+    pm = pretty_midi.PrettyMIDI(io.BytesIO(build_midi()))
+    pm.time_signature_changes = [pretty_midi.TimeSignature(n, d, i * 2.4) for i, (n, d) in enumerate(sigs)]
+    buf = io.BytesIO()
+    pm.write(buf)
+    return buf.getvalue()
+
+
+def test_duplicate_time_signature_is_not_a_change():
+    # 같은 4/4가 두 번 들어 있는 파일(샘플팩에 흔함)은 경고하지 않는다
+    p = midi_bytes_to_project(_with_time_signatures((4, 4), (4, 4)))
+    assert p.time_signature == (4, 4)
+    assert p.warnings == []
+
+
+def test_real_time_signature_change_warns():
+    p = midi_bytes_to_project(_with_time_signatures((4, 4), (3, 4)))
+    assert p.time_signature == (4, 4)
+    assert any("박자" in w for w in p.warnings)
 
 
 def test_garbage_raises():
