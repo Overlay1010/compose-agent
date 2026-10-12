@@ -1,0 +1,116 @@
+# Compose Agent
+
+말로 작곡 작업을 시키는 웹 서비스. LLM 에이전트가 MIDI 편집, 샘플 검색, 허밍 변환, 가사 맞추기 같은 도구를 골라 실행한다.
+
+> 현재 단계: **v0.1 진행 중** — MIDI 업로드 · 트랙 보기 · 재생 · 내보내기까지 완료. 다음은 편집 도구와 에이전트.
+
+## 구조
+
+```
+compose-agent/
+├── backend/            FastAPI
+│   ├── app/
+│   │   ├── main.py         앱, 오류 형식 통일
+│   │   ├── api/            REST 엔드포인트
+│   │   ├── models/         Project · Track · Note (시간 단위 = 박)
+│   │   ├── midi_io/        MIDI 파일 <-> Project 변환
+│   │   ├── store/          버전 저장소 (메모리)
+│   │   ├── tools/          편집 도구 (다음 단계)
+│   │   └── agent/          LLM 도구 호출 루프 (다음 단계)
+│   └── tests/
+├── frontend/           React + TypeScript + Vite
+│   └── src/
+│       ├── api/            백엔드 호출, 타입
+│       ├── audio/          Tone.js 재생 (악기 소리 · Transport 예약)
+│       ├── store/          상태 (zustand)
+│       └── components/     TopBar · TrackList · PianoRoll
+├── samples/            테스트용 MIDI (scripts/make_samples.py로 생성)
+├── scripts/            샘플 생성 등 개발용 스크립트
+└── docs/               설계 문서, 개발 기록
+```
+
+## 실행 방법 (Windows)
+
+필요한 것: Python 3.11 이상, Node.js 20 이상
+
+**1. 백엔드** (터미널 1)
+
+```powershell
+cd backend
+python -m venv compose_venv
+compose_venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8100
+```
+
+`http://localhost:8100/docs` 에서 API 문서를 볼 수 있다.
+
+**2. 프론트엔드** (터미널 2)
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+`http://localhost:5173` 을 열고 **MIDI 열기**로 파일을 올린다. 처음에는 `samples/lofi_groove.mid`로 확인해 보면 된다.
+**재생** 버튼이나 스페이스바로 들어 볼 수 있고, 트랙 옆 **M** 버튼으로 음소거한다.
+
+> 5173 포트를 다른 프로젝트가 쓰고 있으면 Vite가 5174 같은 다음 포트로 띄운다. 터미널에 나온 주소를 열면 된다.
+
+**테스트**
+
+```powershell
+cd backend
+pytest
+```
+
+## 샘플 MIDI
+
+`samples/`의 파일은 전부 코드로 만든 것이라 저작권 걱정 없이 시연·테스트에 쓸 수 있다.
+
+| 파일 | 내용 | 확인할 것 |
+| --- | --- | --- |
+| `lofi_groove.mid` | 84 BPM, 16마디, 트랙 5개 (드럼 · 베이스 · Rhodes · 패드 · 멜로디) | 메인 데모. 탐 필인·크래시·오픈 하이햇까지 들어 있음 |
+| `fl_style_loose.mid` | 120 BPM, 8마디. 드럼 이름이 `FPC`이고 10번 채널이 아님, 악기 번호 전부 0, 타이밍·세기가 흔들림 | FL Studio식 드럼 인식, 나중에 퀀타이즈·세기 조절 도구 |
+| `waltz_3_4.mid` | 150 BPM, 3/4 박자, 8마디 | 마디선·재생선이 3박마다 맞는지 |
+| `tempo_change.mid` | 5마디부터 100 → 130 BPM | 경고 문구, 박 위치 유지 |
+| `demo.mid` | 4마디, 트랙 3개 | 처음 만든 최소 샘플 |
+
+다시 만들기 (같은 파일이 나온다):
+
+```powershell
+backend\compose_venv\Scripts\python scripts\make_samples.py
+```
+
+## FL Studio에서 MIDI 내보내기
+
+1. **File → Export → MIDI file...**
+2. 트랙(패턴)마다 이름을 붙여 두면 앱에서도 그 이름으로 보인다
+3. 드럼 트랙 이름에 `Drum`, `Kick`, `Snare`, `Hat`, `FPC` 같은 단어가 들어가면 드럼으로 인식한다 (FL Studio는 드럼을 10번 채널로 보내지 않는 경우가 많아서 이름으로도 판단함)
+
+v0.1의 제한: 템포·박자 변화가 있으면 첫 값만 사용한다 (화면에 안내가 뜬다).
+
+## API (v0.1)
+
+| 메서드 | 경로 | 설명 |
+| --- | --- | --- |
+| GET | `/api/v1/health` | 상태 확인 |
+| POST | `/api/v1/projects` | MIDI 업로드 → Project |
+| GET | `/api/v1/projects/{id}` | 현재 버전 |
+| GET | `/api/v1/projects/{id}/summary` | 트랙 요약 (에이전트용) |
+| GET | `/api/v1/projects/{id}/export` | `.mid` 다운로드 |
+
+오류는 `{"error": {"code": "...", "message": "..."}}` 형식으로 돌려준다.
+
+## 다음 할 일
+
+- [x] 레포 생성, FastAPI·React 기본 세팅
+- [x] MIDI 업로드 → 내부 데이터 형식으로 변환
+- [x] 트랙별 피아노롤 화면
+- [x] Tone.js 재생 (재생선 · 트랙 음소거 · 스페이스바) — 편집 결과를 귀로 확인하려고 앞당김
+- [ ] 편집 도구 6개를 순수 함수로 구현하고 단위 테스트 작성
+- [ ] LLM 도구 호출 루프 (`POST /chat`)
+- [ ] 미리보기·적용·취소·되돌리기
+- [ ] 재생 소리를 사운드폰트(실제 악기 샘플)로 교체 (시연용)
+- [ ] 정답 있는 명령 30개로 첫 평가 돌리기
