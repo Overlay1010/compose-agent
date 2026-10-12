@@ -1,0 +1,6 @@
+# 줄바꿈을 LF로 통일 (Windows에서 git이 CRLF로 바꾸지 않게)
+* text=auto eol=lf
+
+# MIDI는 바이너리: 줄바꿈 변환·diff 대상 아님
+*.mid binary
+*.midi binary
