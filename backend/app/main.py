@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.api import projects
+from app.tools import ToolError
 
 app = FastAPI(title="Compose Agent", version="0.1.0")
 
@@ -13,6 +14,12 @@ async def error_format(_: Request, exc: HTTPException) -> JSONResponse:
     if not isinstance(detail, dict):
         detail = {"code": "error", "message": str(detail)}
     return JSONResponse(status_code=exc.status_code, content={"error": detail})
+
+
+@app.exception_handler(ToolError)
+async def tool_error_format(_: Request, exc: ToolError) -> JSONResponse:
+    """편집 도구 오류(없는 트랙, 범위 초과, 잘못된 인자)도 같은 형식으로."""
+    return JSONResponse(status_code=400, content={"error": {"code": exc.code, "message": exc.message}})
 
 
 @app.get("/api/v1/health")
