@@ -7,6 +7,7 @@ import { createVoice, type Voice } from './instruments'
 // Tone을 처음 건드리는 순간 AudioContext가 만들어지므로, 모든 호출은 재생 버튼을 누른 뒤에 일어나게 한다.
 
 interface Channel {
+  name: string
   voice: Voice
   volume: Tone.Volume
 }
@@ -15,6 +16,7 @@ let master: Tone.Volume | null = null
 let loaded: Project | null = null
 let channels = new Map<string, Channel>()
 let onEnd: (() => void) | null = null
+let playRequest = 0 // 샘플을 불러오는 동안 정지를 누르면, 로딩이 끝나도 재생을 시작하지 않게
 
 const transport = () => Tone.getTransport()
 const ticks = (beats: number) => `${Math.round(beats * transport().PPQ)}i`
@@ -50,7 +52,7 @@ function load(project: Project, muted: Record<string, boolean>) {
     const volume = new Tone.Volume().connect(master)
     volume.mute = !!muted[track.id]
     voice.output.connect(volume)
-    channels.set(track.id, { voice, volume })
+    channels.set(track.id, { name: track.name, voice, volume })
 
     for (const n of track.notes) {
       t.schedule(
@@ -72,13 +74,22 @@ function load(project: Project, muted: Record<string, boolean>) {
   loaded = project
 }
 
-export async function play(project: Project, muted: Record<string, boolean>) {
+/**
+ * 재생한다. 처음이면 악기 샘플을 다 불러온 뒤 시작한다.
+ * 돌려주는 값은 샘플을 못 불러와 신스 소리로 대신한 트랙 이름들.
+ */
+export async function play(project: Project, muted: Record<string, boolean>): Promise<string[]> {
+  const request = ++playRequest
   await Tone.start() // 브라우저는 사용자가 클릭한 뒤에만 소리를 허용한다
   if (project !== loaded) load(project, muted)
+  await Promise.all([...channels.values()].map((c) => c.voice.ready))
+  if (request !== playRequest) return [] // 기다리는 사이 정지했거나 다른 파일을 열었음
   transport().start()
+  return [...channels.values()].filter((c) => c.voice.fallback).map((c) => c.name)
 }
 
 export function stop() {
+  playRequest++
   if (!loaded) return
   transport().stop() // 위치도 처음으로 돌아간다
   for (const c of channels.values()) c.voice.releaseAll()

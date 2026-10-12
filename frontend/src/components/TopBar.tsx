@@ -5,7 +5,7 @@ import { useProject } from '../store/project'
 
 export function TopBar() {
   const { project, loading, upload } = useProject()
-  const { playing, toggle } = usePlayer()
+  const { playing, loadingSounds, toggle } = usePlayer()
   const input = useRef<HTMLInputElement>(null)
 
   return (
@@ -28,7 +28,7 @@ export function TopBar() {
       <div className="actions">
         {project && (
           <button className="play" onClick={toggle} title="스페이스바로도 재생·정지할 수 있어요">
-            {playing ? '■ 정지' : '▶ 재생'}
+            {loadingSounds ? '악기 불러오는 중…' : playing ? '■ 정지' : '▶ 재생'}
           </button>
         )}
         <input
