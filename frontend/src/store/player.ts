@@ -4,6 +4,10 @@ import { useProject } from './project'
 
 interface PlayerState {
   playing: boolean
+  /** 처음 재생할 때 악기 샘플을 불러오는 중 */
+  loadingSounds: boolean
+  /** 샘플을 못 불러와 신스로 대신한 경우의 안내 */
+  notice: string | null
   muted: Record<string, boolean>
   play: () => Promise<void>
   stop: () => void
@@ -13,23 +17,31 @@ interface PlayerState {
 
 export const usePlayer = create<PlayerState>((set, get) => ({
   playing: false,
+  loadingSounds: false,
+  notice: null,
   muted: {},
 
   play: async () => {
     const { project } = useProject.getState()
     if (!project || get().playing) return
-    set({ playing: true })
+    set({ playing: true, loadingSounds: true })
     try {
-      await player.play(project, get().muted)
+      const fallback = await player.play(project, get().muted)
+      set({
+        loadingSounds: false,
+        notice: fallback.length
+          ? `악기 샘플을 불러오지 못해 ${fallback.join(', ')} 트랙은 기본 신스 소리로 재생해요. 인터넷 연결을 확인해 주세요.`
+          : null,
+      })
     } catch (e) {
-      set({ playing: false })
+      set({ playing: false, loadingSounds: false })
       useProject.setState({ error: `소리를 재생할 수 없습니다: ${e instanceof Error ? e.message : String(e)}` })
     }
   },
 
   stop: () => {
     player.stop()
-    set({ playing: false })
+    set({ playing: false, loadingSounds: false })
   },
 
   toggle: () => {
@@ -50,6 +62,6 @@ player.setOnEnd(() => usePlayer.setState({ playing: false }))
 useProject.subscribe((state, prev) => {
   if (state.project !== prev.project) {
     player.stop()
-    usePlayer.setState({ playing: false, muted: {} })
+    usePlayer.setState({ playing: false, loadingSounds: false, notice: null, muted: {} })
   }
 })

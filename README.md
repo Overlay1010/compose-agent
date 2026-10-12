@@ -112,5 +112,14 @@ v0.1의 제한: 템포·박자 변화가 있으면 첫 값만 사용한다 (화�
 - [x] 편집 도구 6개를 순수 함수로 구현하고 단위 테스트 작성 (조옮김 · 옥타브 · 퀀타이즈 · 세기 · 스윙 · 프로젝트 정보)
 - [ ] LLM 도구 호출 루프 (`POST /chat`)
 - [ ] 미리보기·적용·취소·되돌리기
-- [ ] 재생 소리를 사운드폰트(실제 악기 샘플)로 교체 (시연용)
+- [x] 재생 소리를 실제 악기 샘플로 교체 (멜로디 FluidR3 GM · 드럼 Sonic Pi, 못 불러오면 신스로 대체)
 - [ ] 정답 있는 명령 30개로 첫 평가 돌리기
+
+## 소리 출처
+
+| 쓰는 곳 | 샘플 | 라이선스 |
+| --- | --- | --- |
+| 멜로디 악기 (General MIDI 128개) | [FluidR3 GM](https://github.com/gleitz/midi-js-soundfonts) by Frank Wen, 재생할 때 gleitz.github.io에서 불러옴 | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| 드럼 | [Sonic Pi](https://github.com/sonic-pi-net/sonic-pi/tree/dev/etc/samples) 드럼 샘플 (원본 freesound.org), `frontend/public/samples/drums/`에 포함 | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+
+샘플을 못 불러오면(오프라인 등) 해당 트랙만 Tone.js 신스 소리로 재생하고 화면에 알려 준다.

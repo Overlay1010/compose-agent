@@ -7,6 +7,7 @@ import { useProject } from './store/project'
 
 export default function App() {
   const { project, error } = useProject()
+  const notice = usePlayer((s) => s.notice)
 
   // 스페이스바 = 재생·정지 (DAW와 같은 습관). 글자를 입력하는 칸에서는 무시한다.
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function App() {
     <div className="app">
       <TopBar />
       {error && <div className="banner error">{error}</div>}
+      {notice && <div className="banner warn">{notice}</div>}
       {project?.warnings.map((w) => (
         <div key={w} className="banner warn">
           {w}
