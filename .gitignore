@@ -15,6 +15,11 @@ dist/
 .env.*
 !.env.example
 
+# 구매·다운로드한 샘플팩: 곡에 쓰는 건 되지만 파일 재배포는 라이선스상 안 되는 경우가 많음 (레포가 공개)
+# 직접 만든 샘플(scripts/make_samples.py)만 커밋한다
+samples/Cymatics*
+samples/private/
+
 # OS / 편집기
 .DS_Store
 Thumbs.db
