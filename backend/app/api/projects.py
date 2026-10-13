@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_to_midi_bytes
 from app.models.project import Project, ProjectSummary
@@ -65,3 +66,30 @@ def export_midi(project_id: str) -> Response:
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
     )
 
+
+
+class VersionOut(BaseModel):
+    version: int
+    label: str
+    current: bool
+
+
+@router.get("/{project_id}/versions", response_model=list[VersionOut])
+def list_versions(project_id: str) -> list[VersionOut]:
+    current = _get(project_id).version
+    return [VersionOut(version=v.version, label=v.label, current=v.version == current) for v in store.versions(project_id)]
+
+
+@router.post("/{project_id}/versions/{version}/restore", response_model=Project)
+def restore_version(project_id: str, version: int) -> Project:
+    _get(project_id)
+    try:
+        return store.restore(project_id, version)
+    except KeyError:
+        raise _error(404, "version_not_found", f"v{version}을(를) 찾을 수 없어요. 오래된 버전은 최근 50개만 남아요.")
+
+
+@router.post("/{project_id}/undo", response_model=Project)
+def undo(project_id: str) -> Project:
+    _get(project_id)
+    return store.undo(project_id)
