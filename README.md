@@ -86,11 +86,22 @@ pytest
 backend\compose_venv\Scripts\python scripts\make_samples.py
 ```
 
-## FL Studio에서 MIDI 내보내기
+## DAW에서 MIDI 내보내기
 
-1. **File → Export → MIDI file...**
-2. 트랙(패턴)마다 이름을 붙여 두면 앱에서도 그 이름으로 보인다
-3. 드럼 트랙 이름에 `Drum`, `Kick`, `Snare`, `Hat`, `FPC` 같은 단어가 들어가면 드럼으로 인식한다 (FL Studio는 드럼을 10번 채널로 보내지 않는 경우가 많아서 이름으로도 판단함)
+| DAW | 내보내기 |
+| --- | --- |
+| FL Studio | **File → Export → MIDI file…** |
+| Logic Pro | 트랙(리전)을 고르고 **File → Export → Selection as MIDI File…** |
+| Cubase | **File → Export → MIDI File…** |
+| Ableton Live | MIDI 클립 우클릭 → **Export MIDI Clip…** (트랙마다 하나씩, 여러 개 올리려면 앱에서 합치기 예정) |
+
+트랙마다 이름을 붙여 두면 앱에서도 그 이름으로 보인다.
+
+드럼은 세 가지로 찾는다 (`backend/app/midi_io/convert.py`):
+
+1. **10번 채널**: Cubase · Logic의 GM 드럼은 대부분 여기서 잡힌다
+2. **트랙 이름**: FL Studio `FPC`, Ableton `Drum Rack` · `Kit-Core 909`, Cubase `Groove Agent SE`, `Drum` · `Kick` · `Hat` 같은 단어
+3. **음 패턴**: Logic Drummer처럼 트랙 이름이 드러머 이름(`SoCal (Kyle)`)이어도, GM 드럼 번호(27~59)에 짧은 음이 몰려 있고 킥 · 스네어 · 하이햇이 같이 치면 드럼으로 본다. 샘플팩 멜로디 루프 37개에서 잘못 잡힌 것 0개
 
 v0.1의 제한: 템포·박자 변화가 있으면 첫 값만 사용한다 (화면에 안내가 뜬다).
 
