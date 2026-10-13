@@ -3,6 +3,8 @@ uvicorn[standard]>=0.30
 python-multipart>=0.0.9
 pretty_midi>=0.2.10
 pydantic>=2.7
+openai==3.20.0
+python-dotenv==1.2.3
 
 # 개발·테스트
 pytest>=8

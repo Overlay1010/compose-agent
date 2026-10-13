@@ -2,7 +2,7 @@
 
 말로 작곡 작업을 시키는 웹 서비스. LLM 에이전트가 MIDI 편집, 샘플 검색, 허밍 변환, 가사 맞추기 같은 도구를 골라 실행한다.
 
-> 현재 단계: **v0.1 진행 중** — MIDI 업로드 · 트랙 보기 · 재생 · 내보내기 · 편집 도구까지 완료. 다음은 에이전트.
+> 현재 단계: **v0.1 진행 중** — MIDI 업로드 · 트랙 보기 · 재생 · 내보내기 · 편집 도구 · LLM 에이전트(API)까지 완료. 다음은 채팅 화면과 미리보기.
 
 ## 구조
 
@@ -16,7 +16,7 @@ compose-agent/
 │   │   ├── midi_io/        MIDI 파일 <-> Project 변환
 │   │   ├── store/          버전 저장소 (메모리)
 │   │   ├── tools/          편집 도구 6개 (Project -> 새 Project 순수 함수, 인자 검증 · JSON Schema)
-│   │   └── agent/          LLM 도구 호출 루프 (다음 단계)
+│   │   └── agent/          LLM 에이전트: 도구 호출 루프 · 시스템 프롬프트 · LLM 연결(OpenAI 호환)
 │   └── tests/
 ├── frontend/           React + TypeScript + Vite
 │   └── src/
@@ -40,8 +40,11 @@ cd backend
 python -m venv compose_venv
 compose_venv\Scripts\activate
 pip install -r requirements.txt
+copy .env.example .env    # 그다음 .env에 OPENAI_API_KEY 넣기
 uvicorn app.main:app --reload --port 8100
 ```
+
+에이전트(채팅)를 쓰려면 `backend/.env`에 `OPENAI_API_KEY`가 있어야 한다. 모델은 `OPENAI_MODEL`로 바꾸고, Ollama 같은 OpenAI 호환 서버는 `OPENAI_BASE_URL`로 붙인다. 키가 없어도 나머지 기능은 동작하고, 채팅만 503 `llm_unavailable`을 돌려준다.
 
 `http://localhost:8100/docs` 에서 API 문서를 볼 수 있다.
 
@@ -100,6 +103,12 @@ v0.1의 제한: 템포·박자 변화가 있으면 첫 값만 사용한다 (화�
 | GET | `/api/v1/projects/{id}` | 현재 버전 |
 | GET | `/api/v1/projects/{id}/summary` | 트랙 요약 (에이전트용) |
 | GET | `/api/v1/projects/{id}/export` | `.mid` 다운로드 |
+| POST | `/api/v1/projects/{id}/chat` | 말로 편집 → 미리보기 (`{"message": "베이스 2키 올려줘"}`). 적용 전까지 명령이 미리보기에 쌓인다 |
+| POST | `/api/v1/projects/{id}/preview/apply` | 미리보기를 새 버전으로 저장 |
+| POST | `/api/v1/projects/{id}/preview/cancel` | 미리보기 버리기 |
+| GET | `/api/v1/projects/{id}/versions` | 버전 기록 (무엇을 바꿨는지 한 줄씩) |
+| POST | `/api/v1/projects/{id}/versions/{n}/restore` | 예전 버전을 새 버전으로 되살리기 |
+| POST | `/api/v1/projects/{id}/undo` | 바로 전 버전으로 (지우지 않고 새 버전으로 남김) |
 
 오류는 `{"error": {"code": "...", "message": "..."}}` 형식으로 돌려준다.
 
@@ -110,8 +119,9 @@ v0.1의 제한: 템포·박자 변화가 있으면 첫 값만 사용한다 (화�
 - [x] 트랙별 피아노롤 화면
 - [x] Tone.js 재생 (재생선 · 트랙 음소거 · 스페이스바) — 편집 결과를 귀로 확인하려고 앞당김
 - [x] 편집 도구 6개를 순수 함수로 구현하고 단위 테스트 작성 (조옮김 · 옥타브 · 퀀타이즈 · 세기 · 스윙 · 프로젝트 정보)
-- [ ] LLM 도구 호출 루프 (`POST /chat`)
-- [ ] 미리보기·적용·취소·되돌리기
+- [x] LLM 에이전트 (`POST /chat`): 도구를 여러 번 부르고, 오류를 보고 스스로 고침. 결과는 미리보기로만
+- [x] 미리보기·적용·취소·되돌리기 API (버전 기록 포함)
+- [ ] 채팅 화면 · 미리보기 비교 듣기 · 버전 기록 화면 (목업 기준)
 - [x] 재생 소리를 실제 악기 샘플로 교체 (멜로디 FluidR3 GM · 드럼 Sonic Pi, 못 불러오면 신스로 대체)
 - [ ] 정답 있는 명령 30개로 첫 평가 돌리기
 
