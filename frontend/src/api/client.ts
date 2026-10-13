@@ -1,4 +1,4 @@
-import type { Project } from './types'
+import type { ChatResponse, Project } from './types'
 
 const BASE = '/api/v1'
 
@@ -31,6 +31,16 @@ export async function uploadMidi(file: File): Promise<Project> {
   const form = new FormData()
   form.append('file', file)
   return parse<Project>(await fetch(`${BASE}/projects`, { method: 'POST', body: form }))
+}
+
+export async function chat(projectId: string, message: string): Promise<ChatResponse> {
+  return parse<ChatResponse>(
+    await fetch(`${BASE}/projects/${projectId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    }),
+  )
 }
 
 export function exportUrl(projectId: string): string {

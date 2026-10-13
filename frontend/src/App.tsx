@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { ChatPanel } from './components/ChatPanel'
 import { PianoRoll } from './components/PianoRoll'
 import { TopBar } from './components/TopBar'
 import { TrackList } from './components/TrackList'
@@ -34,7 +35,7 @@ export default function App() {
       <main>
         <TrackList />
         <PianoRoll />
-        {/* 다음 단계: 채팅 패널 (POST /projects/{id}/chat) */}
+        <ChatPanel />
       </main>
     </div>
   )
