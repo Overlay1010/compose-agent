@@ -94,6 +94,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--models", default=config.OPENAI_MODEL, help="쉼표로 여러 개")
     ap.add_argument("--workers", type=int, default=4, help="동시에 보낼 명령 수")
+    ap.add_argument("--repeat", type=int, default=1, help="모델마다 몇 번 돌릴지 (LLM은 매번 답이 조금씩 달라서 3번 이상 권장)")
     args = ap.parse_args()
     if not config.OPENAI_API_KEY:
         sys.exit("OPENAI_API_KEY가 없어요. backend/.env를 확인해 주세요.")
@@ -101,11 +102,41 @@ def main() -> None:
     RESULTS.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     for model in [m.strip() for m in args.models.split(",") if m.strip()]:
-        result = evaluate(model, args.workers)
-        out = RESULTS / f"{stamp}_{model}.json"
-        out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        print_report(result)
-        print(f"  → {out.relative_to(RESULTS.parent.parent)}")
+        runs = []
+        for i in range(args.repeat):
+            result = evaluate(model, args.workers)
+            suffix = f"_r{i + 1}" if args.repeat > 1 else ""
+            out = RESULTS / f"{stamp}_{model}{suffix}.json"
+            out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+            runs.append(result)
+            if args.repeat == 1:
+                print_report(result)
+                print(f"  → {out.relative_to(RESULTS.parent.parent)}")
+        if args.repeat > 1:
+            print_repeat_report(model, runs)
+
+
+def print_repeat_report(model: str, runs: list[dict]) -> None:
+    """여러 번 돌린 결과: 평균 · 범위, 그리고 회차마다 결과가 달라진 (불안정한) 명령."""
+    scores = [r["summary"]["passed"] for r in runs]
+    n = runs[0]["summary"]["cases"]
+    secs = [r["summary"]["median_seconds"] for r in runs]
+    print(f"\n## {model} · {len(runs)}회 · 평균 {mean(scores):.1f}/{n} (최저 {min(scores)} · 최고 {max(scores)})")
+    print(f"회차별 {' · '.join(map(str, scores))} · 응답 시간 중앙값 평균 {mean(secs):.2f}초")
+    per_case: dict[str, list[bool]] = defaultdict(list)
+    commands: dict[str, str] = {}
+    reasons: dict[str, list[str]] = defaultdict(list)
+    for r in runs:
+        for row in r["rows"]:
+            per_case[row["id"]].append(row["passed"])
+            commands[row["id"]] = row["command"]
+            if not row["passed"]:
+                reasons[row["id"]].append(row["reason"])
+    shaky = {k: v for k, v in per_case.items() if not all(v)}
+    if not shaky:
+        print("  모든 명령이 매번 정답")
+    for case_id, results in sorted(shaky.items()):
+        print(f"  {'✗' if not any(results) else '△'} {case_id} {commands[case_id]} · {sum(results)}/{len(results)}회 정답 → {reasons[case_id][0]}")
 
 
 if __name__ == "__main__":
