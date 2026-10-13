@@ -266,3 +266,54 @@ def test_reasoning_effort_fallback_survives_concurrent_requests():
     llm._client.chat.completions.create = create  # type: ignore[method-assign]
     assert llm.complete([{"role": "user", "content": "hi"}], []).text == "ok"
     assert sent == [None, "none"]
+
+
+def test_start_over_replaces_the_preview(lofi):
+    # "패드 한 옥타브 올려줘" 미리보기(+1) 위에서 "아니 내려줘" → 미리보기를 버리고 처음보다 −1
+    from app.agent import session
+    from app.store.memory import ProjectStore
+
+    s = ProjectStore()
+    pid = s.create(lofi).id
+    session.chat_turn(s, pid, "패드 한 옥타브 올려줘", FakeLLM(calls(("shift_octave", {"track_ids": ["t4"], "octaves": 1})), say("올렸어요.")))
+    llm = FakeLLM(calls(("start_over", {})), calls(("shift_octave", {"track_ids": ["t4"], "octaves": -1})), say("내렸어요."))
+    result, pending = session.chat_turn(s, pid, "아니 내려줘", llm)
+
+    assert result.started_over_at == 0
+    original = [n.pitch for n in lofi.tracks[3].notes]
+    assert [n.pitch for n in pending.project.tracks[3].notes] == [p - 12 for p in original]
+    assert pending.labels == ["Pad 트랙 24개 음을 1옥타브 내렸어요."]  # 버린 +1은 기록에 안 남음
+
+
+def test_start_over_only_offered_with_base(lofi):
+    seen = []
+
+    class Spy(FakeLLM):
+        def complete(self, messages, tools):
+            seen.append([t["name"] for t in tools])
+            return super().complete(messages, tools)
+
+    run_agent(lofi, "안녕", Spy(say("안녕하세요")))
+    run_agent(lofi, "아니", Spy(say("네")), base=lofi)
+    assert "start_over" not in seen[0] and "start_over" in seen[1]
+
+
+def test_range_error_suggests_splitting(lofi):
+    from app.tools import ToolError, run_tool
+
+    with pytest.raises(ToolError) as e:
+        run_tool(lofi, "transpose", {"track_ids": ["t2"], "semitones": 30})
+    assert "나눠서" in e.value.message
+
+
+def test_start_over_rolls_back_half_done_edit(lofi):
+    # 3옥타브는 됐는데 1옥타브 더가 실패 → start_over로 되돌리면 곡은 그대로
+    llm = FakeLLM(
+        calls(("shift_octave", {"track_ids": ["t5"], "octaves": 3})),
+        calls(("shift_octave", {"track_ids": ["t5"], "octaves": 1})),
+        calls(("start_over", {})),
+        say("4옥타브는 범위를 넘어 올릴 수 없어요."),
+    )
+    r = run_agent(lofi, "리드를 4옥타브 올려줘", llm, base=lofi)
+    assert [s.ok for s in r.steps] == [True, False, True]
+    assert r.draft is None and r.label == ""

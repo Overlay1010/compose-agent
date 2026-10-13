@@ -16,6 +16,17 @@ from app.agent.prompt import system_prompt
 from app.models.project import Project
 from app.tools import ToolError, run_tool, tool_specs
 
+START_OVER = "start_over"
+START_OVER_SPEC = {
+    "name": START_OVER,
+    "description": (
+        "이번 명령에서 한 편집과 적용 전 미리보기를 모두 버리고 현재 버전에서 다시 시작한다. "
+        "1) 사용자가 '아니', '말고', '대신', '다시'처럼 방금 만든 미리보기를 고치라고 하면 먼저 이걸 부르고 원하는 편집을 처음부터 한다. "
+        "2) 나눠서 하다가 중간에 실패해 요청을 다 채우지 못하면, 반쯤 바뀐 상태로 두지 말고 이걸 불러 되돌린 뒤 왜 안 되는지 알려 준다."
+    ),
+    "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+}
+
 TOO_MANY_STEPS = "한 번에 처리하기엔 단계가 너무 많아서 멈췄어요. 지금까지 바뀐 부분은 미리보기로 보여 드릴게요. 나눠서 다시 말씀해 주세요."
 
 
@@ -35,11 +46,17 @@ class AgentResult(BaseModel):
     llm_calls: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    started_over_at: int | None = Field(default=None, description="start_over를 부른 단계 번호 (미리보기를 버림)")
+
+    @property
+    def kept_steps(self) -> list[ToolStep]:
+        """마지막 start_over 뒤의 단계 (그 앞 편집은 버려졌다)."""
+        return self.steps if self.started_over_at is None else self.steps[self.started_over_at + 1 :]
 
     @property
     def label(self) -> str:
         """버전 기록에 남길 한 줄 (성공한 편집 요약)."""
-        return " · ".join(s.summary for s in self.steps if s.ok and s.changed_notes)
+        return " · ".join(s.summary for s in self.kept_steps if s.ok and s.changed_notes)
 
 
 def _run_call(draft: Project, name: str, raw_args: str) -> tuple[Project, ToolStep, dict[str, Any]]:
@@ -71,15 +88,19 @@ def run_agent(
     history: list[dict[str, Any]] | None = None,
     pending: list[str] | None = None,
     max_steps: int | None = None,
+    base: Project | None = None,
 ) -> AgentResult:
-    """project(현재 버전 또는 미리보기)에 message를 적용해 본다. project 자체는 바꾸지 않는다."""
+    """project(현재 버전 또는 미리보기)에 message를 적용해 본다. project 자체는 바꾸지 않는다.
+
+    base: 현재 버전(미리보기 전). 주면 start_over 도구가 생겨 이번 명령의 편집과 미리보기를 버리고 base에서 다시 할 수 있다.
+    """
     max_steps = max_steps or config.AGENT_MAX_STEPS
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt(project, pending)},
         *(history or []),
         {"role": "user", "content": message},
     ]
-    tools = tool_specs()
+    tools = tool_specs() + ([START_OVER_SPEC] if base is not None else [])
     draft = project
     out = AgentResult(reply="", model=llm.model)
 
@@ -104,12 +125,18 @@ def run_agent(
             }
         )
         for call in reply.tool_calls:
-            draft, step, content = _run_call(draft, call.name, call.arguments)
+            if call.name == START_OVER and base is not None:
+                draft = base
+                out.started_over_at = len(out.steps)
+                step = ToolStep(name=START_OVER, ok=True, summary=f"미리보기를 버리고 v{base.version}에서 다시 시작해요.")
+                content = {"ok": True, "summary": step.summary}
+            else:
+                draft, step, content = _run_call(draft, call.name, call.arguments)
             out.steps.append(step)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(content, ensure_ascii=False)})
     else:
         out.reply = TOO_MANY_STEPS
 
-    if any(s.ok and s.changed_notes for s in out.steps):
+    if any(s.ok and s.changed_notes for s in out.kept_steps):
         out.draft = draft
     return out
