@@ -4,7 +4,7 @@ import { usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 
 export function TopBar() {
-  const { project, loading, upload, setHistoryOpen } = useProject()
+  const { project, preview, hearPreview, loading, upload, setHistoryOpen } = useProject()
   const { playing, loadingSounds, toggle } = usePlayer()
   const input = useRef<HTMLInputElement>(null)
 
@@ -17,7 +17,11 @@ export function TopBar() {
       {project && (
         <div className="meta">
           <strong>{project.name}</strong>
-          <span>{project.tempo.toFixed(0)} BPM</span>
+          <span>
+            {preview && hearPreview && preview.tempo !== project.tempo
+              ? `${project.tempo.toFixed(0)} → ${preview.tempo.toFixed(0)} BPM`
+              : `${project.tempo.toFixed(0)} BPM`}
+          </span>
           <span>
             {project.time_signature[0]}/{project.time_signature[1]}
           </span>

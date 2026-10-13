@@ -33,6 +33,7 @@ export interface ToolStep {
   ok: boolean
   summary: string // 도구 결과 요약 또는 오류 메시지
   changed_notes: number
+  changed_settings: boolean // 템포처럼 음표 말고 곡 설정이 바뀜
 }
 
 export interface ChatResponse {

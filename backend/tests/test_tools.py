@@ -266,8 +266,8 @@ def test_project_info(lofi):
 # ---------- 등록 · run_tool ----------
 
 
-def test_registry_has_six_tools_with_schemas():
-    assert set(TOOLS) == {"transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info"}
+def test_registry_has_seven_tools_with_schemas():
+    assert set(TOOLS) == {"transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo"}
     specs = tool_specs()
     for spec in specs:
         schema = spec["input_schema"]
@@ -319,3 +319,42 @@ def test_tool_error_api_format():
     res = asyncio.run(tool_error_format(None, ToolError("없는 트랙 id예요: t9", code="unknown_track")))
     assert res.status_code == 400
     assert json.loads(res.body) == {"error": {"code": "unknown_track", "message": "없는 트랙 id예요: t9"}}
+
+
+# ---------- set_tempo ----------
+
+def test_set_tempo_modes_keep_notes():
+    from app.tools import run_tool
+
+    p = midi_bytes_to_project(make_samples.lofi_groove())
+    for args, want in [({"mode": "set", "value": 100}, 100), ({"mode": "offset", "value": -4}, 80), ({"mode": "scale", "value": 1.5}, 126)]:
+        r = run_tool(p, "set_tempo", args)
+        assert r.project.tempo == pytest.approx(want, abs=0.01)
+        assert r.changed_settings and r.changed_notes == 0
+        assert r.project.tracks == p.tracks  # 음표(박 위치)는 그대로
+    assert p.tempo == pytest.approx(84, abs=0.01)  # 원본은 그대로
+
+
+def test_set_tempo_limits():
+    from app.tools import ToolError, run_tool
+
+    p = midi_bytes_to_project(make_samples.lofi_groove())
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "set_tempo", {"mode": "scale", "value": 4})  # 84 x 4 = 336 > 300
+    assert e.value.code == "out_of_range"
+    with pytest.raises(ToolError):
+        run_tool(p, "set_tempo", {"mode": "set", "value": 1000})
+    same = run_tool(p, "set_tempo", {"mode": "offset", "value": 0})
+    assert not same.changed_settings
+    assert "84 → 100 BPM" in run_tool(p, "set_tempo", {"mode": "set", "value": 100}).summary  # 84.0001이 아니라 84
+
+
+def test_tempo_only_change_makes_a_preview():
+    from app.agent.llm import LLMReply, ToolCall
+    from app.agent.loop import run_agent
+    from tests.test_agent import FakeLLM
+
+    p = midi_bytes_to_project(make_samples.lofi_groove())
+    llm = FakeLLM(LLMReply(text="", tool_calls=[ToolCall("c0", "set_tempo", '{"mode": "set", "value": 100}')]), LLMReply(text="바꿨어요."))
+    r = run_agent(p, "템포 100으로", llm)
+    assert r.draft is not None and r.draft.tempo == 100 and "100 BPM" in r.label

@@ -21,6 +21,7 @@ from app.tools.edits import (
     transpose,
 )
 from app.tools.info import ProjectInfoArgs, get_project_info
+from app.tools.tempo import SetTempoArgs, set_tempo
 
 TOOLS: dict[str, Tool] = {
     t.name: t
@@ -61,6 +62,12 @@ TOOLS: dict[str, Tool] = {
             "격자의 뒷박(두 칸 중 두 번째)에 있는 음을 늦춰 스윙감을 준다. 앞박과 길이는 그대로.",
             SwingArgs,
             swing,
+        ),
+        Tool(
+            "set_tempo",
+            "곡 템포(BPM)를 바꾼다. 음표의 박 위치는 그대로라 마디는 안 바뀌고 빠르기만 달라진다.",
+            SetTempoArgs,
+            set_tempo,
         ),
     ]
 }
