@@ -71,8 +71,10 @@ class OpenAIChat:
             )
         except self._openai.BadRequestError as e:
             # 일부 추론 모델은 Chat Completions에서 도구를 쓰려면 reasoning_effort를 'none'으로 꼭 지정해야 한다.
-            # 그런 오류면 한 번만 'none'으로 바꿔 다시 부르고, 이후 호출에도 그대로 쓴다.
-            if getattr(e, "param", None) == "reasoning_effort" and self.reasoning_effort != "none":
+            # 그런 오류면 'none'으로 바꿔 다시 부르고, 이후 호출에도 그대로 쓴다.
+            # 이번 요청이 실제로 보낸 값으로 판단한다: 여러 요청이 동시에 실패하면 그중 하나가 먼저
+            # self.reasoning_effort를 바꿔 놓아서, 그 값으로 판단하면 나머지는 재시도 없이 실패한다.
+            if getattr(e, "param", None) == "reasoning_effort" and extra.get("reasoning_effort") != "none":
                 self.reasoning_effort = "none"
                 return self.complete(messages, tools)
             raise LLMError(f"LLM 호출에 실패했어요: {e}") from e

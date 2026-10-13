@@ -231,3 +231,38 @@ def test_chat_validates_message(client, use_llm):
     use_llm()
     assert client.post(f"/api/v1/projects/{pid}/chat", json={"message": ""}).status_code == 422
     assert client.post("/api/v1/projects/nope/chat", json={"message": "hi"}).status_code == 404
+
+
+def test_reasoning_effort_fallback_survives_concurrent_requests():
+    # 동시에 보낸 요청 중 다른 하나가 먼저 reasoning_effort를 'none'으로 바꿔 놓은 상황에서도,
+    # 이번 요청은 'none' 없이 보냈으니 다시 시도해야 한다
+    import httpx
+    import openai
+
+    from app.agent.llm import OpenAIChat
+
+    llm = OpenAIChat("test-model", api_key="sk-test")
+    sent: list[object] = []
+
+    class Message:
+        content = "ok"
+        tool_calls = None
+
+    class Response:
+        choices = [type("Choice", (), {"message": Message()})()]
+        usage = None
+
+    def create(**kwargs):
+        sent.append(kwargs.get("reasoning_effort"))
+        if kwargs.get("reasoning_effort") != "none":
+            llm.reasoning_effort = "none"  # 다른 요청이 먼저 바꿔 놓음
+            raise openai.BadRequestError(
+                "tools need reasoning_effort none",
+                response=httpx.Response(400, request=httpx.Request("POST", "https://api.test")),
+                body={"param": "reasoning_effort"},
+            )
+        return Response()
+
+    llm._client.chat.completions.create = create  # type: ignore[method-assign]
+    assert llm.complete([{"role": "user", "content": "hi"}], []).text == "ok"
+    assert sent == [None, "none"]
