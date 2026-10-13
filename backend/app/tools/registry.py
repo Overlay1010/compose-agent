@@ -82,5 +82,8 @@ def run_tool(project: Project, name: str, args: dict[str, Any] | None = None) ->
             f"{'.'.join(map(str, err['loc'])) or '인자'}: {err['msg'].removeprefix('Value error, ')}"
             for err in e.errors()
         )
-        raise ToolError(f"{name} 인자가 올바르지 않아요 — {problems}", code="invalid_args") from e
+        hint = ""
+        if any(err["type"] in ("less_than_equal", "greater_than_equal") for err in e.errors()):
+            hint = " 한 번에 넣을 수 있는 범위를 넘었어요. 나눠서 여러 번 불러 같은 결과를 낼 수 있으면 그렇게 하고, 아니면 다른 값으로 바꾸지 말고 사용자에게 알려 주세요."
+        raise ToolError(f"{name} 인자가 올바르지 않아요 — {problems}.{hint}", code="invalid_args") from e
     return tool.fn(project, parsed)
