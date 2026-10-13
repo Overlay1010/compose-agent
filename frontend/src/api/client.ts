@@ -1,4 +1,4 @@
-import type { ChatResponse, Project } from './types'
+import type { ChatResponse, Project, VersionInfo } from './types'
 
 const BASE = '/api/v1'
 
@@ -41,6 +41,29 @@ export async function chat(projectId: string, message: string): Promise<ChatResp
       body: JSON.stringify({ message }),
     }),
   )
+}
+
+const post = (path: string) => fetch(`${BASE}${path}`, { method: 'POST' })
+
+export async function applyPreview(projectId: string): Promise<Project> {
+  return parse<Project>(await post(`/projects/${projectId}/preview/apply`))
+}
+
+export async function cancelPreview(projectId: string): Promise<void> {
+  const res = await post(`/projects/${projectId}/preview/cancel`)
+  if (!res.ok) await parse(res)
+}
+
+export async function listVersions(projectId: string): Promise<VersionInfo[]> {
+  return parse<VersionInfo[]>(await fetch(`${BASE}/projects/${projectId}/versions`))
+}
+
+export async function restoreVersion(projectId: string, version: number): Promise<Project> {
+  return parse<Project>(await post(`/projects/${projectId}/versions/${version}/restore`))
+}
+
+export async function undo(projectId: string): Promise<Project> {
+  return parse<Project>(await post(`/projects/${projectId}/undo`))
 }
 
 export function exportUrl(projectId: string): string {

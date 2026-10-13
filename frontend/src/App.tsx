@@ -3,6 +3,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { PianoRoll } from './components/PianoRoll'
 import { TopBar } from './components/TopBar'
 import { TrackList } from './components/TrackList'
+import { VersionPanel } from './components/VersionPanel'
 import { usePlayer } from './store/player'
 import { useProject } from './store/project'
 
@@ -37,6 +38,7 @@ export default function App() {
         <PianoRoll />
         <ChatPanel />
       </main>
+      <VersionPanel />
     </div>
   )
 }

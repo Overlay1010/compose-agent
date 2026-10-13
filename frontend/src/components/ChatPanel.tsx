@@ -10,8 +10,8 @@ const SUGGESTIONS = [
 ]
 
 export function ChatPanel() {
-  const { project, preview, baseVersion, hearPreview, setHearPreview } = useProject()
-  const { messages, sending, send } = useChat()
+  const { project, preview, baseVersion, hearPreview, setHearPreview, applyPreview, cancelPreview, undo, busy } = useProject()
+  const { messages, sending, send, note } = useChat()
   const [input, setInput] = useState('')
   const list = useRef<HTMLDivElement>(null)
 
@@ -21,6 +21,20 @@ export function ChatPanel() {
   }, [messages, sending])
 
   if (!project) return null
+
+  const apply = async () => {
+    const next = await applyPreview()
+    if (next) note(`v${next.version}로 적용했어요`, true)
+  }
+  const cancel = async () => {
+    await cancelPreview()
+    if (!useProject.getState().preview) note('미리보기를 취소했어요. 곡은 그대로예요.')
+  }
+  const revert = async () => {
+    const before = project.version
+    const next = await undo()
+    if (next) note(`v${before - 1} 상태로 되돌렸어요 (v${next.version}로 저장)`, true)
+  }
 
   const submit = (text: string) => {
     if (!text.trim() || sending) return
@@ -42,6 +56,16 @@ export function ChatPanel() {
           m.role === 'user' ? (
             <p key={m.id} className="msg user">
               {m.text}
+            </p>
+          ) : m.role === 'note' ? (
+            <p key={m.id} className="msg note">
+              <span aria-hidden="true">✓ </span>
+              {m.text}
+              {m.canUndo && (
+                <button className="link" onClick={revert} disabled={busy}>
+                  되돌리기
+                </button>
+              )}
             </p>
           ) : m.role === 'error' ? (
             <p key={m.id} className="msg error" role="alert">
@@ -89,6 +113,14 @@ export function ChatPanel() {
             </button>
             <button aria-pressed={!hearPreview} className={!hearPreview ? 'on' : ''} onClick={() => setHearPreview(false)}>
               원래 소리
+            </button>
+          </div>
+          <div className="apply-row">
+            <button className="apply" onClick={apply} disabled={busy || sending}>
+              적용
+            </button>
+            <button onClick={cancel} disabled={busy || sending}>
+              취소
             </button>
           </div>
         </div>
