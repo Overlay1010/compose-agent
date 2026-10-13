@@ -4,7 +4,7 @@ import { usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 
 export function TopBar() {
-  const { project, loading, upload } = useProject()
+  const { project, loading, upload, setHistoryOpen } = useProject()
   const { playing, loadingSounds, toggle } = usePlayer()
   const input = useRef<HTMLInputElement>(null)
 
@@ -21,7 +21,9 @@ export function TopBar() {
           <span>
             {project.time_signature[0]}/{project.time_signature[1]}
           </span>
-          <span>버전 {project.version}</span>
+          <button className="version" onClick={() => setHistoryOpen(true)} title="버전 기록 보기">
+            버전 기록 · v{project.version}
+          </button>
         </div>
       )}
 

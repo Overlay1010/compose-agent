@@ -45,3 +45,10 @@ export interface ChatResponse {
   input_tokens: number
   output_tokens: number
 }
+
+// 백엔드 app/api/projects.py VersionOut
+export interface VersionInfo {
+  version: number
+  label: string // 무엇을 바꿨는지 한 줄
+  current: boolean
+}

@@ -6,18 +6,22 @@ import { useProject } from './project'
 
 export interface ChatMessage {
   id: number
-  role: 'user' | 'agent' | 'error'
+  role: 'user' | 'agent' | 'error' | 'note'
   text: string
   steps?: ToolStep[]
   /** 모델 · LLM 호출 수 · 걸린 시간 (평가 때 참고) */
   meta?: string
   madePreview?: boolean
+  /** 'note'에 되돌리기 버튼을 붙일지 */
+  canUndo?: boolean
 }
 
 interface ChatState {
   messages: ChatMessage[]
   sending: boolean
   send: (text: string) => Promise<void>
+  /** 적용 · 취소 · 되돌리기 같은 일을 대화에 한 줄로 남긴다 */
+  note: (text: string, canUndo?: boolean) => void
 }
 
 let nextId = 1
@@ -25,6 +29,9 @@ let nextId = 1
 export const useChat = create<ChatState>((set, get) => ({
   messages: [],
   sending: false,
+
+  note: (text, canUndo = false) =>
+    set({ messages: [...get().messages.map((m) => ({ ...m, canUndo: false })), { id: nextId++, role: 'note', text, canUndo }] }),
 
   send: async (raw) => {
     const text = raw.trim()

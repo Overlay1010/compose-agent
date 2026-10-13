@@ -1,45 +1,123 @@
 import { create } from 'zustand'
-import { uploadMidi } from '../api/client'
-import type { Project } from '../api/types'
+import * as api from '../api/client'
+import type { Project, VersionInfo } from '../api/types'
 
 interface ProjectState {
   project: Project | null
-  /** 에이전트가 만든 적용 전 미리보기와 그 출발 버전 (피아노롤 표시 · 적용은 다음 단계) */
+  /** 에이전트가 만든 적용 전 미리보기와 그 출발 버전 */
   preview: Project | null
   baseVersion: number | null
   /** 미리보기가 있을 때 바뀐 소리(true)를 들을지 원래 소리(false)를 들을지 */
   hearPreview: boolean
+  versions: VersionInfo[]
+  historyOpen: boolean
   selectedTrackId: string | null
   loading: boolean
+  /** 적용 · 취소 · 되돌리기 요청 중 */
+  busy: boolean
   error: string | null
   upload: (file: File) => Promise<void>
   selectTrack: (id: string) => void
   setPreview: (preview: Project | null, baseVersion: number | null) => void
   setHearPreview: (on: boolean) => void
+  applyPreview: () => Promise<Project | null>
+  cancelPreview: () => Promise<void>
+  restore: (version: number) => Promise<Project | null>
+  undo: () => Promise<Project | null>
+  loadVersions: () => Promise<void>
+  setHistoryOpen: (open: boolean) => void
 }
 
-export const useProject = create<ProjectState>((set) => ({
-  project: null,
-  preview: null,
-  baseVersion: null,
-  hearPreview: true,
-  selectedTrackId: null,
-  loading: false,
-  error: null,
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-  upload: async (file) => {
-    set({ loading: true, error: null })
+export const useProject = create<ProjectState>((set, get) => {
+  /** 새 버전이 생기는 요청(적용 · 되돌리기)을 같은 방식으로 처리한다 */
+  const changeVersion = async (request: (id: string) => Promise<Project>): Promise<Project | null> => {
+    const { project, busy } = get()
+    if (!project || busy) return null
+    set({ busy: true, error: null })
     try {
-      const project = await uploadMidi(file)
-      set({ project, preview: null, baseVersion: null, hearPreview: true, selectedTrackId: project.tracks[0]?.id ?? null })
+      const next = await request(project.id)
+      set({ project: next, preview: null, baseVersion: null, hearPreview: true })
+      void get().loadVersions()
+      return next
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : String(e) })
+      set({ error: message(e) })
+      // 충돌 등으로 실패하면 서버 쪽 미리보기도 없어졌을 수 있어 화면도 맞춘다
+      if (e instanceof api.ApiError && e.code === 'preview_conflict') set({ preview: null, baseVersion: null })
+      return null
     } finally {
-      set({ loading: false })
+      set({ busy: false })
     }
-  },
+  }
 
-  selectTrack: (id) => set({ selectedTrackId: id }),
-  setPreview: (preview, baseVersion) => set({ preview, baseVersion, hearPreview: true }),
-  setHearPreview: (on) => set({ hearPreview: on }),
-}))
+  return {
+    project: null,
+    preview: null,
+    baseVersion: null,
+    hearPreview: true,
+    versions: [],
+    historyOpen: false,
+    selectedTrackId: null,
+    loading: false,
+    busy: false,
+    error: null,
+
+    upload: async (file) => {
+      set({ loading: true, error: null })
+      try {
+        const project = await api.uploadMidi(file)
+        set({
+          project,
+          preview: null,
+          baseVersion: null,
+          hearPreview: true,
+          versions: [],
+          selectedTrackId: project.tracks[0]?.id ?? null,
+        })
+        void get().loadVersions()
+      } catch (e) {
+        set({ error: message(e) })
+      } finally {
+        set({ loading: false })
+      }
+    },
+
+    selectTrack: (id) => set({ selectedTrackId: id }),
+    setPreview: (preview, baseVersion) => set({ preview, baseVersion, hearPreview: true }),
+    setHearPreview: (on) => set({ hearPreview: on }),
+
+    applyPreview: () => changeVersion(api.applyPreview),
+    restore: (version) => changeVersion((id) => api.restoreVersion(id, version)),
+    undo: () => changeVersion(api.undo),
+
+    cancelPreview: async () => {
+      const { project, busy } = get()
+      if (!project || busy) return
+      set({ busy: true, error: null })
+      try {
+        await api.cancelPreview(project.id)
+        set({ preview: null, baseVersion: null, hearPreview: true })
+      } catch (e) {
+        set({ error: message(e) })
+      } finally {
+        set({ busy: false })
+      }
+    },
+
+    loadVersions: async () => {
+      const { project } = get()
+      if (!project) return
+      try {
+        set({ versions: await api.listVersions(project.id) })
+      } catch (e) {
+        set({ error: message(e) })
+      }
+    },
+
+    setHistoryOpen: (open) => {
+      set({ historyOpen: open })
+      if (open) void get().loadVersions()
+    },
+  }
+})
