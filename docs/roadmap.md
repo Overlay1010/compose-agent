@@ -39,18 +39,31 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 - 멜로디: 코드 톤 중심 + 스케일 경과음, 모양(올라감 · 내려감 · 아치)과 리듬 밀도
 - 짧은 모티프(1~2마디)는 LLM이 직접 써도 되지만, 생성기 결과와 같은 검사(음역 · 스케일 · 박자)를 거친다
 - 결과는 다른 편집처럼 **미리보기 → 적용**. 마음에 안 들면 "다른 버전"으로 다시 생성 (같은 설정, 다른 무작위 시드)
-- 도구: `generate_drums` `generate_chords` `generate_bassline` `generate_melody`
+- 트랙 다루기: 새 트랙 추가 · 트랙 복제 · 악기 바꾸기 ("멜로디를 스트링으로 한 옥타브 아래 겹쳐줘"가 여기서 된다)
+- 도구: `generate_drums` `generate_chords` `generate_bassline` `generate_melody` `add_track` `duplicate_track` `set_instrument`
 - 평가: 생성 명령 30개 · 규칙 위반 0개(스케일 밖 음, 박자 밖 음, 음역 초과) · 사람 블라인드 평가(직접 만든 것과 비교)
 - 나중 선택지: text-to-MIDI 학습 모델(GPU 필요)을 생성기 하나로 추가해 규칙 기반과 비교
 
-## v0.4 · 허밍 → MIDI
+## v0.4 · 멜로디에 편곡 깔기
+
+멜로디 MIDI 하나만 올리고 "어울리는 코드랑 베이스, 드럼 깔아줘"라고 하면 반주 트랙들이 생긴다. v0.2(화성 계산)와 v0.3(생성기)을 합치는 단계라 그 뒤에 한다. 작곡가에게 가장 와닿는 장면이라 **포트폴리오 대표 시연**으로 쓴다.
+
+- 멜로디 화성 붙이기: 조성 찾기 → 마디마다 강박 · 긴 음을 덮는 코드 후보를 규칙으로 계산 → LLM은 "밝게 · 슬프게 · 재즈풍" 같은 요청에 맞춰 후보 중에서 고르고 이유를 설명
+- 고른 코드 진행으로 v0.3 생성기를 이어서 실행: 코드 반주 · 베이스 · 드럼 · 대선율(멜로디 3도 아래 · 옥타브 겹치기)
+- 한 번에 여러 트랙이 미리보기로 생기고, 트랙마다 "다른 버전"으로 다시 만들 수 있다
+- 도구: `harmonize_melody` `arrange` (생성기 여러 개를 순서대로 부르는 묶음)
+- 평가: 코드가 붙어 있는 곡의 멜로디만 떼어 넣고, 원래 코드와 얼마나 같은지(화성 기능 기준) · 멜로디와 부딪히는 음 수 · 블라인드 청취 평가
+
+## v0.5 · 허밍 → MIDI
+
+허밍으로 만든 멜로디를 v0.4로 바로 넘기면 **흥얼거림 → 편곡까지** 한 번에 이어진다.
 
 - 브라우저 녹음 · 카운트인, 음높이 검출 → 음표 (Basic Pitch 등)
 - 조성 · 박자에 맞춰 보정, 새 트랙 또는 기존 트랙 구간에 넣기
 - 도구: `hum_to_midi` `snap_to_key`
 - 평가: 직접 녹음한 허밍 20개, 음 정확도(반음 이내) · 박자 오차
 
-## v0.5 · 샘플 찾기 · 가사
+## v0.6 · 샘플 찾기 · 가사
 
 - 말로 샘플 검색. 라이선스가 확실한 CC0 라이브러리만, BPM · 키 맞춰 넣기
 - 가사 음절 ↔ 음표 맞추기 (한국어 음절 단위), 남거나 모자라면 고칠 방법 제안, 가사 포함 MIDI 내보내기
@@ -59,7 +72,7 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 
 ## v1.0 · 완성본
 
-- 한 화면에서 편집 · 화성 · 만들기 · 허밍 · 샘플 · 가사
+- 한 화면에서 편집 · 화성 · 만들기 · 편곡 · 허밍 · 샘플 · 가사
 - 프로젝트 저장(SQLite) · 공유 링크, WAV 렌더 · 트랙별 MIDI 내보내기, 단축키 · 전체 실행취소
 - 도구: `save_project` `export_audio`
 - 평가: 전체 명령 100개, 여러 도구를 이어 쓰는 명령 정확도
@@ -72,8 +85,10 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 | 정보 | get_project_info | v0.1 ✅ |
 | 화성 | analyze_harmony · suggest_reharmonization · apply_chords | v0.2 |
 | 만들기 | generate_drums · generate_chords · generate_bassline · generate_melody | v0.3 |
-| 허밍 | hum_to_midi · snap_to_key | v0.4 |
-| 소리 · 가사 | search_samples · add_sample_track · fit_lyrics | v0.5 |
+| 트랙 | add_track · duplicate_track · set_instrument | v0.3 |
+| 편곡 | harmonize_melody · arrange | v0.4 |
+| 허밍 | hum_to_midi · snap_to_key | v0.5 |
+| 소리 · 가사 | search_samples · add_sample_track · fit_lyrics | v0.6 |
 | 프로젝트 | save_project · export_audio | v1.0 |
 
-6개 → 20개
+6개 → 25개
