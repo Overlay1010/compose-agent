@@ -1,0 +1,84 @@
+"""평가 채점이 맞는지, 그리고 정답 30개가 실제로 도구로 만들 수 있는 답인지 확인한다."""
+
+import sys
+from pathlib import Path
+
+import pytest
+
+from app.agent.loop import ToolStep
+from app.midi_io.convert import midi_bytes_to_project
+from app.tools import run_tool
+from eval.cases import CASES
+from eval.spec import ALL, Call, Case, Pitches, Range, score
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+import make_samples  # noqa: E402
+
+MELODIC = {"t2", "t3", "t4", "t5"}
+
+
+def concrete(call: Call) -> dict:
+    """정답 표현(범위 · 음 집합 · 전체)을 실제로 넣을 수 있는 인자 하나로 바꾼다."""
+    out = {}
+    for k, v in call.args.items():
+        if v == ALL:
+            out[k] = None
+        elif isinstance(v, Range):
+            mid = (v.low + v.high) / 2
+            out[k] = int(mid) if k in ("semitones", "octaves") else mid
+        elif isinstance(v, Pitches):
+            out[k] = sorted(v.must)
+        else:
+            out[k] = v
+    return {k: v for k, v in out.items() if v is not None}
+
+
+def step(name, args, ok=True, changed=3):
+    return ToolStep(name=name, args=args, ok=ok, summary="", changed_notes=changed)
+
+
+@pytest.mark.parametrize("case", [c for c in CASES if not c.expects_no_edit], ids=lambda c: c.id)
+def test_every_answer_is_reachable(case: Case):
+    # 정답 호출을 실제로 실행하면 음이 바뀌고, 그 기록이 정답으로 채점돼야 한다
+    project = midi_bytes_to_project(make_samples.SAMPLES[f"{case.sample}.mid"]())
+    steps = []
+    for call in case.expect:
+        args = concrete(call)
+        result = run_tool(project, call.tool, args)
+        assert result.changed_notes > 0, f"{case.id} {call} 은 바뀌는 음이 없음"
+        project = result.project
+        steps.append(step(call.tool, args, changed=result.changed_notes))
+    assert score(case, steps, MELODIC).passed, case.id
+
+
+def test_no_edit_case():
+    case = Case("X", "되묻기", "lofi_groove", "좀 더 좋게")
+    assert score(case, [step("get_project_info", {}, changed=0)], MELODIC).passed
+    assert not score(case, [step("swing", {"percent": 57})], MELODIC).passed
+
+
+def test_range_alt_and_extra_edit():
+    case = Case("X", "세기", "lofi_groove", "하이햇 좀 약하게",
+                expect=(Call("adjust_velocity", {"track_ids": ["t1"], "mode": "scale", "value": Range(0.5, 0.85)}),),
+                alt=((Call("adjust_velocity", {"track_ids": ["t1"], "mode": "offset", "value": Range(-40, -8)}),),))
+    ok = step("adjust_velocity", {"track_ids": ["t1"], "mode": "scale", "value": 0.7})
+    assert score(case, [ok], MELODIC).passed
+    assert score(case, [step("adjust_velocity", {"track_ids": ["t1"], "mode": "offset", "value": -20})], MELODIC).passed
+    too_soft = score(case, [step("adjust_velocity", {"track_ids": ["t1"], "mode": "scale", "value": 0.2})], MELODIC)
+    assert not too_soft.passed and too_soft.tools_ok  # 도구는 맞고 인자가 틀림
+    extra = score(case, [ok, step("swing", {"percent": 57})], MELODIC)
+    assert not extra.passed and "시키지 않은 편집" in extra.reason
+
+
+def test_failed_and_zero_change_steps_are_ignored():
+    case = Case("X", "조옮김", "lofi_groove", "베이스 2키", expect=(Call("transpose", {"track_ids": ["t2"], "semitones": 2}),))
+    steps = [step("transpose", {"track_ids": ["bass"], "semitones": 2}, ok=False), step("transpose", {"track_ids": ["t2"], "semitones": 2})]
+    assert score(case, steps, MELODIC).passed
+
+
+def test_all_tracks_and_defaults():
+    case = Case("X", "퀀타이즈", "fl_style_loose", "전부",
+                expect=(Call("quantize", {"track_ids": ALL, "strength": Range(0.95, 1, default=1.0)}),))
+    assert score(case, [step("quantize", {})], MELODIC).passed  # 비워 두면 전체 · 기본 강도 1
+    assert score(case, [step("quantize", {"track_ids": ["t1", "t2", "t3", "t4", "t5"]})], MELODIC).passed
+    assert not score(case, [step("quantize", {"track_ids": ["t2"]})], MELODIC).passed
