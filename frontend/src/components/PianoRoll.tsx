@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import type { Note } from '../api/types'
 import { DRUM_NAMES } from '../audio/instruments'
 import { positionBeats } from '../audio/player'
 import { usePlayer } from '../store/player'
+import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
 
 const BEAT_PX = 24 // 1박의 가로 길이
@@ -15,19 +17,26 @@ const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
 
 export function PianoRoll() {
-  const { project, selectedTrackId } = useProject()
+  const { project, preview, hearPreview, selectedTrackId } = useProject()
   const playing = usePlayer((s) => s.playing)
   const canvas = useRef<HTMLCanvasElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
   const track = project?.tracks.find((t) => t.id === selectedTrackId)
+  const previewTrack = preview?.tracks.find((t) => t.id === selectedTrackId)
+  const diff = useMemo(() => (track && previewTrack ? diffNotes(track.notes, previewTrack.notes) : null), [track, previewTrack])
+  const changed = !!diff && (diff.added.length > 0 || diff.removed.length > 0)
+  // 미리보기에서 바뀐 트랙이고 "바뀐 소리"를 듣는 중이면 바뀔 음 · 원래 위치를 같이 그린다
+  const showDiff = changed && hearPreview
 
   useEffect(() => {
     const el = canvas.current
     if (!el || !project || !track || track.notes.length === 0) return
 
     const beatsPerBar = (project.time_signature[0] * 4) / project.time_signature[1]
-    const pitches = track.notes.map((n) => n.pitch)
+    // 줄과 길이는 원래 음 + 바뀐 음을 모두 담게 잡는다 (조옮김으로 음역이 넓어질 수 있음)
+    const all: Note[] = showDiff && diff ? [...track.notes, ...diff.added] : track.notes
+    const pitches = all.map((n) => n.pitch)
     // 위에서부터 그릴 줄(음 번호) 목록. 멜로디는 음역 전체(위아래 2칸 여유), 드럼은 쓰인 음만.
     const rows = track.is_drum
       ? [...new Set(pitches)].sort((a, b) => b - a)
@@ -35,7 +44,7 @@ export function PianoRoll() {
     const rowPx = track.is_drum ? DRUM_ROW_PX : ROW_PX
     const keyPx = track.is_drum ? DRUM_KEY_PX : KEY_PX
     const rowIndex = new Map(rows.map((p, i) => [p, i]))
-    const lengthBeats = Math.ceil(Math.max(...track.notes.map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
+    const lengthBeats = Math.ceil(Math.max(...all.map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
 
     const width = keyPx + lengthBeats * BEAT_PX
     const height = rows.length * rowPx + 20
@@ -95,15 +104,40 @@ export function PianoRoll() {
     }
 
     // 음표 (세기가 셀수록 진하게). 드럼은 길이보다 치는 순간이 중요해서 짧게 그린다.
-    for (const n of track.notes) {
-      ctx.globalAlpha = 0.45 + (n.velocity / 127) * 0.55
-      ctx.fillStyle = color('--accent')
+    const box = (n: Note) => {
       const w = track.is_drum ? 6 : Math.max(n.duration * BEAT_PX - 2, 2)
       const inset = track.is_drum ? 3 : 1
-      ctx.fillRect(keyPx + n.start * BEAT_PX + 1, y(n.pitch) + inset, w, rowPx - inset * 2)
+      return [keyPx + n.start * BEAT_PX + 1, y(n.pitch) + inset, w, rowPx - inset * 2] as const
+    }
+    const plain = showDiff && diff ? diff.same : track.notes
+    for (const n of plain) {
+      ctx.globalAlpha = 0.45 + (n.velocity / 127) * 0.55
+      ctx.fillStyle = color('--accent')
+      ctx.fillRect(...box(n))
     }
     ctx.globalAlpha = 1
-  }, [project, track])
+    if (showDiff && diff) {
+      // 원래 위치: 점선 테두리
+      ctx.setLineDash([3, 2])
+      ctx.strokeStyle = color('--text-quiet')
+      ctx.lineWidth = 1
+      for (const n of diff.removed) {
+        const [x, by, w, h] = box(n)
+        ctx.strokeRect(x + 0.5, by + 0.5, w - 1, h - 1)
+      }
+      ctx.setLineDash([])
+      // 바뀔 음: 라임 + 진한 테두리 (세기는 진하기로)
+      for (const n of diff.added) {
+        const [x, by, w, h] = box(n)
+        ctx.globalAlpha = 0.6 + (n.velocity / 127) * 0.4
+        ctx.fillStyle = color('--change')
+        ctx.fillRect(x, by, w, h)
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = color('--change-line')
+        ctx.strokeRect(x + 0.5, by + 0.5, w - 1, h - 1)
+      }
+    }
+  }, [project, track, diff, showDiff])
 
   // 재생선: 매 프레임 지금 들리는 위치로 옮기고, 화면 밖으로 나가면 따라가며 스크롤한다.
   useEffect(() => {
@@ -147,6 +181,20 @@ export function PianoRoll() {
           {track.is_drum ? '드럼 레인 · 진할수록 세게' : '마디 번호 기준 · 진할수록 세게'}
         </span>
       </h2>
+      {showDiff && diff && (
+        <p className="legend">
+          <strong>미리보기 중</strong>
+          <span>
+            <i className="swatch change" aria-hidden="true" />
+            바뀔 음 {diff.added.length}개
+          </span>
+          <span>
+            <i className="swatch ghost" aria-hidden="true" />
+            원래 위치
+          </span>
+        </p>
+      )}
+      {changed && !hearPreview && <p className="legend">원래 소리를 듣는 중이에요 (미리보기 적용 전 상태)</p>}
       <div className="roll-scroll" ref={scroller}>
         <div className="roll-canvas">
           <canvas ref={canvas} />

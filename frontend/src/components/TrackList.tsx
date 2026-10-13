@@ -1,10 +1,12 @@
+import { changedTrackIds } from '../diff'
 import { usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 
 export function TrackList() {
-  const { project, selectedTrackId, selectTrack } = useProject()
+  const { project, preview, selectedTrackId, selectTrack } = useProject()
   const { muted, toggleMute } = usePlayer()
   if (!project) return null
+  const changed = changedTrackIds(project, preview)
 
   return (
     <nav className="tracks">
@@ -16,7 +18,10 @@ export function TrackList() {
               className={t.id === selectedTrackId ? 'track selected' : 'track'}
               onClick={() => selectTrack(t.id)}
             >
-              <span className="name">{t.name}</span>
+              <span className="name">
+                {t.name}
+                {changed.has(t.id) && <span className="badge">미리보기</span>}
+              </span>
               <span className="info">
                 {t.is_drum ? '드럼' : `악기 ${t.program}`} · 음 {t.notes.length}개
               </span>

@@ -75,16 +75,16 @@ function load(project: Project, muted: Record<string, boolean>) {
 }
 
 /**
- * 재생한다. 처음이면 악기 샘플을 다 불러온 뒤 시작한다.
+ * 재생한다. 처음이면 악기 샘플을 다 불러온 뒤 시작한다. fromBeats부터 (바뀐 소리 ↔ 원래 소리 전환 때 그 자리에서 이어 듣기).
  * 돌려주는 값은 샘플을 못 불러와 신스 소리로 대신한 트랙 이름들.
  */
-export async function play(project: Project, muted: Record<string, boolean>): Promise<string[]> {
+export async function play(project: Project, muted: Record<string, boolean>, fromBeats = 0): Promise<string[]> {
   const request = ++playRequest
   await Tone.start() // 브라우저는 사용자가 클릭한 뒤에만 소리를 허용한다
   if (project !== loaded) load(project, muted)
   await Promise.all([...channels.values()].map((c) => c.voice.ready))
   if (request !== playRequest) return [] // 기다리는 사이 정지했거나 다른 파일을 열었음
-  transport().start()
+  transport().start(undefined, ticks(fromBeats))
   return [...channels.values()].filter((c) => c.voice.fallback).map((c) => c.name)
 }
 
