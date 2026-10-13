@@ -105,8 +105,8 @@ class Score:
 
 
 def edit_steps(steps: list[ToolStep]) -> list[ToolStep]:
-    """실제로 음을 바꾼 편집만 (정보 조회 · 실패 · 바뀐 음 0개는 뺀다)."""
-    return [s for s in steps if s.ok and s.changed_notes > 0]
+    """실제로 곡을 바꾼 편집만 (정보 조회 · 실패 · 바뀐 게 없는 호출은 뺀다). 템포처럼 음표 말고 설정이 바뀐 것도 포함."""
+    return [s for s in steps if s.changed]
 
 
 def score(case: Case, steps: list[ToolStep], melodic: set[str]) -> Score:

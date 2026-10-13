@@ -77,6 +77,7 @@ class Selection(BaseModel):
 class ToolResult(BaseModel):
     project: Project | None = Field(default=None, description="편집된 새 프로젝트 (읽기 전용 도구는 None)")
     changed_notes: int = 0
+    changed_settings: bool = Field(default=False, description="음표 말고 곡 설정(템포 등)이 바뀜")
     summary: str = Field(description="채팅 화면에 보여 줄 한 줄 요약")
     data: dict[str, Any] | None = Field(default=None, description="읽기 도구가 돌려주는 정보")
 

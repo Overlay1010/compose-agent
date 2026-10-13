@@ -113,6 +113,7 @@ main { flex: 1; display: grid; grid-template-columns: 220px minmax(0, 1fr) 360px
 .step.failed .summary { color: var(--text-quiet); }
 .preview-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; border: 1.5px solid var(--change); background: var(--bg); }
 .preview-card p { margin: 0; font-size: 12px; }
+.tempo-change { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; }
 .ab { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .ab button { min-height: 36px; }
 .ab button.on { background: var(--change); border-color: var(--change-line); color: #111a02; font-weight: 700; }

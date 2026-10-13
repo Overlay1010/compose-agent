@@ -50,7 +50,7 @@ export const useChat = create<ChatState>((set, get) => ({
         text: r.reply,
         steps: r.steps,
         meta: `${r.model} · LLM ${r.llm_calls}회 · ${secs}초`,
-        madePreview: r.steps.some((s) => s.ok && s.changed_notes > 0),
+        madePreview: r.steps.some((s) => s.ok && (s.changed_notes > 0 || s.changed_settings)),
       })
       const store = useProject.getState()
       store.setPreview(r.preview, r.base_version)

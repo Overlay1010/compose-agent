@@ -107,6 +107,11 @@ export function ChatPanel() {
           <p>
             <strong>미리보기</strong> · v{baseVersion} 기준 · 다음 명령도 이 위에 이어서 쌓여요
           </p>
+          {preview.tempo !== project.tempo && (
+            <p className="tempo-change">
+              템포 {project.tempo.toFixed(0)} → <strong>{preview.tempo.toFixed(0)} BPM</strong>
+            </p>
+          )}
           <div className="ab" role="group" aria-label="비교해서 듣기">
             <button aria-pressed={hearPreview} className={hearPreview ? 'on' : ''} onClick={() => setHearPreview(true)}>
               바뀐 소리

@@ -45,9 +45,10 @@ def test_every_answer_is_reachable(case: Case):
     for call in case.expect:
         args = concrete(call)
         result = run_tool(project, call.tool, args)
-        assert result.changed_notes > 0, f"{case.id} {call} 은 바뀌는 음이 없음"
+        assert result.changed_notes > 0 or result.changed_settings, f"{case.id} {call} 은 바뀌는 게 없음"
         project = result.project
-        steps.append(step(call.tool, args, changed=result.changed_notes))
+        steps.append(ToolStep(name=call.tool, args=args, ok=True, summary="",
+                              changed_notes=result.changed_notes, changed_settings=result.changed_settings))
     assert score(case, steps, MELODIC).passed, case.id
 
 

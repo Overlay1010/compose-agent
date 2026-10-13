@@ -36,6 +36,11 @@ class ToolStep(BaseModel):
     ok: bool
     summary: str = Field(description="도구 결과 요약 또는 오류 메시지")
     changed_notes: int = 0
+    changed_settings: bool = False  # 템포처럼 음표 말고 곡 설정이 바뀜
+
+    @property
+    def changed(self) -> bool:
+        return self.ok and (self.changed_notes > 0 or self.changed_settings)
 
 
 class AgentResult(BaseModel):
@@ -56,7 +61,7 @@ class AgentResult(BaseModel):
     @property
     def label(self) -> str:
         """버전 기록에 남길 한 줄 (성공한 편집 요약)."""
-        return " · ".join(s.summary for s in self.kept_steps if s.ok and s.changed_notes)
+        return " · ".join(s.summary for s in self.kept_steps if s.changed)
 
 
 def _run_call(draft: Project, name: str, raw_args: str) -> tuple[Project, ToolStep, dict[str, Any]]:
@@ -74,7 +79,10 @@ def _run_call(draft: Project, name: str, raw_args: str) -> tuple[Project, ToolSt
     except ToolError as e:
         return draft, ToolStep(name=name, args=args, ok=False, summary=e.message), {"ok": False, "error": e.message}
 
-    step = ToolStep(name=name, args=args, ok=True, summary=result.summary, changed_notes=result.changed_notes)
+    step = ToolStep(
+        name=name, args=args, ok=True, summary=result.summary,
+        changed_notes=result.changed_notes, changed_settings=result.changed_settings,
+    )
     content: dict[str, Any] = {"ok": True, "summary": result.summary, "changed_notes": result.changed_notes}
     if result.data is not None:
         content["data"] = result.data
@@ -137,6 +145,6 @@ def run_agent(
     else:
         out.reply = TOO_MANY_STEPS
 
-    if any(s.ok and s.changed_notes for s in out.kept_steps):
+    if any(s.changed for s in out.kept_steps):
         out.draft = draft
     return out
