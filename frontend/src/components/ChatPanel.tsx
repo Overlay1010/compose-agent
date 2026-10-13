@@ -1,0 +1,129 @@
+import { useEffect, useRef, useState } from 'react'
+import { useChat } from '../store/chat'
+import { useProject } from '../store/project'
+
+const SUGGESTIONS = [
+  '지금 무슨 트랙 있어?',
+  '하이햇 좀 약하게 하고 살짝 스윙 넣어줘',
+  '박자 맞춰줘, 너무 딱딱하진 않게',
+  '멜로디 한 옥타브 내려줘',
+]
+
+export function ChatPanel() {
+  const { project, preview, baseVersion } = useProject()
+  const { messages, sending, send } = useChat()
+  const [input, setInput] = useState('')
+  const list = useRef<HTMLDivElement>(null)
+
+  // 새 메시지가 오면 맨 아래로
+  useEffect(() => {
+    list.current?.scrollTo({ top: list.current.scrollHeight })
+  }, [messages, sending])
+
+  if (!project) return null
+
+  const submit = (text: string) => {
+    if (!text.trim() || sending) return
+    setInput('')
+    void send(text)
+  }
+
+  return (
+    <aside className="chat" aria-label="에이전트">
+      <h2>에이전트</h2>
+
+      <div className="chat-list" ref={list}>
+        <p className="msg agent">
+          {project.name}을(를) 열었어요. 트랙 {project.tracks.length}개 · {project.tempo.toFixed(0)} BPM이에요. 무엇을
+          바꿔 볼까요?
+        </p>
+
+        {messages.map((m) =>
+          m.role === 'user' ? (
+            <p key={m.id} className="msg user">
+              {m.text}
+            </p>
+          ) : m.role === 'error' ? (
+            <p key={m.id} className="msg error" role="alert">
+              {m.text}
+            </p>
+          ) : (
+            <div key={m.id} className="msg-group">
+              {m.steps && m.steps.length > 0 && (
+                <ol className="steps" aria-label="실행한 도구">
+                  {m.steps.map((s, i) => (
+                    <li key={i} className={s.ok ? 'step' : 'step failed'} title={JSON.stringify(s.args)}>
+                      <span className="mark" aria-hidden="true">
+                        {s.ok ? '✓' : '!'}
+                      </span>
+                      <span className="tool">{s.name}</span>
+                      <span className="summary">{s.summary}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className="msg agent">{m.text}</p>
+              <span className="meta">
+                {m.madePreview && <strong>미리보기 만들어짐 · </strong>}
+                {m.meta}
+              </span>
+            </div>
+          ),
+        )}
+
+        {sending && (
+          <p className="msg agent thinking" aria-live="polite">
+            생각하는 중…
+          </p>
+        )}
+      </div>
+
+      {preview && (
+        <p className="preview-note">
+          적용 전 미리보기가 있어요 (v{baseVersion} 기준). 다음 명령도 이 위에 이어서 쌓여요.
+        </p>
+      )}
+
+      {messages.length === 0 && (
+        <div className="suggestions">
+          {SUGGESTIONS.map((s) => (
+            <button key={s} onClick={() => submit(s)} disabled={sending}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <form
+        className="composer"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit(input)
+        }}
+      >
+        <label htmlFor="chat-input" className="sr-only">
+          에이전트에게 보낼 명령
+        </label>
+        <textarea
+          id="chat-input"
+          rows={2}
+          value={input}
+          maxLength={1000}
+          placeholder="무엇을 바꿀까요? 예: 2마디부터 4마디까지 베이스 한 옥타브 내려줘"
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // 한글 조합 중 Enter는 글자 확정이라 보내지 않는다
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              submit(input)
+            }
+          }}
+        />
+        <button type="submit" className="primary" disabled={sending || !input.trim()}>
+          보내기
+        </button>
+      </form>
+      <span className="hint">Enter 보내기 · Shift+Enter 줄바꿈</span>
+    </aside>
+  )
+}
