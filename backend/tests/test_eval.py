@@ -82,3 +82,36 @@ def test_all_tracks_and_defaults():
     assert score(case, [step("quantize", {})], MELODIC).passed  # 비워 두면 전체 · 기본 강도 1
     assert score(case, [step("quantize", {"track_ids": ["t1", "t2", "t3", "t4", "t5"]})], MELODIC).passed
     assert not score(case, [step("quantize", {"track_ids": ["t2"]})], MELODIC).passed
+
+
+# ---------- 이어지는 대화 ----------
+
+from eval.conversations import CONVERSATIONS  # noqa: E402
+from eval.run import expected_state, notes_of, run_conversation  # noqa: E402
+from tests.test_agent import FakeLLM, calls, say  # noqa: E402
+
+
+@pytest.mark.parametrize("conv", [c for c in CONVERSATIONS if c.expect], ids=lambda c: c.id)
+def test_conversation_answers_change_something(conv):
+    original = midi_bytes_to_project(make_samples.SAMPLES[f"{conv.sample}.mid"]())
+    assert notes_of(expected_state(original, conv.expect)) != notes_of(original), conv.id
+
+
+def test_conversation_scored_by_final_state():
+    d01 = next(c for c in CONVERSATIONS if c.id == "D01")  # 베이스 2키 → 적용 → 한 키 더 (= 처음보다 +3)
+    right = FakeLLM(calls(("transpose", {"track_ids": ["t2"], "semitones": 2})), say("올렸어요."),
+                    calls(("transpose", {"track_ids": ["t2"], "semitones": 1})), say("한 키 더 올렸어요."))
+    assert run_conversation(right, d01)["passed"]
+    # 앞 대화를 잊고 처음부터 +1만 한 것처럼 끝나면 오답
+    wrong = FakeLLM(calls(("transpose", {"track_ids": ["t2"], "semitones": 2})), say("올렸어요."),
+                    calls(("transpose", {"track_ids": ["t2"], "semitones": -1})), say("내렸어요."))
+    assert not run_conversation(wrong, d01)["passed"]
+
+
+def test_no_change_conversation():
+    r02 = next(c for c in CONVERSATIONS if c.id == "R02")  # 4옥타브는 불가능 → 바뀌면 안 됨
+    tried = FakeLLM(calls(("shift_octave", {"track_ids": ["t5"], "octaves": 3})), say("3옥타브만 올렸어요."))
+    assert not run_conversation(tried, r02)["passed"]
+    refused = FakeLLM(calls(("shift_octave", {"track_ids": ["t5"], "octaves": 4})), say("범위를 넘어 못 올려요."))
+    result = run_conversation(refused, r02)
+    assert result["passed"]  # 인자 오류(최대 3)로 실패하고 설명만 했으니 곡은 그대로

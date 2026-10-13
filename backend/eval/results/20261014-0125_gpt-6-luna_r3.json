@@ -1,0 +1,1275 @@
+{
+  "summary": {
+    "model": "gpt-6-luna",
+    "date": "2026-10-14T01:27:18",
+    "cases": 39,
+    "passed": 36,
+    "tool_choice_ok": 36,
+    "median_seconds": 3.02,
+    "mean_llm_calls": 2.28,
+    "mean_input_tokens": 6087,
+    "mean_output_tokens": 70,
+    "recovered": 2,
+    "by_category": {
+      "조옮김": "7/7",
+      "퀀타이즈": "5/5",
+      "세기": "6/6",
+      "스윙": "4/4",
+      "여러 도구": "3/3",
+      "되묻기 · 정보": "5/5",
+      "이어지는 대화": "5/6",
+      "스스로 고치기": "1/3"
+    }
+  },
+  "rows": [
+    {
+      "id": "T01",
+      "category": "조옮김",
+      "command": "베이스 2키 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 2
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61
+        }
+      ],
+      "reply": "베이스의 모든 음을 2반음 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.34,
+      "llm_calls": 2,
+      "input_tokens": 6133,
+      "output_tokens": 57,
+      "recovered": false
+    },
+    {
+      "id": "T02",
+      "category": "조옮김",
+      "command": "멜로디 한 옥타브 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "octaves": -1
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 1옥타브 내렸어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "멜로디(Lead) 트랙의 음을 한 옥타브 내린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.6,
+      "llm_calls": 2,
+      "input_tokens": 6144,
+      "output_tokens": 66,
+      "recovered": false
+    },
+    {
+      "id": "T03",
+      "category": "조옮김",
+      "command": "전체를 반음 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": -1
+          },
+          "ok": true,
+          "summary": "Bass, Rhodes, Pad, Lead 트랙 224개 음을 1반음 내렸어요.",
+          "changed_notes": 224
+        }
+      ],
+      "reply": "드럼을 제외한 베이스, Rhodes, 패드, 리드의 음을 모두 반음 내린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.36,
+      "llm_calls": 2,
+      "input_tokens": 6129,
+      "output_tokens": 62,
+      "recovered": false
+    },
+    {
+      "id": "T04",
+      "category": "조옮김",
+      "command": "건반 5반음 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t3"
+            ],
+            "semitones": 5
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙 92개 음을 5반음 올렸어요.",
+          "changed_notes": 92
+        }
+      ],
+      "reply": "Rhodes 건반을 5반음 올린 미리보기를 만들었어요. 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 2.82,
+      "llm_calls": 2,
+      "input_tokens": 6136,
+      "output_tokens": 56,
+      "recovered": false
+    },
+    {
+      "id": "T05",
+      "category": "조옮김",
+      "command": "2마디부터 4마디까지 베이스 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "bars": [
+              2,
+              4
+            ],
+            "octaves": 1
+          },
+          "ok": true,
+          "summary": "Bass 트랙 12개 음을 1옥타브 올렸어요.",
+          "changed_notes": 12
+        }
+      ],
+      "reply": "2~4마디 베이스를 한 옥타브 올린 미리보기를 만들었어요. 들어 보시고 적용하거나 취소해 주세요.",
+      "seconds": 3.15,
+      "llm_calls": 2,
+      "input_tokens": 6165,
+      "output_tokens": 69,
+      "recovered": false
+    },
+    {
+      "id": "T06",
+      "category": "조옮김",
+      "command": "패드를 두 옥타브 위로",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "octaves": 2
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 2옥타브 올렸어요.",
+          "changed_notes": 24
+        }
+      ],
+      "reply": "패드의 음을 두 옥타브 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.26,
+      "llm_calls": 2,
+      "input_tokens": 6139,
+      "output_tokens": 58,
+      "recovered": false
+    },
+    {
+      "id": "T07",
+      "category": "조옮김",
+      "command": "리드 7키 내려",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "semitones": -7
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 7반음 내렸어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "리드 트랙의 음을 모두 7반음 내린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.74,
+      "llm_calls": 2,
+      "input_tokens": 6130,
+      "output_tokens": 60,
+      "recovered": false
+    },
+    {
+      "id": "Q01",
+      "category": "퀀타이즈",
+      "command": "코드 박자 맞춰줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "grid": 0.25,
+            "strength": 1
+          },
+          "ok": true,
+          "summary": "Chords 트랙 65개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 65
+        }
+      ],
+      "reply": "코드 트랙의 박자를 16분음표 격자에 딱 맞췄어요. 미리 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.6,
+      "llm_calls": 2,
+      "input_tokens": 6053,
+      "output_tokens": 68,
+      "recovered": false
+    },
+    {
+      "id": "Q02",
+      "category": "퀀타이즈",
+      "command": "코드 박자 정리해줘, 너무 딱딱하진 않게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "strength": 0.7,
+            "grid": 0.25
+          },
+          "ok": true,
+          "summary": "Chords 트랙 65개 음을 16분음표 격자에 맞췄어요 (강도 70%).",
+          "changed_notes": 65
+        }
+      ],
+      "reply": "코드 트랙의 박자를 16분음표 기준으로 자연스럽게 정리했어요. 너무 딱딱해지지 않도록 70%만 맞췄습니다.",
+      "seconds": 2.95,
+      "llm_calls": 2,
+      "input_tokens": 6083,
+      "output_tokens": 77,
+      "recovered": false
+    },
+    {
+      "id": "Q03",
+      "category": "퀀타이즈",
+      "command": "전부 16분음표로 퀀타이즈해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "grid": 0.25,
+            "strength": 1
+          },
+          "ok": true,
+          "summary": "FPC, Chords, Bass, Melody 트랙 300개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 300
+        }
+      ],
+      "reply": "모든 트랙의 음 300개를 16분음표 격자에 딱 맞춰 퀀타이즈했어요. 미리보기에서 확인해 주세요.",
+      "seconds": 2.73,
+      "llm_calls": 2,
+      "input_tokens": 6071,
+      "output_tokens": 66,
+      "recovered": false
+    },
+    {
+      "id": "Q04",
+      "category": "퀀타이즈",
+      "command": "드럼만 8분음표 격자로 맞춰",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "grid": 0.5,
+            "strength": 1
+          },
+          "ok": true,
+          "summary": "FPC 트랙 152개 음을 8분음표 격자에 맞췄어요.",
+          "changed_notes": 152
+        }
+      ],
+      "reply": "드럼 트랙의 음 152개를 8분음표 격자에 딱 맞춘 미리보기를 만들었어요. 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 3.05,
+      "llm_calls": 2,
+      "input_tokens": 6065,
+      "output_tokens": 73,
+      "recovered": false
+    },
+    {
+      "id": "Q05",
+      "category": "퀀타이즈",
+      "command": "베이스 박자를 50%만 당겨줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t3"
+            ],
+            "strength": 0.5
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 16분음표 격자에 맞췄어요 (강도 50%).",
+          "changed_notes": 61
+        }
+      ],
+      "reply": "베이스의 박자를 16분음표 기준으로 50%만 당겨 정리했어요. 미리 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.76,
+      "llm_calls": 2,
+      "input_tokens": 6062,
+      "output_tokens": 63,
+      "recovered": false
+    },
+    {
+      "id": "V01",
+      "category": "세기",
+      "command": "하이햇 좀 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              44,
+              46
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 116
+        }
+      ],
+      "reply": "하이햇의 세기를 약 30% 낮춘 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 10.01,
+      "llm_calls": 2,
+      "input_tokens": 6149,
+      "output_tokens": 72,
+      "recovered": false
+    },
+    {
+      "id": "V02",
+      "category": "세기",
+      "command": "킥만 세게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              36
+            ],
+            "mode": "scale",
+            "value": 1.3
+          },
+          "ok": true,
+          "summary": "Drums 트랙 38개 음의 세기를 130%로 키웠어요.",
+          "changed_notes": 38
+        }
+      ],
+      "reply": "킥의 세기를 30% 높인 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.34,
+      "llm_calls": 2,
+      "input_tokens": 6141,
+      "output_tokens": 65,
+      "recovered": false
+    },
+    {
+      "id": "V03",
+      "category": "세기",
+      "command": "9마디부터 패드 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "bars": [
+              9,
+              16
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 24
+        }
+      ],
+      "reply": "9마디부터 끝까지 패드의 세기를 70%로 낮춘 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.02,
+      "llm_calls": 2,
+      "input_tokens": 6147,
+      "output_tokens": 73,
+      "recovered": false
+    },
+    {
+      "id": "V04",
+      "category": "세기",
+      "command": "멜로디 세기를 전부 100으로 맞춰",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "mode": "set",
+            "value": 100
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음의 세기를 모두 100에 맞췄어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "멜로디(Lead) 트랙의 모든 음 세기를 100으로 맞춘 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.66,
+      "llm_calls": 2,
+      "input_tokens": 6151,
+      "output_tokens": 67,
+      "recovered": false
+    },
+    {
+      "id": "V05",
+      "category": "세기",
+      "command": "베이스 볼륨 20 줄여줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "mode": "offset",
+            "value": -20
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음의 세기를 20 낮췄어요.",
+          "changed_notes": 61
+        }
+      ],
+      "reply": "베이스 전체의 세기를 20 낮춘 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.01,
+      "llm_calls": 2,
+      "input_tokens": 6144,
+      "output_tokens": 59,
+      "recovered": false
+    },
+    {
+      "id": "V06",
+      "category": "세기",
+      "command": "스네어 조금 더 세게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              38,
+              40
+            ],
+            "mode": "scale",
+            "value": 1.3
+          },
+          "ok": true,
+          "summary": "Drums 트랙 28개 음의 세기를 130%로 키웠어요.",
+          "changed_notes": 28
+        }
+      ],
+      "reply": "스네어 소리의 세기를 조금 더 키운 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.95,
+      "llm_calls": 2,
+      "input_tokens": 6147,
+      "output_tokens": 69,
+      "recovered": false
+    },
+    {
+      "id": "S01",
+      "category": "스윙",
+      "command": "하이햇에 살짝 스윙 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ],
+            "percent": 56,
+            "grid": 0.5
+          },
+          "ok": true,
+          "summary": "Drums 트랙 58개 음에 8분음표 스윙 56%를 넣었어요.",
+          "changed_notes": 58
+        }
+      ],
+      "reply": "하이햇에 살짝 스윙을 넣었어요. 미리 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 2.4,
+      "llm_calls": 2,
+      "input_tokens": 6164,
+      "output_tokens": 65,
+      "recovered": false
+    },
+    {
+      "id": "S02",
+      "category": "스윙",
+      "command": "드럼에 스윙 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "percent": 61,
+            "grid": 0.5
+          },
+          "ok": true,
+          "summary": "Drums 트랙 75개 음에 8분음표 스윙 61%를 넣었어요.",
+          "changed_notes": 75
+        }
+      ],
+      "reply": "드럼에 8분음표 기준으로 살짝 스윙을 넣었어요. 미리 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 2.81,
+      "llm_calls": 2,
+      "input_tokens": 6149,
+      "output_tokens": 63,
+      "recovered": false
+    },
+    {
+      "id": "S03",
+      "category": "스윙",
+      "command": "16분음표 스윙 60%로 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "percent": 60,
+            "grid": 0.25
+          },
+          "ok": true,
+          "summary": "Drums 트랙 13개 음에 16분음표 스윙 60%를 넣었어요.",
+          "changed_notes": 13
+        }
+      ],
+      "reply": "드럼 트랙에 16분음표 스윙을 60%로 넣은 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.17,
+      "llm_calls": 2,
+      "input_tokens": 6152,
+      "output_tokens": 62,
+      "recovered": false
+    },
+    {
+      "id": "S04",
+      "category": "스윙",
+      "command": "베이스에 셔플 느낌 강하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "percent": 66,
+            "grid": 0.5
+          },
+          "ok": true,
+          "summary": "Bass 트랙 45개 음에 8분음표 스윙 66%를 넣었어요.",
+          "changed_notes": 45
+        }
+      ],
+      "reply": "베이스에 강한 셔플감을 주도록 8분음표 스윙을 적용했어요. 미리 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 2.65,
+      "llm_calls": 2,
+      "input_tokens": 6148,
+      "output_tokens": 67,
+      "recovered": false
+    },
+    {
+      "id": "M01",
+      "category": "여러 도구",
+      "command": "하이햇 좀 약하게 하고 살짝 스윙 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 116
+        },
+        {
+          "name": "swing",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ],
+            "percent": 57,
+            "grid": 0.5
+          },
+          "ok": true,
+          "summary": "Drums 트랙 58개 음에 8분음표 스윙 57%를 넣었어요.",
+          "changed_notes": 58
+        }
+      ],
+      "reply": "하이햇의 세기를 70%로 낮추고, 닫힌·열린 하이햇에 살짝 스윙을 넣어 미리보기에 반영했어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 3.23,
+      "llm_calls": 2,
+      "input_tokens": 6258,
+      "output_tokens": 141,
+      "recovered": false
+    },
+    {
+      "id": "M02",
+      "category": "여러 도구",
+      "command": "베이스 2키 올리고 멜로디는 한 옥타브 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 2
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "octaves": -1
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 1옥타브 내렸어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "미리보기에 베이스를 2반음 올리고 멜로디(Lead)를 한 옥타브 내렸어요. 들어 보신 뒤 적용하거나 취소해 주세요.",
+      "seconds": 2.87,
+      "llm_calls": 2,
+      "input_tokens": 6232,
+      "output_tokens": 108,
+      "recovered": false
+    },
+    {
+      "id": "M03",
+      "category": "여러 도구",
+      "command": "드럼 박자 맞추고 하이햇은 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "grid": 0.25,
+            "strength": 1
+          },
+          "ok": true,
+          "summary": "FPC 트랙 150개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 150
+        },
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "FPC 트랙 128개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 128
+        }
+      ],
+      "reply": "드럼을 16분음표에 맞춰 정리했고, 닫힌 하이햇은 세기를 70%로 낮춘 미리보기를 만들었어요. 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 4.02,
+      "llm_calls": 2,
+      "input_tokens": 6153,
+      "output_tokens": 129,
+      "recovered": false
+    },
+    {
+      "id": "C01",
+      "category": "되묻기 · 정보",
+      "command": "지금 무슨 트랙 있어?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "get_project_info",
+          "args": {},
+          "ok": true,
+          "summary": "84 BPM · 4/4박자 · 16마디 · 트랙 5개 (t1 Drums (드럼), t2 Bass, t3 Rhodes, t4 Pad, t5 Lead)",
+          "changed_notes": 0
+        }
+      ],
+      "reply": "현재 5개 트랙이 있어요: 드럼, 베이스, Rhodes(전자 피아노), 패드, 리드예요. 84 BPM, 4/4박자, 16마디 프로젝트입니다.",
+      "seconds": 2.71,
+      "llm_calls": 2,
+      "input_tokens": 6436,
+      "output_tokens": 66,
+      "recovered": false
+    },
+    {
+      "id": "C02",
+      "category": "되묻기 · 정보",
+      "command": "좀 더 좋게 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "어떤 방향으로 다듬을까요? 예를 들면 드럼에 살짝 스윙을 넣거나, 트랙 박자를 자연스럽게 정리하거나, 패드 세기를 조금 낮출 수 있어요.",
+      "seconds": 1.66,
+      "llm_calls": 1,
+      "input_tokens": 3031,
+      "output_tokens": 51,
+      "recovered": false
+    },
+    {
+      "id": "C03",
+      "category": "되묻기 · 정보",
+      "command": "느낌 있게 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "어떤 느낌으로 바꿀지 골라볼까요? 드럼에 살짝 스윙을 넣거나, Rhodes 박자를 정리하거나, 패드 세기를 낮춰 분위기를 차분하게 만들 수 있어요.",
+      "seconds": 1.44,
+      "llm_calls": 1,
+      "input_tokens": 3033,
+      "output_tokens": 51,
+      "recovered": false
+    },
+    {
+      "id": "C04",
+      "category": "되묻기 · 정보",
+      "command": "드럼 2키 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "semitones": 2
+          },
+          "ok": true,
+          "summary": "선택한 범위에서 바뀐 음이 없어요. 드럼 트랙(Drums)은 음 번호가 곧 악기라서 건너뛰었어요.",
+          "changed_notes": 0
+        }
+      ],
+      "reply": "드럼은 음 번호가 악기를 뜻해서 키를 올릴 수 없어 변경하지 않았어요.",
+      "seconds": 2.73,
+      "llm_calls": 2,
+      "input_tokens": 6155,
+      "output_tokens": 49,
+      "recovered": false
+    },
+    {
+      "id": "C05",
+      "category": "되묻기 · 정보",
+      "command": "스트링 트랙 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "스트링 트랙은 현재 프로젝트에 없어요. 지금은 Drums, Bass, Rhodes(전자 피아노), Pad(신스 패드), Lead(신스 리드)가 있습니다. 어느 트랙을 올릴까요?",
+      "seconds": 1.75,
+      "llm_calls": 1,
+      "input_tokens": 3037,
+      "output_tokens": 52,
+      "recovered": false
+    },
+    {
+      "id": "D01",
+      "category": "이어지는 대화",
+      "command": "베이스 2키 올려줘 → <적용> → 한 키 더 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 2
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 1
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 1반음 올렸어요.",
+          "changed_notes": 61
+        }
+      ],
+      "reply": "베이스의 모든 음을 2반음 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요. / 베이스를 1반음 더 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 5.97,
+      "llm_calls": 4,
+      "input_tokens": 6222,
+      "output_tokens": 56,
+      "recovered": false
+    },
+    {
+      "id": "D02",
+      "category": "이어지는 대화",
+      "command": "베이스 2키 올려줘 → 멜로디도 똑같이",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 2
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "semitones": 2
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 2반음 올렸어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "베이스 트랙을 2반음 올린 미리보기를 준비했어요. 들어보고 적용하거나 취소해 주세요. / 멜로디(Lead)도 2반음 올린 미리보기를 준비했어요. 들어보고 적용하거나 취소해 주세요.",
+      "seconds": 6.17,
+      "llm_calls": 4,
+      "input_tokens": 6265,
+      "output_tokens": 58,
+      "recovered": false
+    },
+    {
+      "id": "D03",
+      "category": "이어지는 대화",
+      "command": "9마디부터 패드 약하게 → <적용> → 그 부분 패드 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "bars": [
+              9,
+              16
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 24
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "bars": [
+              9,
+              16
+            ],
+            "octaves": 1
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 1옥타브 올렸어요.",
+          "changed_notes": 24
+        }
+      ],
+      "reply": "9마디부터 끝까지 패드의 세기를 30% 낮춘 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요. / 9마디부터 16마디까지 패드 음을 한 옥타브 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 11.96,
+      "llm_calls": 4,
+      "input_tokens": 6246,
+      "output_tokens": 72,
+      "recovered": false
+    },
+    {
+      "id": "D04",
+      "category": "이어지는 대화",
+      "command": "리드 7키 내려 → <적용> → 방금 거 반대로",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "semitones": -7
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 7반음 내렸어요.",
+          "changed_notes": 47
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "semitones": 7
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 7반음 올렸어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "리드 트랙의 음을 모두 7반음 내린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요. / 리드 트랙을 방금 내린 것과 반대로 7반음 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 4.77,
+      "llm_calls": 4,
+      "input_tokens": 6220,
+      "output_tokens": 62,
+      "recovered": false
+    },
+    {
+      "id": "D05",
+      "category": "이어지는 대화",
+      "command": "하이햇 좀 약하게 → <취소> → 그럼 스네어를 20만큼 세게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              44,
+              46
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 116
+        },
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              38,
+              40
+            ],
+            "mode": "offset",
+            "value": 20
+          },
+          "ok": true,
+          "summary": "Drums 트랙 28개 음의 세기를 20 높였어요.",
+          "changed_notes": 28
+        }
+      ],
+      "reply": "드럼의 닫힌 하이햇·페달 하이햇·열린 하이햇 세기를 30% 낮춘 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요. / 스네어(38, 40) 세기를 20 높인 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 5.86,
+      "llm_calls": 4,
+      "input_tokens": 6266,
+      "output_tokens": 80,
+      "recovered": false
+    },
+    {
+      "id": "D06",
+      "category": "이어지는 대화",
+      "command": "패드 한 옥타브 올려줘 → 아니 내려줘",
+      "passed": false,
+      "tools_ok": false,
+      "reason": "마지막 상태가 다름: t4 · 실행: shift_octave{'track_ids': ['t4'], 'octaves': 1}; shift_octave{'track_ids': ['t4'], 'octaves': -1}",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "octaves": 1
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 1옥타브 올렸어요.",
+          "changed_notes": 24
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "octaves": -1
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 1옥타브 내렸어요.",
+          "changed_notes": 24
+        }
+      ],
+      "reply": "패드의 음을 한 옥타브 올린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요. / 패드의 음을 한 옥타브 내린 미리보기를 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 6.62,
+      "llm_calls": 4,
+      "input_tokens": 6272,
+      "output_tokens": 58,
+      "recovered": false
+    },
+    {
+      "id": "R01",
+      "category": "스스로 고치기",
+      "command": "베이스 30반음 올려줘",
+      "passed": false,
+      "tools_ok": false,
+      "reason": "마지막 상태가 다름: t2 · 실행: transpose{'track_ids': ['t2'], 'semitones': 30}(실패); transpose{'track_ids': ['t2'], 'semitones': 24}",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 30
+          },
+          "ok": false,
+          "summary": "transpose 인자가 올바르지 않아요 — semitones: Input should be less than or equal to 24",
+          "changed_notes": 0
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "semitones": 24
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 24반음 올렸어요.",
+          "changed_notes": 61
+        }
+      ],
+      "reply": "베이스를 올릴 수 있는 한도인 24반음, 즉 두 옥타브 올린 미리보기를 만들었어요. 30반음은 한 번에 적용할 수 없어요.",
+      "seconds": 4.19,
+      "llm_calls": 3,
+      "input_tokens": 9307,
+      "output_tokens": 98,
+      "recovered": true
+    },
+    {
+      "id": "R02",
+      "category": "스스로 고치기",
+      "command": "리드를 4옥타브 올려줘",
+      "passed": false,
+      "tools_ok": false,
+      "reason": "마지막 상태가 다름: t5 · 실행: shift_octave{'track_ids': ['t5'], 'octaves': 4}(실패); shift_octave{'track_ids': ['t5'], 'octaves': 3}",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "octaves": 4
+          },
+          "ok": false,
+          "summary": "shift_octave 인자가 올바르지 않아요 — octaves: Input should be less than or equal to 3",
+          "changed_notes": 0
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "octaves": 3
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 3옥타브 올렸어요.",
+          "changed_notes": 47
+        }
+      ],
+      "reply": "리드의 47개 음을 도구에서 허용하는 최대치인 3옥타브 올린 미리보기를 만들었어요. 4옥타브는 한 번에 지원되지 않아 3옥타브까지만 반영했어요.",
+      "seconds": 4.5,
+      "llm_calls": 3,
+      "input_tokens": 9322,
+      "output_tokens": 111,
+      "recovered": true
+    },
+    {
+      "id": "R03",
+      "category": "스스로 고치기",
+      "command": "20마디부터 베이스 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "bars": [
+              20,
+              20
+            ],
+            "mode": "scale",
+            "value": 0.7
+          },
+          "ok": true,
+          "summary": "선택한 범위에서 바뀐 음이 없어요.",
+          "changed_notes": 0
+        }
+      ],
+      "reply": "프로젝트가 16마디까지라 20마디에는 베이스 음이 없어 변경된 내용이 없습니다.",
+      "seconds": 3.77,
+      "llm_calls": 2,
+      "input_tokens": 6143,
+      "output_tokens": 64,
+      "recovered": false
+    }
+  ]
+}

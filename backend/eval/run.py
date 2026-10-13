@@ -1,4 +1,4 @@
-"""에이전트 평가: 정답 있는 명령 30개를 모델별로 돌려 채점한다.
+"""에이전트 평가: 정답 있는 명령 30개 + 이어지는 대화 · 스스로 고치기 9개를 모델별로 돌려 채점한다.
 
     cd backend
     compose_venv\\Scripts\\python -m eval.run                       # .env의 모델로
@@ -21,10 +21,15 @@ from pathlib import Path
 from statistics import mean, median
 
 from app import config
+from app.agent import session
 from app.agent.llm import LLMError, OpenAIChat
-from app.agent.loop import run_agent
+from app.agent.loop import ToolStep, run_agent
 from app.midi_io.convert import midi_bytes_to_project
+from app.models.project import Project
+from app.store.memory import NoPreview, PreviewConflict, ProjectStore
+from app.tools import run_tool
 from eval.cases import CASES
+from eval.conversations import APPLY, CANCEL, CONVERSATIONS, Conversation
 from eval.spec import Case, score
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -38,7 +43,7 @@ def run_case(llm: OpenAIChat, case: Case) -> dict:
     melodic = {t.id for t in project.tracks if not t.is_drum}
     started = time.perf_counter()
     try:
-        r = run_agent(project, case.command, llm)
+        r = run_agent(project, case.command, llm, base=project)  # 서버와 같게 start_over를 준다
     except LLMError as e:
         return {"id": case.id, "category": case.category, "command": case.command, "passed": False,
                 "tools_ok": False, "reason": f"LLM 오류: {e}", "seconds": time.perf_counter() - started}
@@ -54,10 +59,71 @@ def run_case(llm: OpenAIChat, case: Case) -> dict:
     }
 
 
+def notes_of(project: Project) -> dict[str, list[tuple]]:
+    """트랙별 음 목록 (순서 무관 비교용)."""
+    return {t.id: sorted((n.pitch, round(n.start, 3), round(n.duration, 3), n.velocity) for n in t.notes) for t in project.tracks}
+
+
+def expected_state(base: Project, calls: tuple[tuple[str, dict], ...]) -> Project:
+    for tool, args in calls:
+        base = run_tool(base, tool, args).project or base
+    return base
+
+
+def run_conversation(llm: OpenAIChat, conv: Conversation) -> dict:
+    """여러 턴을 실제 서버와 같은 흐름으로 돌리고 마지막 상태를 정답과 비교한다."""
+    store = ProjectStore()
+    original = store.create(midi_bytes_to_project(make_samples.SAMPLES[f"{conv.sample}.mid"](), name=conv.sample))
+    pid = original.id
+    started = time.perf_counter()
+    steps: list[ToolStep] = []
+    replies: list[str] = []
+    calls = tokens_in = tokens_out = 0
+    before_last = original
+    try:
+        for i, turn in enumerate(conv.turns):
+            if turn == APPLY:
+                session.apply_preview(store, pid)
+                continue
+            if turn == CANCEL:
+                session.cancel_preview(store, pid)
+                continue
+            if i == len(conv.turns) - 1:
+                before_last = store.working_copy(pid)
+            result, _ = session.chat_turn(store, pid, turn, llm)
+            steps += result.steps
+            replies.append(result.reply)
+            calls += result.llm_calls
+            tokens_in += result.input_tokens
+            tokens_out += result.output_tokens
+    except (LLMError, NoPreview, PreviewConflict) as e:
+        return {"id": conv.id, "category": conv.category, "command": conv.command, "passed": False,
+                "tools_ok": False, "reason": f"{type(e).__name__}: {e}", "seconds": time.perf_counter() - started}
+
+    final = store.working_copy(pid)
+    want = expected_state(original if conv.base == "original" else before_last, conv.expect)
+    passed = notes_of(final) == notes_of(want)
+    if passed:
+        reason = "정답 (마지막 상태가 같음)"
+    else:
+        diff = [tid for tid, notes in notes_of(final).items() if notes != notes_of(want).get(tid)]
+        reason = "마지막 상태가 다름: " + ", ".join(diff) + " · 실행: " + "; ".join(
+            f"{s.name}{s.args}{'' if s.ok else '(실패)'}" for s in steps)
+    return {
+        "id": conv.id, "category": conv.category, "command": conv.command,
+        "passed": passed, "tools_ok": passed, "reason": reason,
+        "steps": [st.model_dump() for st in steps], "reply": " / ".join(replies),
+        "seconds": round(time.perf_counter() - started, 2), "llm_calls": calls,
+        "input_tokens": round(tokens_in / max(1, len(replies))), "output_tokens": round(tokens_out / max(1, len(replies))),
+        "recovered": any(not a.ok and b.ok for a, b in zip(steps, steps[1:])),
+    }
+
+
 def evaluate(model: str, workers: int) -> dict:
     llm = OpenAIChat(model, config.OPENAI_API_KEY or "", config.OPENAI_BASE_URL, config.OPENAI_REASONING_EFFORT)
+    jobs = [lambda c=c: run_case(llm, c) for c in CASES] + [lambda c=c: run_conversation(llm, c) for c in CONVERSATIONS]
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        rows = list(pool.map(lambda c: run_case(llm, c), CASES))
+        rows = list(pool.map(lambda job: job(), jobs))
     by_cat: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
         by_cat[row["category"]].append(row)
