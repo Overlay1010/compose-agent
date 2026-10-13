@@ -3,26 +3,47 @@
 v0.1은 고정 템포만 지원한다. 템포 변화나 박자 변화가 있으면
 첫 값을 쓰고 warnings에 남긴다.
 
-FL Studio 참고:
-- 드럼을 10번 채널로 보내지 않는 경우가 많아서 is_drum 플래그만으로는 드럼을
-  못 찾는다. 그래서 트랙 이름으로도 한 번 더 판단한다(looks_like_drum).
-- "808"은 키워드에 넣지 않는다. FL Studio에서 "808"은 보통 음정이 있는 808 베이스라서다.
-  808 킥·스네어는 "808 Kick"처럼 kick/snare가 같이 붙으므로 그대로 드럼으로 잡힌다.
+드럼 찾기 (DAW마다 내보내는 방식이 달라서 세 가지로 본다):
+1. 10번 채널(is_drum). Cubase · Logic의 GM 드럼은 대부분 여기서 잡힌다.
+2. 트랙 이름(looks_like_drum). FL Studio는 드럼을 10번 채널로 보내지 않는 경우가 많고
+   (FPC), Ableton은 "Drum Rack" · "Kit-Core 909", Cubase는 "Groove Agent SE" 같은 이름이 붙는다.
+3. 음 패턴(looks_like_drum_notes). Logic Drummer 트랙은 이름이 드러머 이름("SoCal (Kyle)")이라
+   이름으로는 못 찾는다. GM 드럼 번호에 짧은 음이 몰려 있고, 킥 · 스네어 · 하이햇 중 두 가지 이상이
+   있으며, 여러 소리가 같은 순간에 자주 겹치면 드럼으로 본다. 베이스는 한 번에 한 음이라 걸리지 않는다.
+
+"808"은 키워드에 넣지 않는다. FL Studio에서 "808"은 보통 음정이 있는 808 베이스라서다.
+808 킥 · 스네어는 "808 Kick"처럼 kick/snare가 같이 붙으므로 그대로 드럼으로 잡힌다.
 """
 
 from __future__ import annotations
 
 import io
+import re
+import statistics
 import uuid
+from collections import Counter
 
 import pretty_midi
 
 from app.models.project import Note, Project, Track
 
 DRUM_KEYWORDS = (
-    "drum", "kick", "snare", "hat", "hihat", "clap", "perc", "tom", "cymbal",
-    "fpc", "드럼", "킥", "스네어", "하이햇",
+    "drum", "kick", "snare", "hihat", "openhat", "closedhat", "clap", "perc", "cymbal",
+    "fpc",  # FL Studio
+    "groove agent",  # Cubase
+    "beat machine", "drummer",  # Logic
+    "battery", "ezdrummer", "superior drummer", "addictive drums",  # 자주 쓰는 드럼 플러그인
+    "드럼", "킥", "스네어", "하이햇",
 )
+
+# 짧은 단어는 다른 단어 안에 들어 있을 수 있어서("Custom", "Toolkit") 단어 단위로만 찾는다.
+# kit = Ableton 드럼 랙 기본 키트 이름 ("Kit-Core 909")
+DRUM_WORDS = re.compile(r"(?<![a-z])(hats?|toms?|kit)(?![a-z])")
+
+# General MIDI 드럼 번호. 킷의 주요 소리(킥 ~ 심벌)는 27~59에 있고, 60 이상은 콩가 · 셰이커 같은 타악기
+GM_KIT_RANGE = range(27, 60)
+KICKS, SNARES, HATS = {35, 36}, {37, 38, 39, 40}, {42, 44, 46}
+STACK_TOLERANCE = 0.1  # 박. 사람이 친 드럼은 킥과 하이햇이 정확히 같은 틱이 아니어서 이 안이면 "같이 침"
 
 EXPORT_RESOLUTION = 480  # 내보낼 때의 PPQ (1박을 몇 틱으로 나눌지)
 
@@ -33,7 +54,38 @@ class MidiParseError(ValueError):
 
 def looks_like_drum(name: str) -> bool:
     lowered = name.lower()
-    return any(k in lowered for k in DRUM_KEYWORDS)
+    return any(k in lowered for k in DRUM_KEYWORDS) or bool(DRUM_WORDS.search(lowered))
+
+
+def looks_like_drum_notes(notes: list[Note]) -> bool:
+    """이름 · 채널 없이 음 패턴만으로 드럼 트랙인지 본다.
+
+    샘플팩 루프 37개와 직접 만든 샘플로 맞춘 기준: 낮은 음역에 코드가 깔린 멜로디 루프가
+    "GM 번호 범위 + 겹침"만으로는 드럼처럼 보여서, 음이 몇 개 소리에 몰려 있는지도 같이 본다.
+    """
+    if len(notes) < 8:
+        return False
+    pitches = [n.pitch for n in notes]
+    if sum(p in GM_KIT_RANGE for p in pitches) / len(pitches) < 0.85:
+        return False
+    used = set(pitches)
+    if sum(bool(used & group) for group in (KICKS, SNARES, HATS)) < 2:
+        return False
+    if statistics.median(n.duration for n in notes) > 0.5:
+        return False
+    # 드럼은 킥 · 스네어 · 하이햇 몇 개 소리가 대부분이다. 멜로디 · 코드는 음이 퍼져 있다
+    top3 = sum(c for _, c in Counter(pitches).most_common(3)) / len(pitches)
+    if top3 < 0.6:
+        return False
+    # 같은 순간에 두 소리 이상(예: 킥 + 하이햇)이 겹치는 비율. 베이스는 한 번에 한 음이라 거의 0
+    groups, last = [], None
+    for start in sorted(n.start for n in notes):
+        if last is not None and start - last <= STACK_TOLERANCE:
+            groups[-1] += 1
+        else:
+            groups.append(1)
+            last = start
+    return sum(1 for g in groups if g >= 2) / len(groups) >= 0.15
 
 
 def _round(x: float) -> float:
@@ -79,7 +131,7 @@ def midi_bytes_to_project(data: bytes, name: str = "Untitled") -> Project:
         if not notes:
             continue
         track_name = inst.name.strip() or f"Track {i + 1}"
-        is_drum = inst.is_drum or looks_like_drum(track_name)
+        is_drum = inst.is_drum or looks_like_drum(track_name) or looks_like_drum_notes(notes)
         tracks.append(
             Track(
                 id=f"t{len(tracks) + 1}",

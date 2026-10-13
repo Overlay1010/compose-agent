@@ -132,8 +132,8 @@ export function PianoRoll() {
   if (!project) {
     return (
       <section className="empty">
-        <p>FL Studio에서 내보낸 MIDI 파일을 열어 보세요.</p>
-        <p className="hint">File → Export → MIDI file… 로 내보낼 수 있어요.</p>
+        <p>DAW에서 내보낸 MIDI 파일을 열어 보세요.</p>
+        <p className="hint">FL Studio · Logic Pro · Cubase · Ableton Live 어디서 내보낸 .mid든 괜찮아요.</p>
       </section>
     )
   }
