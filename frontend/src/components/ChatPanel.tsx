@@ -10,7 +10,7 @@ const SUGGESTIONS = [
 ]
 
 export function ChatPanel() {
-  const { project, preview, baseVersion } = useProject()
+  const { project, preview, baseVersion, hearPreview, setHearPreview } = useProject()
   const { messages, sending, send } = useChat()
   const [input, setInput] = useState('')
   const list = useRef<HTMLDivElement>(null)
@@ -79,9 +79,19 @@ export function ChatPanel() {
       </div>
 
       {preview && (
-        <p className="preview-note">
-          적용 전 미리보기가 있어요 (v{baseVersion} 기준). 다음 명령도 이 위에 이어서 쌓여요.
-        </p>
+        <div className="preview-card">
+          <p>
+            <strong>미리보기</strong> · v{baseVersion} 기준 · 다음 명령도 이 위에 이어서 쌓여요
+          </p>
+          <div className="ab" role="group" aria-label="비교해서 듣기">
+            <button aria-pressed={hearPreview} className={hearPreview ? 'on' : ''} onClick={() => setHearPreview(true)}>
+              바뀐 소리
+            </button>
+            <button aria-pressed={!hearPreview} className={!hearPreview ? 'on' : ''} onClick={() => setHearPreview(false)}>
+              원래 소리
+            </button>
+          </div>
+        </div>
       )}
 
       {messages.length === 0 && (

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { chat } from '../api/client'
 import type { ToolStep } from '../api/types'
+import { changedTrackIds } from '../diff'
 import { useProject } from './project'
 
 export interface ChatMessage {
@@ -44,7 +45,11 @@ export const useChat = create<ChatState>((set, get) => ({
         meta: `${r.model} · LLM ${r.llm_calls}회 · ${secs}초`,
         madePreview: r.steps.some((s) => s.ok && s.changed_notes > 0),
       })
-      useProject.getState().setPreview(r.preview, r.base_version)
+      const store = useProject.getState()
+      store.setPreview(r.preview, r.base_version)
+      // 지금 보고 있는 트랙이 안 바뀌었으면 바뀐 트랙으로 옮겨서 바로 보이게
+      const changed = changedTrackIds(store.project!, r.preview)
+      if (changed.size && !changed.has(store.selectedTrackId ?? '')) store.selectTrack([...changed][0])
     } catch (e) {
       add({ role: 'error', text: e instanceof Error ? e.message : String(e) })
     } finally {
