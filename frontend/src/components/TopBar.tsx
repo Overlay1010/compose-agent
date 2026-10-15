@@ -23,11 +23,12 @@ function StopIcon() {
 /** 마디 · 박 · 16분 위치와 시간. 재생 중에는 매 프레임 갱신한다. */
 function TransportDisplay({ bpm, beatsPerBar }: { bpm: number; beatsPerBar: number }) {
   const playing = usePlayer((s) => s.playing)
+  const cursor = usePlayer((s) => s.cursor)
   const [beats, setBeats] = useState(0)
 
   useEffect(() => {
     if (!playing) {
-      setBeats(0)
+      setBeats(cursor) // 멈춰 있으면 시작 위치
       return
     }
     let raf = 0
@@ -37,7 +38,7 @@ function TransportDisplay({ bpm, beatsPerBar }: { bpm: number; beatsPerBar: numb
     }
     frame()
     return () => cancelAnimationFrame(raf)
-  }, [playing])
+  }, [playing, cursor])
 
   const bar = Math.floor(beats / beatsPerBar) + 1
   const beat = Math.floor(beats % beatsPerBar) + 1

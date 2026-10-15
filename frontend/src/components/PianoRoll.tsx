@@ -7,6 +7,7 @@ import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
 import { trackColor } from '../theme'
 import { EmptyState } from './EmptyState'
+import { Overview } from './Overview'
 
 const BEAT_PX = 24 // 1박의 가로 길이
 const ROW_PX = 12 // 반음 1칸의 세로 길이
@@ -21,6 +22,7 @@ const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12
 export function PianoRoll() {
   const { project, preview, hearPreview, selectedTrackId } = useProject()
   const playing = usePlayer((s) => s.playing)
+  const cursor = usePlayer((s) => s.cursor)
   const canvas = useRef<HTMLCanvasElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
@@ -159,12 +161,16 @@ export function PianoRoll() {
     const el = head.current
     const box = scroller.current
     if (!el || !box) return
+    const keyPx = track?.is_drum ? DRUM_KEY_PX : KEY_PX
     if (!playing) {
-      el.style.display = 'none'
+      // 멈춰 있을 때는 시작 위치에 재생선을 두고, 화면 밖이면 그쪽으로 스크롤
+      el.style.display = cursor > 0 ? 'block' : 'none'
+      const x = keyPx + cursor * BEAT_PX
+      el.style.transform = `translateX(${x}px)`
+      if (cursor > 0 && (x > box.scrollLeft + box.clientWidth - 40 || x < box.scrollLeft + keyPx)) box.scrollLeft = x - keyPx - 40
       return
     }
     el.style.display = 'block'
-    const keyPx = track?.is_drum ? DRUM_KEY_PX : KEY_PX
     let raf = 0
     const frame = () => {
       const x = keyPx + positionBeats() * BEAT_PX
@@ -176,13 +182,14 @@ export function PianoRoll() {
     }
     frame()
     return () => cancelAnimationFrame(raf)
-  }, [playing, track])
+  }, [playing, track, cursor])
 
   if (!project) return <EmptyState />
   if (!track) return <section className="empty">트랙을 선택해 주세요.</section>
 
   return (
     <section className="roll">
+      <Overview />
       <h2>
         {track.name}{' '}
         <span className="info">

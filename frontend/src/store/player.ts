@@ -12,11 +12,15 @@ interface PlayerState {
   muted: Record<string, boolean>
   /** 솔로: 하나라도 켜지면 솔로인 트랙만 들린다 */
   solo: Record<string, boolean>
+  /** 재생을 시작할 위치(박). 전체 구성을 눌러 옮긴다 */
+  cursor: number
   play: () => Promise<void>
   stop: () => void
   toggle: () => void
-  /** 처음으로: 재생 중이면 처음부터 다시 */
+  /** 처음으로: 시작 위치를 0으로, 재생 중이면 처음부터 다시 */
   restart: () => void
+  /** 이 위치(박)로 옮긴다. 재생 중이면 바로 거기서 이어 재생 */
+  seek: (beats: number) => void
   toggleMute: (trackId: string) => void
   toggleSolo: (trackId: string) => void
 }
@@ -47,13 +51,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
     notice: null,
     muted: {},
     solo: {},
+    cursor: 0,
 
     play: async () => {
       const project = listened()
       if (!project || get().playing) return
       set({ playing: true, loadingSounds: true })
       try {
-        const fallback = await player.play(project, silenced(project, get().muted, get().solo))
+        const fallback = await player.play(project, silenced(project, get().muted, get().solo), get().cursor)
         set({
           loadingSounds: false,
           notice: fallback.length
@@ -76,11 +81,15 @@ export const usePlayer = create<PlayerState>((set, get) => {
       else void get().play()
     },
 
-    restart: () => {
+    restart: () => get().seek(0),
+
+    seek: (beats) => {
+      const cursor = Math.max(0, beats)
+      set({ cursor })
       const project = listened()
       if (!project || !get().playing || get().loadingSounds) return
       player.stop()
-      void player.play(project, silenced(project, get().muted, get().solo), 0)
+      void player.play(project, silenced(project, get().muted, get().solo), cursor)
     },
 
     toggleMute: (trackId) => {
@@ -95,13 +104,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
   }
 })
 
-player.setOnEnd(() => usePlayer.setState({ playing: false }))
+player.setOnEnd(() => usePlayer.setState({ playing: false, cursor: 0 }))
 
 useProject.subscribe((state, prev) => {
   if (state.project?.id !== prev.project?.id) {
     // 새 파일을 열면 재생을 멈추고 음소거 · 솔로를 초기화한다.
     player.stop()
-    usePlayer.setState({ playing: false, loadingSounds: false, notice: null, muted: {}, solo: {} })
+    usePlayer.setState({ playing: false, loadingSounds: false, notice: null, muted: {}, solo: {}, cursor: 0 })
     return
   }
   const source = (s: typeof state) => (s.hearPreview && s.preview ? s.preview : s.project)
