@@ -2,13 +2,15 @@ import { changedTrackIds } from '../diff'
 import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 import { instrumentLabel, trackColor } from '../theme'
+import { Meter } from './Meter'
 
 export function TrackList() {
-  const { project, preview, selectedTrackId, selectTrack } = useProject()
-  const { muted, solo, toggleMute, toggleSolo } = usePlayer()
+  const { project, preview, hearPreview, selectedTrackId, selectTrack } = useProject()
+  const { muted, solo, toggleMute, toggleSolo, playing } = usePlayer()
   if (!project) return null
   const changed = changedTrackIds(project, preview)
   const off = silenced(project, muted, solo)
+  const heard = hearPreview && preview ? preview : project
 
   return (
     <nav className="tracks" aria-label="트랙">
@@ -29,6 +31,11 @@ export function TrackList() {
                 <span className="info">
                   {instrumentLabel(t)} · 음 {t.notes.length}개
                 </span>
+                <Meter
+                  notes={heard.tracks.find((h) => h.id === t.id)?.notes ?? t.notes}
+                  color={trackColor(project, t.id)}
+                  active={playing && !off[t.id]}
+                />
               </span>
             </button>
             <button

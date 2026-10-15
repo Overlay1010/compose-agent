@@ -95,12 +95,26 @@ main.no-project { grid-template-columns: 1fr; }
 .track { flex: 1; min-width: 0; min-height: 50px; justify-content: flex-start; gap: 10px; padding: 6px 8px; border: 0; background: transparent; text-align: left; }
 .track:hover:not(:disabled) { background: transparent; }
 .track .stripe { width: 4px; align-self: stretch; border-radius: 4px; flex: none; }
-.track .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.track .body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .track .name { font-weight: 600; }
 .track .info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ms { width: 34px; min-height: 40px; padding: 0; font-size: 12px; font-weight: 700; color: var(--text-quiet); }
 .ms.mute.on { background: var(--text); color: #141518; border-color: var(--text); }
 .ms.solo.on { background: #4fd1b8; color: #06231d; border-color: #4fd1b8; }
+.meter { display: block; height: 3px; margin-top: 3px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.meter > span { display: block; height: 3px; width: 0%; border-radius: 3px; }
+
+.overview { margin-bottom: 14px; padding: 12px 14px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
+.overview-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.overview-head h2 { margin: 0; }
+.overview-grid { display: grid; column-gap: 8px; }
+.overview-labels { display: flex; flex-direction: column; }
+.overview-labels button { min-height: 0; padding: 0 4px; justify-content: flex-start; gap: 6px; border: 0; border-radius: 4px; background: transparent; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; }
+.overview-labels button.on { color: var(--text); background: var(--surface-3); }
+.overview-labels i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.overview-area { position: relative; cursor: pointer; border-radius: 6px; overflow: hidden; }
+.overview-area canvas { display: block; }
+.overview-head-line { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; background: var(--playhead); pointer-events: none; }
 .badge { margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--change); color: var(--brand-ink); vertical-align: 1px; }
 
 .roll { padding: 14px 16px; min-width: 0; }
