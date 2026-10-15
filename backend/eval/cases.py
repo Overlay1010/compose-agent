@@ -1,4 +1,4 @@
-"""정답 있는 명령 33개.
+"""정답 있는 명령 34개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -97,6 +97,10 @@ CASES: list[Case] = [
           Call("adjust_velocity", {"track_ids": ["t1"], "pitches": HATS, "mode": "scale", "value": SOFTER})],
          alt=[(Call("quantize", {"track_ids": ["t1"], "strength": FULL}),
                Call("adjust_velocity", {"track_ids": ["t1"], "pitches": HATS, "mode": "offset", "value": SOFTER_OFFSET}))]),
+    case("M04", "여러 도구", "lofi_groove", "9마디부터 패드 약하게 하고 베이스 2키 올려줘",
+         [velocity("t4", SOFTER, SOFTER_OFFSET, bars=[9, 16])[0][0], Call("transpose", {"track_ids": ["t2"], "semitones": 2, "bars": None})],
+         alt=[(velocity("t4", SOFTER, SOFTER_OFFSET, bars=[9, 16])[1][0][0], Call("transpose", {"track_ids": ["t2"], "semitones": 2, "bars": None}))],
+         note="'9마디부터'는 패드에만. 베이스는 곡 전체"),
     # ---------- 템포 ----------
     case("P01", "템포", "lofi_groove", "템포 100으로 바꿔줘", [Call("set_tempo", {"mode": "set", "value": 100.0})]),
     case("P02", "템포", "lofi_groove", "BPM 10 올려줘", [Call("set_tempo", {"mode": "offset", "value": 10.0})],
@@ -113,4 +117,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 33 and len({c.id for c in CASES}) == 33
+assert len(CASES) == 34 and len({c.id for c in CASES}) == 34
