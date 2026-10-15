@@ -22,6 +22,8 @@ import mido
 import pretty_midi
 
 OUT = Path(__file__).resolve().parent.parent / "samples"
+# 화면의 "샘플로 바로 시작" 버튼이 불러오는 사본 (Vite가 그대로 서빙)
+DEMO = Path(__file__).resolve().parent.parent / "frontend" / "public" / "demo"
 
 # General MIDI 드럼 번호
 KICK, SNARE, CLAP, HAT, OPEN_HAT, CRASH = 36, 38, 39, 42, 46, 49
@@ -274,6 +276,9 @@ SAMPLES = {
 
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
+    DEMO.mkdir(parents=True, exist_ok=True)
     for filename, build in SAMPLES.items():
-        (OUT / filename).write_bytes(build())
+        data = build()
+        (OUT / filename).write_bytes(data)
+        (DEMO / filename).write_bytes(data)
         print(f"samples/{filename}")

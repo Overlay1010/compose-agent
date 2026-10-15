@@ -5,13 +5,15 @@ import { positionBeats } from '../audio/player'
 import { usePlayer } from '../store/player'
 import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
+import { trackColor } from '../theme'
+import { EmptyState } from './EmptyState'
 
 const BEAT_PX = 24 // 1박의 가로 길이
-const ROW_PX = 8 // 반음 1칸의 세로 길이
-const KEY_PX = 40 // 왼쪽 음 이름 영역
+const ROW_PX = 12 // 반음 1칸의 세로 길이
+const KEY_PX = 48 // 왼쪽 건반 영역
 // 드럼 트랙은 DAW 드럼 에디터처럼 쓰인 소리만 이름 붙은 레인으로 보여 준다
-const DRUM_ROW_PX = 16
-const DRUM_KEY_PX = 84
+const DRUM_ROW_PX = 18
+const DRUM_KEY_PX = 92
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
@@ -72,17 +74,29 @@ export function PianoRoll() {
           ctx.fillStyle = color('--row-dark')
           ctx.fillRect(0, y(p), width, rowPx)
         }
-        ctx.fillStyle = color('--text-quiet')
-        ctx.fillText(DRUM_NAMES[p] ?? noteName(p), 6, y(p) + rowPx - 4)
+        ctx.fillStyle = color('--surface-2')
+        ctx.fillRect(0, y(p), keyPx, rowPx)
+        ctx.fillStyle = color('--text-2')
+        ctx.fillText(DRUM_NAMES[p] ?? noteName(p), 8, y(p) + rowPx - 4)
       } else {
-        // 검은 건반 줄 + 음 이름 (C만 표시)
-        if ([1, 3, 6, 8, 10].includes(p % 12)) {
+        // 왼쪽 건반 (흰건반 · 검은건반) + 검은 건반 줄 + C마다 음 이름
+        const black = [1, 3, 6, 8, 10].includes(p % 12)
+        if (black) {
           ctx.fillStyle = color('--row-dark')
           ctx.fillRect(keyPx, y(p), width - keyPx, rowPx)
         }
+        ctx.fillStyle = black ? color('--key-black') : color('--key-white')
+        ctx.fillRect(0, y(p), keyPx - 1, rowPx)
+        if (!black) {
+          ctx.fillStyle = color('--key-line')
+          ctx.fillRect(0, y(p) + rowPx - 1, keyPx - 1, 1)
+        }
         if (p % 12 === 0) {
-          ctx.fillStyle = color('--text-quiet')
+          ctx.fillStyle = color('--key-label')
           ctx.fillText(noteName(p), 4, y(p) + rowPx - 1)
+          // 옥타브 경계선
+          ctx.fillStyle = color('--grid-strong')
+          ctx.fillRect(keyPx, y(p) + rowPx - 1, width - keyPx, 1)
         }
       }
     }
@@ -110,9 +124,10 @@ export function PianoRoll() {
       return [keyPx + n.start * BEAT_PX + 1, y(n.pitch) + inset, w, rowPx - inset * 2] as const
     }
     const plain = showDiff && diff ? diff.same : track.notes
+    const noteColor = trackColor(project, track.id)
     for (const n of plain) {
       ctx.globalAlpha = 0.45 + (n.velocity / 127) * 0.55
-      ctx.fillStyle = color('--accent')
+      ctx.fillStyle = noteColor
       ctx.fillRect(...box(n))
     }
     ctx.globalAlpha = 1
@@ -163,14 +178,7 @@ export function PianoRoll() {
     return () => cancelAnimationFrame(raf)
   }, [playing, track])
 
-  if (!project) {
-    return (
-      <section className="empty">
-        <p>DAW에서 내보낸 MIDI 파일을 열어 보세요.</p>
-        <p className="hint">FL Studio · Logic Pro · Cubase · Ableton Live 어디서 내보낸 .mid든 괜찮아요.</p>
-      </section>
-    )
-  }
+  if (!project) return <EmptyState />
   if (!track) return <section className="empty">트랙을 선택해 주세요.</section>
 
   return (
