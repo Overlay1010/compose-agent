@@ -68,7 +68,10 @@ class Call:
                 if not want.ok(got):
                     return False
             elif key == "bars":
-                if got is None or list(got) != list(want):
+                if want is None:  # 범위 없이 전체여야 함
+                    if got is not None:
+                        return False
+                elif got is None or list(got) != list(want):
                     return False
             elif isinstance(want, float) and isinstance(got, (int, float)):
                 if abs(got - want) > 1e-6:
