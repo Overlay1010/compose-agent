@@ -6,6 +6,8 @@ API(app/api/chat.py)와 평가(eval/)가 같은 코드를 쓰게 하려고 따�
 
 from __future__ import annotations
 
+import time
+
 from app.agent.llm import LLM
 from app.agent.loop import AgentResult, OnEvent, run_agent
 from app.models.project import Project
@@ -17,6 +19,7 @@ def chat_turn(
 ) -> tuple[AgentResult, Preview | None]:
     """명령 하나를 처리하고 (에이전트 결과, 지금 쌓여 있는 미리보기)를 돌려준다."""
     pending = store.preview(project_id)
+    started = time.perf_counter()
     result = run_agent(
         store.working_copy(project_id),
         message,
@@ -40,6 +43,18 @@ def chat_turn(
         {"role": "user", "content": message},
         {"role": "assistant", "content": result.reply + (f"\n(실행한 편집: {done})" if done else "")},
     )
+    # 새로고침해도 화면에 다시 그릴 수 있게 (실행 단계까지)
+    store.add_log(
+        project_id,
+        {"role": "user", "text": message},
+        {
+            "role": "agent",
+            "text": result.reply,
+            "steps": [s.model_dump() for s in result.steps],
+            "meta": f"{result.model} · LLM {result.llm_calls}회 · {time.perf_counter() - started:.1f}초",
+            "made_preview": any(s.ok and s.changed for s in result.steps),
+        },
+    )
     return result, pending
 
 
@@ -47,6 +62,7 @@ def apply_preview(store: ProjectStore, project_id: str) -> Project:
     """미리보기를 새 버전으로 저장. NoPreview · PreviewConflict는 그대로 올려 보낸다."""
     project = store.apply_preview(project_id)
     store.add_chat(project_id, {"role": "system", "content": f"사용자가 미리보기를 적용했어. 지금은 v{project.version}이야."})
+    store.add_log(project_id, note(f"v{project.version}로 적용했어요"))
     return project
 
 
@@ -54,3 +70,9 @@ def cancel_preview(store: ProjectStore, project_id: str) -> None:
     if store.preview(project_id) is not None:
         store.cancel_preview(project_id)
         store.add_chat(project_id, {"role": "system", "content": "사용자가 미리보기를 취소했어. 편집은 반영되지 않았어."})
+        store.add_log(project_id, note("미리보기를 취소했어요. 곡은 그대로예요."))
+
+
+def note(text: str) -> dict:
+    """화면 기록의 알림 한 줄 (적용 · 취소 · 되돌리기 · 악기 바꾸기 …)."""
+    return {"role": "note", "text": text}

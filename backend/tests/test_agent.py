@@ -11,7 +11,7 @@ from app.agent.loop import TOO_MANY_STEPS
 from app.agent.prompt import system_prompt
 from app.main import app
 from app.midi_io.convert import midi_bytes_to_project
-from app.store.memory import PreviewConflict, ProjectStore
+from app.store.memory import PreviewConflict, ProjectNotFound, ProjectStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import make_samples  # noqa: E402
@@ -350,3 +350,74 @@ def test_chat_stream_reports_llm_error_as_event(client):
         assert "event: error" in text and "llm_error" in text
     finally:
         app.dependency_overrides.clear()
+
+
+# ---------- 저장 (SQLite) ----------
+
+def test_store_survives_restart(tmp_path, lofi):
+    from app.store.memory import ProjectStore
+
+    db = tmp_path / "compose.db"
+    s = ProjectStore(db)
+    s.create(lofi)
+    edited = lofi.model_copy(update={"tempo": 100.0})
+    s.add_version(edited, "템포 100")
+    s.set_preview(lofi.id, edited.model_copy(update={"tempo": 110.0}), "템포 110")
+    s.add_chat(lofi.id, {"role": "user", "content": "템포 110"})
+    s.add_log(lofi.id, {"role": "user", "text": "템포 110"})
+
+    again = ProjectStore(db)  # 서버를 다시 켠 것처럼
+    assert again.current(lofi.id).version == 2 and again.current(lofi.id).tempo == 100
+    assert [v.label for v in again.versions(lofi.id)] == ["원본 업로드", "템포 100"]
+    pending = again.preview(lofi.id)
+    assert pending.base_version == 2 and pending.project.tempo == 110 and pending.labels == ["템포 110"]
+    assert again.chat_history(lofi.id) == [{"role": "user", "content": "템포 110"}]
+    assert again.log(lofi.id) == [{"role": "user", "text": "템포 110"}]
+
+    again.apply_preview(lofi.id)
+    third = ProjectStore(db)
+    assert third.current(lofi.id).version == 3 and third.preview(lofi.id) is None
+    with pytest.raises(ProjectNotFound):
+        third.current("없는id")
+
+
+def test_store_keeps_only_recent_versions_on_disk(tmp_path, lofi):
+    from app.store.memory import MAX_VERSIONS, ProjectStore
+
+    db = tmp_path / "compose.db"
+    s = ProjectStore(db)
+    s.create(lofi)
+    for i in range(MAX_VERSIONS + 5):
+        s.add_version(lofi, f"편집 {i}")
+    again = ProjectStore(db)
+    versions = again.versions(lofi.id)
+    assert len(versions) == MAX_VERSIONS and versions[-1].version == MAX_VERSIONS + 6
+
+
+def test_session_endpoint_restores_log(client, use_llm):
+    pid = upload_lofi(client)
+    use_llm(calls(("transpose", {"track_ids": ["t2"], "semitones": 2})), say("올렸어요."))
+    client.post(f"/api/v1/projects/{pid}/chat", json={"message": "베이스 2키 올려줘"})
+    s = client.get(f"/api/v1/projects/{pid}/session").json()
+    assert s["preview"] is not None and s["base_version"] == 1
+    user, agent = s["log"]
+    assert user == {"role": "user", "text": "베이스 2키 올려줘"}
+    assert agent["text"] == "올렸어요." and agent["made_preview"] and agent["steps"][0]["name"] == "transpose"
+    client.post(f"/api/v1/projects/{pid}/preview/apply")
+    client.post(f"/api/v1/projects/{pid}/undo")
+    notes = [e["text"] for e in client.get(f"/api/v1/projects/{pid}/session").json()["log"][2:]]
+    assert notes == ["v2로 적용했어요", "v1 상태로 되돌렸어요 (v3로 저장)"]
+    assert client.get("/api/v1/projects/nope/session").status_code == 404
+
+
+def test_recent_projects(tmp_path, lofi):
+    from app.store.memory import ProjectStore
+
+    db = tmp_path / "compose.db"
+    s = ProjectStore(db)
+    s.create(lofi)
+    other = lofi.model_copy(update={"id": "other", "name": "두 번째"})
+    s.create(other)
+    s.add_version(lofi, "편집")  # lofi가 더 최근에 바뀜 (같은 초면 순서는 보장 안 되므로 이름 · 버전만 확인)
+    rows = {r.id: (r.name, r.version) for r in ProjectStore(db).recent()}
+    assert rows == {lofi.id: (lofi.name, 2), "other": ("두 번째", 1)}

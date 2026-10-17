@@ -1,5 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { recentProjects } from '../api/client'
+import type { RecentProject } from '../api/types'
+import { reopen } from '../store/chat'
 import { useProject } from '../store/project'
+
+const when = (iso: string) =>
+  iso ? new Date(iso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 
 // frontend/public/demo/ 에 들어 있는 샘플 (scripts/make_samples.py가 만든다)
 const SAMPLES = [
@@ -13,6 +19,13 @@ const EXAMPLES = ['베이스 2키 올려줘', '하이햇 좀 약하게 하고 �
 export function EmptyState() {
   const { upload, loading } = useProject()
   const [opening, setOpening] = useState<string | null>(null)
+  const [recent, setRecent] = useState<RecentProject[]>([])
+
+  useEffect(() => {
+    recentProjects()
+      .then(setRecent)
+      .catch(() => setRecent([])) // 목록을 못 받아도 처음 화면은 그대로 쓸 수 있다
+  }, [])
 
   const openSample = async (file: string) => {
     setOpening(file)
@@ -42,6 +55,23 @@ export function EmptyState() {
         </svg>
         <span>.mid 파일을 여기에 끌어다 놓기 · 최대 5MB</span>
       </div>
+
+      {recent.length > 0 && (
+        <div className="samples">
+          <h2>이어서 하기</h2>
+          <div className="sample-grid">
+            {recent.map((r) => (
+              <button key={r.id} className="sample" onClick={() => void reopen(r.id)} disabled={loading}>
+                <span className="file">{r.name}</span>
+                <span className="meta">
+                  v{r.version}
+                  {r.updated_at && ` · ${when(r.updated_at)}`}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="samples">
         <h2>샘플로 바로 시작</h2>

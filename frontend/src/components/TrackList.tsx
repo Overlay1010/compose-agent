@@ -22,8 +22,8 @@ export function TrackList() {
   const isNew = (id: string) => added.some((t) => t.id === id)
 
   const changeInstrument = async (trackId: string, name: string, program: number) => {
-    const next = await setInstrument(trackId, program)
-    if (next) note(`${name} 악기를 ${programName(program)}(으)로 바꿨어요 (v${next.version}로 저장)`, true)
+    const changed = await setInstrument(trackId, program)
+    if (changed?.note) note(changed.note, true)
   }
 
   return (
@@ -127,13 +127,9 @@ function MixControls({ track }: { track: Track }) {
 
   const commit = async (v = volume, p = pan) => {
     if (v === track.volume && p === track.pan) return
-    const next = await setMix(track.id, { volume: v, pan: p })
-    if (next) {
-      const parts = [
-        v !== track.volume && `볼륨 ${track.volume} → ${v}`,
-        p !== track.pan && `팬 ${panLabel(track.pan)} → ${panLabel(p)}`,
-      ].filter(Boolean)
-      note(`${track.name} ${parts.join(' · ')} (v${next.version}로 저장)`, true)
+    const changed = await setMix(track.id, { volume: v, pan: p })
+    if (changed?.note) {
+      note(changed.note, true)
     } else {
       // 저장이 안 됐으면 소리와 슬라이더를 원래대로
       player.setMix(track.id, track.volume, track.pan)

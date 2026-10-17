@@ -95,6 +95,26 @@ def chat_stream(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm))
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
 
+class SessionOut(BaseModel):
+    project: Project
+    preview: Project | None
+    base_version: int | None
+    log: list[dict] = Field(description="화면에 다시 그릴 대화 기록 (role: user · agent · note)")
+
+
+@router.get("/{project_id}/session", response_model=SessionOut)
+def get_session(project_id: str) -> SessionOut:
+    """새로고침 · 다시 열기: 현재 버전 · 쌓인 미리보기 · 대화 기록을 한 번에."""
+    _check(project_id)
+    pending = store.preview(project_id)
+    return SessionOut(
+        project=store.current(project_id),
+        preview=pending.project if pending else None,
+        base_version=pending.base_version if pending else None,
+        log=store.log(project_id),
+    )
+
+
 @router.post("/{project_id}/preview/apply", response_model=Project)
 def apply_preview(project_id: str) -> Project:
     _check(project_id)
