@@ -2,17 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Project } from '../api/types'
 import { positionBeats } from '../audio/player'
 import { diffNotes } from '../diff'
-import { silenced, usePlayer } from '../store/player'
+import { silenced, usePlayer, type LoopRegion } from '../store/player'
 import { useProject } from '../store/project'
 import { trackColor } from '../theme'
 
 const ROW = 16
 const LABEL = 72
 
-/** 곡 전체를 트랙마다 한 줄로 작게 보여 준다. 누르면 그 위치로 옮긴다. */
+/** 곡 전체를 트랙마다 한 줄로 작게 보여 준다. 누르면 그 위치로 옮기고, 끌면 그 마디들을 반복 구간으로 고른다. */
 export function Overview() {
   const { project, preview, hearPreview, selectedTrackId, selectTrack } = useProject()
-  const { playing, cursor, seek, muted, solo } = usePlayer()
+  const { playing, cursor, seek, muted, solo, loop, looping, setLoop } = usePlayer()
+  // 끄는 중인 구간 (손을 떼면 반복 구간이 된다)
+  const drag = useRef<{ x: number; beats: number; moved: boolean } | null>(null)
+  const [dragging, setDragging] = useState<LoopRegion | null>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const area = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
@@ -111,7 +114,7 @@ export function Overview() {
     <section className="overview" aria-label="전체 구성">
       <div className="overview-head">
         <h2>전체 구성</h2>
-        <span className="hint">누르면 그 위치부터 재생해요 · {bars}마디</span>
+        <span className="hint">누르면 그 위치로 · 끌면 구간 반복 · {bars}마디</span>
       </div>
       <div className="overview-grid" style={{ gridTemplateColumns: `${LABEL}px minmax(0, 1fr)` }}>
         <div className="overview-labels">
@@ -137,9 +140,38 @@ export function Overview() {
           aria-valuemin={1}
           aria-valuemax={bars}
           aria-valuenow={Math.floor(cursor / bpb) + 1}
-          onClick={(e) => {
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
             const r = e.currentTarget.getBoundingClientRect()
-            seek(Math.round(((e.clientX - r.left) / r.width) * lengthBeats * 4) / 4) // 16분음표 단위로
+            e.currentTarget.setPointerCapture(e.pointerId)
+            drag.current = { x: e.clientX, beats: ((e.clientX - r.left) / r.width) * lengthBeats, moved: false }
+          }}
+          onPointerMove={(e) => {
+            const d = drag.current
+            if (!d) return
+            if (!d.moved && Math.abs(e.clientX - d.x) < 5) return // 살짝 움직인 건 클릭으로
+            d.moved = true
+            const r = e.currentTarget.getBoundingClientRect()
+            const now = Math.min(lengthBeats, Math.max(0, ((e.clientX - r.left) / r.width) * lengthBeats))
+            // 마디 경계로 맞춘다 (끝 마디 포함)
+            const start = Math.floor(Math.min(d.beats, now) / bpb) * bpb
+            const end = Math.max(start + bpb, Math.ceil(Math.max(d.beats, now) / bpb) * bpb)
+            setDragging({ start, end: Math.min(end, lengthBeats) })
+          }}
+          onPointerUp={(e) => {
+            const d = drag.current
+            drag.current = null
+            if (d?.moved && dragging) {
+              setLoop(dragging)
+            } else if (d) {
+              const r = e.currentTarget.getBoundingClientRect()
+              seek(Math.round(((e.clientX - r.left) / r.width) * lengthBeats * 4) / 4) // 16분음표 단위로
+            }
+            setDragging(null)
+          }}
+          onPointerCancel={() => {
+            drag.current = null
+            setDragging(null)
           }}
           onKeyDown={(e) => {
             // 키보드로도 마디 단위 이동
@@ -149,6 +181,16 @@ export function Overview() {
           }}
         >
           <canvas ref={canvas} />
+          {(dragging ?? loop) && (
+            <div
+              className={dragging || looping ? 'loop-region on' : 'loop-region'}
+              style={{
+                left: `${((dragging ?? loop)!.start / lengthBeats) * 100}%`,
+                width: `${(((dragging ?? loop)!.end - (dragging ?? loop)!.start) / lengthBeats) * 100}%`,
+              }}
+              aria-hidden="true"
+            />
+          )}
           <div className="overview-head-line" ref={head} />
         </div>
       </div>

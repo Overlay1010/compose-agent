@@ -75,8 +75,9 @@ function load(project: Project, muted: Record<string, boolean>) {
     }
   }
 
-  // 마지막 음이 끝나고 반 박 뒤에 멈춘다 (화면 갱신은 소리와 맞춰 Draw로).
+  // 마지막 음이 끝나고 반 박 뒤에 멈춘다 (화면 갱신은 소리와 맞춰 Draw로). 구간 반복 중에는 멈추지 않는다.
   t.schedule((time) => {
+    if (t.loop) return
     Tone.getDraw().schedule(() => {
       stop()
       onEnd?.()
@@ -105,6 +106,13 @@ export function stop() {
   if (!loaded) return
   transport().stop() // 위치도 처음으로 돌아간다
   for (const c of channels.values()) c.voice.releaseAll()
+}
+
+/** 구간 반복 (박). null이면 끈다. 재생 중에 바꿔도 바로 적용된다 */
+export function setLoop(loop: { start: number; end: number } | null) {
+  const t = transport()
+  if (loop) t.setLoopPoints(ticks(loop.start), ticks(loop.end))
+  t.loop = !!loop
 }
 
 export function setMuted(trackId: string, muted: boolean) {

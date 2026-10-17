@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import * as player from '../audio/player'
 import type { Project } from '../api/types'
+import { changedRange } from '../diff'
 import { useProject } from './project'
 
 interface PlayerState {
@@ -23,6 +24,18 @@ interface PlayerState {
   seek: (beats: number) => void
   toggleMute: (trackId: string) => void
   toggleSolo: (trackId: string) => void
+  /** 반복할 구간(박, 마디 경계). 정해 두면 꺼도 남아 있다 */
+  loop: LoopRegion | null
+  looping: boolean
+  /** 구간을 정하고 반복을 켠다 (전체 구성에서 끌어서 고를 때) */
+  setLoop: (region: LoopRegion) => void
+  /** 반복 켜기 · 끄기. 구간이 없으면 미리보기로 바뀐 마디, 그것도 없으면 지금 위치부터 4마디 */
+  toggleLoop: () => void
+}
+
+export interface LoopRegion {
+  start: number
+  end: number
 }
 
 /** 지금 들려줄 버전: 미리보기가 있고 "바뀐 소리"를 고른 상태면 미리보기, 아니면 현재 버전 */
@@ -52,13 +65,19 @@ export const usePlayer = create<PlayerState>((set, get) => {
     muted: {},
     solo: {},
     cursor: 0,
+    loop: null,
+    looping: false,
 
     play: async () => {
       const project = listened()
       if (!project || get().playing) return
       set({ playing: true, loadingSounds: true })
+      const { looping, loop, cursor } = get()
+      player.setLoop(looping ? loop : null)
+      // 반복 중인데 시작 위치가 구간 밖이면 구간 처음부터
+      const from = looping && loop && (cursor < loop.start || cursor >= loop.end) ? loop.start : cursor
       try {
-        const fallback = await player.play(project, silenced(project, get().muted, get().solo), get().cursor)
+        const fallback = await player.play(project, silenced(project, get().muted, get().solo), from)
         set({
           loadingSounds: false,
           notice: fallback.length
@@ -85,6 +104,12 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     seek: (beats) => {
       const cursor = Math.max(0, beats)
+      const { looping, loop } = get()
+      // 반복 구간 밖으로 옮기면 반복을 끈다 (구간은 남겨 둔다)
+      if (looping && loop && (cursor < loop.start || cursor >= loop.end)) {
+        set({ looping: false })
+        player.setLoop(null)
+      }
       set({ cursor })
       const project = listened()
       if (!project || !get().playing || get().loadingSounds) return
@@ -101,6 +126,28 @@ export const usePlayer = create<PlayerState>((set, get) => {
       set({ solo: { ...get().solo, [trackId]: !get().solo[trackId] } })
       applySilence()
     },
+
+    setLoop: (region) => {
+      set({ loop: region, looping: true })
+      player.setLoop(region)
+      const { playing, cursor } = get()
+      // 지금 위치가 새 구간 밖이면 구간 처음으로
+      if (cursor < region.start || cursor >= region.end || playing) get().seek(region.start)
+    },
+
+    toggleLoop: () => {
+      if (get().looping) {
+        set({ looping: false })
+        player.setLoop(null)
+        return
+      }
+      const { project, preview } = useProject.getState()
+      if (!project) return
+      const bpb = (project.time_signature[0] * 4) / project.time_signature[1]
+      const here = Math.floor(get().cursor / bpb) * bpb
+      const region = get().loop ?? changedRange(project, preview) ?? { start: here, end: here + 4 * bpb }
+      get().setLoop(region)
+    },
   }
 })
 
@@ -110,7 +157,8 @@ useProject.subscribe((state, prev) => {
   if (state.project?.id !== prev.project?.id) {
     // 새 파일을 열면 재생을 멈추고 음소거 · 솔로를 초기화한다.
     player.stop()
-    usePlayer.setState({ playing: false, loadingSounds: false, notice: null, muted: {}, solo: {}, cursor: 0 })
+    player.setLoop(null)
+    usePlayer.setState({ playing: false, loadingSounds: false, notice: null, muted: {}, solo: {}, cursor: 0, loop: null, looping: false })
     return
   }
   const source = (s: typeof state) => (s.hearPreview && s.preview ? s.preview : s.project)

@@ -44,6 +44,25 @@ export function changedTrackIds(project: Project, preview: Project | null): Set<
   return ids
 }
 
+/** 미리보기로 바뀐 음이 걸친 마디 범위(박, 마디 경계로 맞춤). 바뀐 음이 없으면 null */
+export function changedRange(project: Project, preview: Project | null): { start: number; end: number } | null {
+  if (!preview) return null
+  const bpb = (project.time_signature[0] * 4) / project.time_signature[1]
+  const notes: Note[] = []
+  for (const t of preview.tracks) {
+    const original = project.tracks.find((o) => o.id === t.id)
+    if (!original) notes.push(...t.notes)
+    else {
+      const d = diffNotes(original.notes, t.notes)
+      notes.push(...d.added, ...d.removed)
+    }
+  }
+  if (!notes.length) return null
+  const start = Math.floor(Math.min(...notes.map((n) => n.start)) / bpb) * bpb
+  const end = Math.ceil(Math.max(...notes.map((n) => n.start + n.duration)) / bpb) * bpb
+  return { start, end: Math.max(end, start + bpb) }
+}
+
 export const sameMix = (a: Track, b: Track) => a.volume === b.volume && a.pan === b.pan
 
 /** 화면용 팬 표시: 가운데 · 왼쪽 20 · 오른쪽 40 */
