@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { applyWithNote, cancelWithNote, undoWithNote } from '../actions'
 import { useChat } from '../store/chat'
 import { gmProgramOf } from '../audio/instruments'
 import { useProject } from '../store/project'
@@ -14,8 +15,8 @@ const SUGGESTIONS = [
 ]
 
 export function ChatPanel() {
-  const { project, preview, baseVersion, hearPreview, setHearPreview, applyPreview, cancelPreview, undo, busy } = useProject()
-  const { messages, sending, send, note } = useChat()
+  const { project, preview, baseVersion, hearPreview, setHearPreview, busy } = useProject()
+  const { messages, sending, send } = useChat()
   const [input, setInput] = useState('')
   const list = useRef<HTMLDivElement>(null)
 
@@ -26,19 +27,9 @@ export function ChatPanel() {
 
   if (!project) return null
 
-  const apply = async () => {
-    const next = await applyPreview()
-    if (next) note(`v${next.version}로 적용했어요`, true)
-  }
-  const cancel = async () => {
-    await cancelPreview()
-    if (!useProject.getState().preview) note('미리보기를 취소했어요. 곡은 그대로예요.')
-  }
-  const revert = async () => {
-    const before = project.version
-    const next = await undo()
-    if (next) note(`v${before - 1} 상태로 되돌렸어요 (v${next.version}로 저장)`, true)
-  }
+  const apply = applyWithNote
+  const cancel = cancelWithNote
+  const revert = undoWithNote
 
   const submit = (text: string) => {
     if (!text.trim() || sending) return
@@ -202,7 +193,7 @@ export function ChatPanel() {
           보내기
         </button>
       </form>
-      <span className="hint">Enter 보내기 · Shift+Enter 줄바꿈</span>
+      <span className="hint">Enter 보내기 · Shift+Enter 줄바꿈 · 입력칸 밖에서 ? 누르면 단축키</span>
     </aside>
   )
 }

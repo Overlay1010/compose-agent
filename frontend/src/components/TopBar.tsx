@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportUrl } from '../api/client'
 import { positionBeats } from '../audio/player'
+import { useShortcutHelp } from '../shortcuts'
 import { usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 
@@ -151,6 +152,9 @@ export function TopBar() {
       )}
 
       <div className="actions">
+        <button className="keys" onClick={() => useShortcutHelp.getState().setOpen(true)} title="단축키 목록 (?)" aria-label="단축키 목록">
+          ?
+        </button>
         {project && (
           <button className="version" onClick={() => setHistoryOpen(true)} title="버전 기록 보기">
             버전 기록 <span className="pill">v{project.version}</span>
