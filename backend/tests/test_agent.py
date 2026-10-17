@@ -112,7 +112,7 @@ def test_info_only_has_no_draft(lofi):
 
 def test_system_prompt_lists_track_ids_and_drum_sounds(lofi):
     p = system_prompt(lofi, pending=["Bass 트랙 61개 음을 2반음 올렸어요."])
-    assert "t2 Bass" in p and "t1 Drums (드럼)" in p
+    assert "t2 Bass" in p and "t1 Drums (드럼 · 킷 스탠다드)" in p
     assert "42 Closed Hat" in p and "36 Kick" in p
     assert "미리보기" in p and "2반음" in p
 

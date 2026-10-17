@@ -1,5 +1,5 @@
 import type { Track } from './api/types'
-import { gmProgramOf } from './audio/instruments'
+import { gmProgramOf, kitName } from './audio/instruments'
 
 // 트랙 구분 색. 대표 색(라임)은 "바뀔 음"에만 쓰니 트랙 색에는 넣지 않는다.
 const TRACK_COLORS = ['#8ea4ff', '#4fd1b8', '#b79cff', '#6fb3e0', '#ff8fbf', '#ff9f43', '#e6e3dc', '#f2d36b']
@@ -46,6 +46,11 @@ const GM_EN = [
 /** 악기 번호 하나의 이름 (한국어가 있으면 한국어) */
 export function programName(program: number): string {
   return GM_NAMES[program] ?? GM_EN[program]
+}
+
+/** 트랙 소리 이름: 드럼이면 킷 이름, 아니면 악기 이름 */
+export function soundName(track: Track): string {
+  return track.is_drum ? `드럼 킷 ${kitName(track.program)}` : programName(gmProgramOf(track))
 }
 
 /** 악기 고르기 목록: 종류별 8개씩 */

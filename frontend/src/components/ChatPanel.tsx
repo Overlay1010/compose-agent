@@ -4,7 +4,7 @@ import { useChat } from '../store/chat'
 import { gmProgramOf } from '../audio/instruments'
 import { useProject } from '../store/project'
 import { panLabel, sameMix } from '../diff'
-import { programName } from '../theme'
+import { soundName } from '../theme'
 
 const SUGGESTIONS = [
   '지금 무슨 트랙 있어?',
@@ -113,8 +113,8 @@ export function ChatPanel() {
             })
             .map((t) => (
               <p className="tempo-change" key={t.id}>
-                {t.name} 악기 {programName(gmProgramOf(project.tracks.find((o) => o.id === t.id)!))} →{' '}
-                <strong>{programName(gmProgramOf(t))}</strong>
+                {t.name} {soundName(project.tracks.find((o) => o.id === t.id)!)} →{' '}
+                <strong>{soundName(t)}</strong>
               </p>
             ))}
           {preview.tracks.map((t) => {

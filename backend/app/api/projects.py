@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_to_midi_bytes
 from app.models.project import Project, ProjectSummary
 from app.agent.session import note
-from app.tools.instrument import display_name
+from app.tools.instrument import display_name, kit_name
 from app.tools.mix import pan_text
 from app.store.memory import ProjectNotFound, store
 from app.tools.base import ToolError
@@ -132,6 +132,8 @@ def _change_text(before: Project, after: Project, track_id: str) -> str:
     old = next(t for t in before.tracks if t.id == track_id)
     new = next(t for t in after.tracks if t.id == track_id)
     if old.program != new.program or old.program_set != new.program_set:
+        if new.is_drum:
+            return f"{new.name} 드럼 킷을 {kit_name(new.program)}(으)로 바꿨어요"
         return f"{new.name} 악기를 {display_name(new.program)}(으)로 바꿨어요"
     parts = []
     if old.volume != new.volume:

@@ -2,7 +2,7 @@
 
 트랙의 General MIDI 악기 번호(program)를 바꾼다. 음표는 그대로고 소리만 달라진다.
 MIDI로 내보낼 때 이 번호가 프로그램 체인지로 들어가 DAW에서도 같은 악기 번호로 열린다.
-드럼 트랙은 음 번호가 곧 드럼 소리라 악기 번호가 없다 (건너뛴다).
+드럼 트랙은 음 번호가 곧 드럼 소리라, 악기 대신 드럼 킷 번호(GM 드럼 킷)만 받는다.
 """
 
 from __future__ import annotations
@@ -52,6 +52,15 @@ GM_NAMES_KO = {
 }
 
 
+# General MIDI 드럼 킷 (드럼 채널의 프로그램 번호). 화면에서 소리가 실제로 다른 킷만 둔다
+# (frontend/src/audio/instruments.ts DRUM_KITS와 같은 목록)
+DRUM_KITS = {0: "스탠다드", 16: "파워", 24: "일렉트로닉", 25: "TR-808"}
+
+
+def kit_name(program: int) -> str:
+    return DRUM_KITS.get(program, f"킷 {program}")
+
+
 def display_name(program: int) -> str:
     return GM_NAMES_KO.get(program, GM_NAMES[program])
 
@@ -64,7 +73,11 @@ class SetInstrumentArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     track_ids: list[str] = Field(min_length=1, description='바꿀 트랙 id 목록 (예: ["t2"])')
-    program: int = Field(ge=0, le=127, description="General MIDI 악기 번호 0~127 (예: 0 피아노, 33 핑거 베이스, 38 신스 베이스)")
+    program: int = Field(
+        ge=0, le=127,
+        description="General MIDI 악기 번호 0~127 (예: 0 피아노, 33 핑거 베이스, 38 신스 베이스). "
+        "드럼 트랙이면 드럼 킷 번호: 0 스탠다드, 16 파워, 24 일렉트로닉, 25 TR-808",
+    )
 
 
 def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
@@ -74,17 +87,28 @@ def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
         valid = ", ".join(f"{t.id}({t.name})" for t in project.tracks)
         raise ToolError(f"없는 트랙 id예요: {', '.join(unknown)}. 쓸 수 있는 트랙: {valid}", code="unknown_track")
     targets = [by_id[i] for i in args.track_ids]
-    if all(t.is_drum for t in targets):
+    kit = args.program in DRUM_KITS
+    if all(t.is_drum for t in targets) and not kit:
+        kits = ", ".join(f"{p} {n}" for p, n in DRUM_KITS.items())
         raise ToolError(
-            "드럼 트랙은 음 번호가 곧 드럼 소리라 악기 번호를 바꿀 수 없어요. 사용자에게 그렇게 알려 주세요.",
+            f"드럼 트랙은 음 번호가 곧 드럼 소리라 다른 악기로 바꿀 수 없어요. 드럼 킷만 고를 수 있어요: {kits}. "
+            "사용자가 킷을 말한 게 아니면 그렇게 알려 주세요.",
             code="drum_track",
         )
 
     changed: list[str] = []
+    kits_changed: list[str] = []
     same: list[str] = []
     tracks = []
     for t in project.tracks:
-        if t.id in args.track_ids and not t.is_drum:
+        if t.id in args.track_ids and t.is_drum and kit:
+            # 드럼은 이름으로 악기를 짐작하지 않으니 번호만 비교한다
+            if t.program == args.program:
+                same.append(t.name)
+            else:
+                kits_changed.append(t.name)
+                t = t.model_copy(update={"program": args.program, "program_set": True})
+        elif t.id in args.track_ids and not t.is_drum:
             if t.program == args.program and t.program_set:
                 same.append(t.name)
             else:
@@ -92,12 +116,19 @@ def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
                 t = t.model_copy(update={"program": args.program, "program_set": True})
         tracks.append(t)
 
-    if not changed:
-        return ToolResult(project=project, summary=f"{', '.join(same)} 트랙은 이미 {gm_name(args.program)}이라 바뀐 게 없어요.")
-    skipped = [t.name for t in targets if t.is_drum]
-    note = f" 드럼 트랙({', '.join(skipped)})은 건너뛰었어요." if skipped else ""
+    if not changed and not kits_changed:
+        what = kit_name(args.program) if all(t.is_drum for t in targets) else gm_name(args.program)
+        return ToolResult(project=project, summary=f"{', '.join(same)} 트랙은 이미 {what}이라 바뀐 게 없어요.")
+    parts = []
+    if changed:
+        parts.append(f"{', '.join(changed)} 악기를 {gm_name(args.program)}(으)로 바꿨어요.")
+    if kits_changed:
+        parts.append(f"{', '.join(kits_changed)} 드럼 킷을 {kit_name(args.program)}({args.program})(으)로 바꿨어요.")
+    skipped = [t.name for t in targets if t.is_drum and not kit]
+    if skipped:
+        parts.append(f"드럼 트랙({', '.join(skipped)})은 건너뛰었어요.")
     return ToolResult(
         project=project.model_copy(update={"tracks": tracks}),
         changed_settings=True,
-        summary=f"{', '.join(changed)} 악기를 {gm_name(args.program)}(으)로 바꿨어요. 음은 그대로예요.{note}",
+        summary=" ".join(parts) + " 음은 그대로예요.",
     )
