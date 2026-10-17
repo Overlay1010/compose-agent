@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { exportUrl } from '../api/client'
+import { downloadMidi } from '../api/client'
 import { positionBeats } from '../audio/player'
 import { useShortcutHelp } from '../shortcuts'
 import { usePlayer } from '../store/player'
@@ -175,9 +175,16 @@ export function TopBar() {
           {loading ? '읽는 중…' : 'MIDI 열기'}
         </button>
         {project && (
-          <a className="button primary" href={exportUrl(project.id)} download>
+          <button
+            className="primary"
+            onClick={() =>
+              downloadMidi(project.id).catch((e) =>
+                useProject.setState({ error: `.mid로 내보내지 못했어요: ${e instanceof Error ? e.message : String(e)}` }),
+              )
+            }
+          >
             .mid 내보내기
-          </a>
+          </button>
         )}
       </div>
     </header>

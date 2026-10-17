@@ -169,3 +169,15 @@ def test_real_time_signature_change_warns():
 def test_garbage_raises():
     with pytest.raises(MidiParseError):
         midi_bytes_to_project(b"not a midi file")
+
+
+def test_korean_track_names_export_and_come_back():
+    from app.midi_io.convert import project_to_midi_bytes
+    from app.models.project import Note, Project, Track
+
+    p = Project(id="p", tracks=[
+        Track(id="t1", name="탑노트", notes=[Note(pitch=72, start=0, duration=1)]),
+        Track(id="t2", name="Café 멜로디 #1", notes=[Note(pitch=60, start=0, duration=1)]),
+    ])
+    back = midi_bytes_to_project(project_to_midi_bytes(p))  # 예전에는 UnicodeEncodeError
+    assert [t.name for t in back.tracks] == ["탑노트", "Café 멜로디 #1"]
