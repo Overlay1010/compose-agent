@@ -156,6 +156,9 @@ main.no-project { grid-template-columns: 1fr; }
 .step .tool { font-family: var(--mono); color: var(--info); }
 .step .summary { color: var(--text-2); }
 .step.failed .summary { color: var(--text-quiet); }
+.step.running .summary { color: var(--text); }
+.spinner.small { display: inline-block; width: 12px; height: 12px; border-width: 2px; border-color: rgba(169, 193, 255, 0.25); border-top-color: var(--info); vertical-align: -1px; }
+.msg.thinking { display: flex; align-items: center; gap: 8px; }
 button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background: none; color: var(--info); font-size: 12px; text-decoration: underline; }
 
 .preview-card {

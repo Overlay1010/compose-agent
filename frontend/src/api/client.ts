@@ -1,4 +1,4 @@
-import type { ChatResponse, Project, VersionInfo } from './types'
+import type { ChatResponse, Project, ToolStep, VersionInfo } from './types'
 
 const BASE = '/api/v1'
 
@@ -31,6 +31,49 @@ export async function uploadMidi(file: File): Promise<Project> {
   const form = new FormData()
   form.append('file', file)
   return parse<Project>(await fetch(`${BASE}/projects`, { method: 'POST', body: form }))
+}
+
+export type StreamEvent =
+  | { kind: 'thinking'; round: number }
+  | { kind: 'tool_start'; name: string; args: Record<string, unknown> }
+  | { kind: 'tool_done'; step: ToolStep }
+
+/**
+ * /chat/stream: 에이전트 진행 상황(Server-Sent Events)을 onEvent로 넘기고, 끝나면 ChatResponse를 돌려준다.
+ * 스트림 도중 오류는 event: error로 오고, 시작 전 오류(503 등)는 일반 HTTP 오류로 온다.
+ */
+export async function chatStream(
+  projectId: string,
+  message: string,
+  onEvent: (e: StreamEvent) => void,
+): Promise<ChatResponse> {
+  const res = await fetch(`${BASE}/projects/${projectId}/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  })
+  if (!res.ok || !res.body) return parse<ChatResponse>(res)
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    let cut: number
+    while ((cut = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, cut)
+      buffer = buffer.slice(cut + 2)
+      const kind = /^event: (.*)$/m.exec(block)?.[1]
+      const data = JSON.parse(/^data: (.*)$/m.exec(block)?.[1] ?? 'null')
+      if (kind === 'done') return data as ChatResponse
+      if (kind === 'error') throw new ApiError(data.code, data.message)
+      if (kind === 'thinking') onEvent({ kind, round: data.round })
+      if (kind === 'tool_start') onEvent({ kind, name: data.name, args: data.args })
+      if (kind === 'tool_done') onEvent({ kind, step: data as ToolStep })
+    }
+  }
+  throw new ApiError('stream_closed', '서버 연결이 중간에 끊겼어요. 다시 보내 주세요.')
 }
 
 export async function chat(projectId: string, message: string): Promise<ChatResponse> {

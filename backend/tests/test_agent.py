@@ -317,3 +317,36 @@ def test_start_over_rolls_back_half_done_edit(lofi):
     r = run_agent(lofi, "리드를 4옥타브 올려줘", llm, base=lofi)
     assert [s.ok for s in r.steps] == [True, False, True]
     assert r.draft is None and r.label == ""
+
+
+def test_chat_stream_sends_progress_then_done(client, use_llm):
+    pid = upload_lofi(client)
+    use_llm(calls(("transpose", {"track_ids": ["t2"], "semitones": 2})), say("올렸어요."))
+    with client.stream("POST", f"/api/v1/projects/{pid}/chat/stream", json={"message": "베이스 2키 올려줘"}) as r:
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+        text = "".join(r.iter_text())
+    events = [(b.split("\n")[0].removeprefix("event: "), json.loads(b.split("\n")[1].removeprefix("data: ")))
+              for b in text.strip().split("\n\n")]
+    kinds = [k for k, _ in events]
+    assert kinds == ["thinking", "tool_start", "tool_done", "thinking", "done"]
+    assert events[1][1] == {"name": "transpose", "args": {"track_ids": ["t2"], "semitones": 2}}
+    assert events[2][1]["changed_notes"] == 61
+    done = events[-1][1]
+    assert done["reply"] == "올렸어요." and done["preview"] is not None
+
+
+def test_chat_stream_reports_llm_error_as_event(client):
+    from app.agent import LLMError
+
+    class Broken(FakeLLM):
+        def complete(self, messages, tools):
+            raise LLMError("LLM 호출에 실패했어요: 테스트")
+
+    app.dependency_overrides[get_llm] = lambda: Broken()
+    try:
+        pid = upload_lofi(client)
+        with client.stream("POST", f"/api/v1/projects/{pid}/chat/stream", json={"message": "올려줘"}) as r:
+            text = "".join(r.iter_text())
+        assert "event: error" in text and "llm_error" in text
+    finally:
+        app.dependency_overrides.clear()
