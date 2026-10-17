@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react'
-import type { Note } from '../api/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Note, Track } from '../api/types'
 import { DRUM_NAMES } from '../audio/instruments'
+import * as player from '../audio/player'
 import { positionBeats } from '../audio/player'
+import { useChat } from '../store/chat'
 import { usePlayer } from '../store/player'
 import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
@@ -244,6 +246,73 @@ export function PianoRoll() {
           <div className="playhead" ref={head} />
         </div>
       </div>
+      {realTrack?.is_drum && realTrack.notes.length > 0 && <DrumLanes track={realTrack} />}
     </section>
+  )
+}
+
+const average = (notes: Note[]) => Math.round(notes.reduce((s, n) => s + n.velocity, 0) / notes.length)
+
+/**
+ * 드럼 소리(레인)별 크기. 슬라이더는 그 소리의 평균 세기(1~127)를 보여 주고,
+ * 끄는 동안은 소리만 바로 바꾸고(저장 X), 손을 떼면 그 소리 음들의 세기를 같은 비율로 바꿔 새 버전으로 저장한다.
+ */
+function DrumLanes({ track }: { track: Track }) {
+  const lanes = useMemo(() => {
+    const byPitch = new Map<number, Note[]>()
+    for (const n of track.notes) byPitch.set(n.pitch, [...(byPitch.get(n.pitch) ?? []), n])
+    return [...byPitch.entries()].sort((a, b) => a[0] - b[0]).map(([pitch, notes]) => ({ pitch, level: average(notes) }))
+  }, [track])
+
+  return (
+    <div className="lanes">
+      <h3>
+        소리별 크기 <span className="info">손을 떼면 그 소리 음들의 세기를 바꿔 저장해요 (MIDI에도 남아요)</span>
+      </h3>
+      <div className="lane-grid">
+        {lanes.map((l) => (
+          <LaneSlider key={`${track.id}:${l.pitch}:${l.level}`} trackId={track.id} pitch={l.pitch} level={l.level} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LaneSlider({ trackId, pitch, level }: { trackId: string; pitch: number; level: number }) {
+  const { busy, setLane } = useProject()
+  const { sending, note } = useChat()
+  const [value, setValue] = useState(level)
+  const name = DRUM_NAMES[pitch] ?? noteName(pitch)
+
+  const commit = async () => {
+    if (value === level) return
+    const changed = await setLane(trackId, pitch, Math.min(4, Math.max(0.1, value / level)))
+    if (changed?.note) {
+      note(changed.note, true)
+    } else {
+      player.setLaneGain(trackId, pitch, 1)
+      setValue(level)
+    }
+  }
+
+  return (
+    <label title={`${name} 평균 세기 (1~127)`}>
+      <span className="lane-name">{name}</span>
+      <input
+        type="range"
+        min={Math.max(1, Math.round(level * 0.1))}
+        max={127}
+        value={value}
+        disabled={busy || sending}
+        aria-label={`${name} 크기`}
+        onChange={(e) => {
+          setValue(Number(e.target.value))
+          player.setLaneGain(trackId, pitch, Number(e.target.value) / level)
+        }}
+        onPointerUp={() => void commit()}
+        onKeyUp={() => void commit()}
+      />
+      <output>{value}</output>
+    </label>
   )
 }

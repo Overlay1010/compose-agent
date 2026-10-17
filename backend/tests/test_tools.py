@@ -605,3 +605,22 @@ def test_drum_kit_survives_export():
     r = run_tool(p, "set_instrument", {"track_ids": ["t1"], "program": 24})
     back = midi_bytes_to_project(project_to_midi_bytes(r.project))
     assert back.tracks[0].is_drum and back.tracks[0].program == 24
+
+
+def test_lane_level_endpoint_scales_one_drum_sound(client):
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    before = client.get(f"/api/v1/projects/{pid}").json()["tracks"][0]
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t1/lane", json={"pitch": 42, "scale": 0.5})
+    assert r.status_code == 200
+    after = r.json()["project"]["tracks"][0]
+    for a, b in zip(before["notes"], after["notes"]):
+        if a["pitch"] == 42:
+            assert b["velocity"] == max(1, int(a["velocity"] * 0.5 + 0.5))
+        else:
+            assert a == b  # 다른 소리는 그대로
+    assert r.json()["project"]["version"] == 2
+    assert r.json()["note"].startswith("Drums Closed Hat 세기 ")
+    nothing = client.post(f"/api/v1/projects/{pid}/tracks/t1/lane", json={"pitch": 99, "scale": 0.5})
+    assert nothing.json()["note"] is None and nothing.json()["project"]["version"] == 2  # 그 소리가 없으면 그대로
