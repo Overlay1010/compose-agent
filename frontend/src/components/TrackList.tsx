@@ -21,7 +21,7 @@ export function TrackList() {
   const added = preview ? preview.tracks.filter((t) => !project.tracks.some((o) => o.id === t.id)) : []
   const isNew = (id: string) => added.some((t) => t.id === id)
 
-  const changeInstrument = async (trackId: string, name: string, program: number) => {
+  const changeInstrument = async (trackId: string, program: number) => {
     const changed = await setInstrument(trackId, program)
     if (changed?.note) note(changed.note, true)
   }
@@ -92,7 +92,7 @@ export function TrackList() {
                 className="instrument"
                 value={gmProgramOf(t)}
                 disabled={busy || sending}
-                onChange={(e) => void changeInstrument(t.id, t.name, Number(e.target.value))}
+                onChange={(e) => void changeInstrument(t.id, Number(e.target.value))}
                 aria-label={`${t.name} 악기`}
                 title="악기 바꾸기 (바로 새 버전으로 저장, 되돌리기 가능)"
               >
