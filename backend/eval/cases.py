@@ -1,4 +1,4 @@
-"""정답 있는 명령 61개.
+"""정답 있는 명령 65개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -174,6 +174,13 @@ CASES: list[Case] = [
          [Call("duplicate_track", {"track_id": "t5", "octaves": -1, "program": Range(40, 51)})]),
     case("K02", "트랙", "lofi_groove", "베이스 트랙 하나 더 복사해줘",
          [Call("duplicate_track", {"track_id": "t2", "octaves": Range(0, 0, default=0)})]),
+    case("K03", "트랙", "lofi_groove", "Rhodes 코드에 어울리는 탑노트 추가해줘",
+         [Call("duplicate_track", {"track_id": "t3", "voice": "top", "octaves": Range(0, 1, default=0)})],
+         note="탑노트 = 화음마다 맨 위 음. 코드 전체 복제(voice all)는 틀림"),
+    case("K04", "트랙", "lofi_groove", "Rhodes 코드에서 베이스 라인 뽑아줘",
+         [Call("duplicate_track", {"track_id": "t3", "voice": "bottom", "octaves": Range(-2, -1)})]),
+    case("C06", "되묻기 · 정보", "lofi_groove", "새로운 멜로디 하나 만들어줘", note="새 음 작곡은 아직 못 함 → 흉내 내지 말고 안내"),
+    case("C07", "되묻기 · 정보", "lofi_groove", "드럼 패턴 새로 짜줘", note="새 패턴 작곡은 아직 못 함"),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -181,4 +188,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 61 and len({c.id for c in CASES}) == 61
+assert len(CASES) == 65 and len({c.id for c in CASES}) == 65
