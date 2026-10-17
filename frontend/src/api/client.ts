@@ -1,4 +1,4 @@
-import type { ChatResponse, Project, ToolStep, VersionInfo } from './types'
+import type { ChatResponse, Project, RecentProject, SessionData, ToolStep, VersionInfo } from './types'
 
 const BASE = '/api/v1'
 
@@ -105,12 +105,19 @@ export async function restoreVersion(projectId: string, version: number): Promis
   return parse<Project>(await post(`/projects/${projectId}/versions/${version}/restore`))
 }
 
+/** 트랙 설정 바꾸기 결과. note는 대화에 남길 한 줄 (서버 기록과 같은 문장) */
+export interface TrackChange {
+  project: Project
+  preview: Project | null
+  note: string | null
+}
+
 /** 화면에서 악기를 바꾼다. 바로 새 버전이 되고, 미리보기가 있으면 미리보기에도 들어간다. */
 export async function setInstrument(
   projectId: string,
   trackId: string,
   program: number,
-): Promise<{ project: Project; preview: Project | null }> {
+): Promise<TrackChange> {
   return parse(
     await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/instrument`, {
       method: 'POST',
@@ -125,7 +132,7 @@ export async function setMix(
   projectId: string,
   trackId: string,
   mix: { volume?: number; pan?: number },
-): Promise<{ project: Project; preview: Project | null }> {
+): Promise<TrackChange> {
   return parse(
     await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/mix`, {
       method: 'POST',
@@ -137,6 +144,16 @@ export async function setMix(
 
 export async function undo(projectId: string): Promise<Project> {
   return parse<Project>(await post(`/projects/${projectId}/undo`))
+}
+
+/** 저장된 프로젝트 다시 열기: 현재 버전 · 미리보기 · 대화 기록 */
+export async function getSession(projectId: string): Promise<SessionData> {
+  return parse<SessionData>(await fetch(`${BASE}/projects/${projectId}/session`))
+}
+
+/** 최근 프로젝트 (처음 화면의 이어서 하기) */
+export async function recentProjects(): Promise<RecentProject[]> {
+  return parse<RecentProject[]>(await fetch(`${BASE}/projects`))
 }
 
 export function exportUrl(projectId: string): string {

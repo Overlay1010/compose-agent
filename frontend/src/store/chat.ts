@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { chatStream } from '../api/client'
-import type { ToolStep } from '../api/types'
+import type { LogEntry, ToolStep } from '../api/types'
 import { changedTrackIds } from '../diff'
 import { useProject } from './project'
 
@@ -119,4 +119,25 @@ export const useChat = create<ChatState>((set, get) => ({
 // 새 파일을 열면 대화를 비운다 (백엔드도 프로젝트마다 대화가 따로다).
 useProject.subscribe((state, prev) => {
   if (state.project?.id !== prev.project?.id) useChat.setState({ messages: [], sending: false })
+})
+
+/** 저장된 프로젝트를 열고 대화 기록까지 다시 그린다 (새로고침 · 이어서 하기) */
+export async function reopen(projectId: string): Promise<boolean> {
+  const log = await useProject.getState().open(projectId)
+  if (log === null) {
+    history.replaceState(null, '', location.pathname)
+    return false
+  }
+  // 프로젝트가 바뀌면 위 구독이 대화를 비우므로, 그 뒤에 채운다
+  useChat.setState({ messages: log.map(fromLog) })
+  return true
+}
+
+const fromLog = (e: LogEntry): ChatMessage => ({
+  id: nextId++,
+  role: e.role,
+  text: e.text,
+  steps: e.steps,
+  meta: e.meta,
+  madePreview: e.made_preview,
 })

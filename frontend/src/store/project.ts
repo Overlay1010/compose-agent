@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import * as api from '../api/client'
-import type { Project, VersionInfo } from '../api/types'
+import type { LogEntry, Project, VersionInfo } from '../api/types'
 
 interface ProjectState {
   project: Project | null
@@ -17,6 +17,10 @@ interface ProjectState {
   busy: boolean
   error: string | null
   upload: (file: File) => Promise<void>
+  /** 저장된 프로젝트를 다시 연다. 화면에 그릴 대화 기록을 돌려준다 (실패하면 null) */
+  open: (projectId: string) => Promise<LogEntry[] | null>
+  /** 프로젝트를 닫고 처음 화면으로 (저장돼 있어서 다시 열 수 있다) */
+  close: () => void
   selectTrack: (id: string) => void
   setPreview: (preview: Project | null, baseVersion: number | null) => void
   setHearPreview: (on: boolean) => void
@@ -25,9 +29,9 @@ interface ProjectState {
   restore: (version: number) => Promise<Project | null>
   undo: () => Promise<Project | null>
   /** 트랙 악기 바꾸기 (미리보기는 그대로 둔다). 성공하면 새 버전 */
-  setInstrument: (trackId: string, program: number) => Promise<Project | null>
+  setInstrument: (trackId: string, program: number) => Promise<api.TrackChange | null>
   /** 트랙 볼륨 · 팬 바꾸기 (미리보기는 그대로 둔다). 성공하면 새 버전 */
-  setMix: (trackId: string, mix: { volume?: number; pan?: number }) => Promise<Project | null>
+  setMix: (trackId: string, mix: { volume?: number; pan?: number }) => Promise<api.TrackChange | null>
   loadVersions: () => Promise<void>
   setHistoryOpen: (open: boolean) => void
 }
@@ -42,9 +46,7 @@ export const useProject = create<ProjectState>((set, get) => {
   }
 
   /** 트랙 설정(악기 · 볼륨 · 팬)을 바꾸는 요청. 미리보기는 서버가 같이 고쳐서 돌려준다 */
-  const changeTrack = async (
-    request: (id: string) => Promise<{ project: Project; preview: Project | null }>,
-  ): Promise<Project | null> => {
+  const changeTrack = async (request: (id: string) => Promise<api.TrackChange>): Promise<api.TrackChange | null> => {
     const { project, busy } = get()
     if (!project || busy) return null
     set({ busy: true, error: null })
@@ -53,7 +55,7 @@ export const useProject = create<ProjectState>((set, get) => {
       if (r.project.version === project.version) return null // 이미 그 값
       set({ project: r.project, preview: r.preview, baseVersion: r.preview ? r.project.version : null })
       void get().loadVersions()
-      return r.project
+      return r
     } catch (e) {
       set({ error: message(e) })
       return null
@@ -114,6 +116,31 @@ export const useProject = create<ProjectState>((set, get) => {
       }
     },
 
+    open: async (projectId) => {
+      set({ loading: true, error: null })
+      try {
+        const s = await api.getSession(projectId)
+        set({
+          project: s.project,
+          preview: s.preview,
+          baseVersion: s.base_version,
+          hearPreview: true,
+          versions: [],
+          selectedTrackId: s.project.tracks[0]?.id ?? null,
+        })
+        void get().loadVersions()
+        return s.log
+      } catch (e) {
+        set({ error: e instanceof api.ApiError && e.code === 'project_not_found' ? '저장된 프로젝트를 찾을 수 없어요. 새로 열어 주세요.' : message(e) })
+        return null
+      } finally {
+        set({ loading: false })
+      }
+    },
+
+    close: () =>
+      set({ project: null, preview: null, baseVersion: null, versions: [], historyOpen: false, selectedTrackId: null, error: null }),
+
     selectTrack: (id) => set({ selectedTrackId: id }),
     setPreview: (preview, baseVersion) => set({ preview, baseVersion, hearPreview: true }),
     setHearPreview: (on) => set({ hearPreview: on }),
@@ -155,4 +182,11 @@ export const useProject = create<ProjectState>((set, get) => {
       if (open) void get().loadVersions()
     },
   }
+})
+
+// 주소에 프로젝트 id(#id)를 남겨, 새로고침하면 같은 프로젝트를 다시 연다 (App.tsx)
+useProject.subscribe((state, prev) => {
+  if (state.project?.id === prev.project?.id) return
+  const hash = state.project ? `#${state.project.id}` : ''
+  if (location.hash !== hash) history.replaceState(null, '', hash || location.pathname)
 })

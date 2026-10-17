@@ -8,6 +8,9 @@ FL Studio에서 내보낸 파일과 비슷하게:
 from __future__ import annotations
 
 import io
+import os
+
+os.environ["COMPOSE_DB_PATH"] = ""  # 테스트는 저장 파일을 만들지 않고 메모리만 쓴다 (app을 불러오기 전에)
 
 import pretty_midi
 import pytest

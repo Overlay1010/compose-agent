@@ -10,6 +10,9 @@ venv/
 node_modules/
 dist/
 
+# 프로젝트 저장 파일 (사용자가 올린 곡이 들어 있음)
+backend/data/
+
 # 환경 변수 (API 키는 절대 커밋하지 않기)
 .env
 .env.*

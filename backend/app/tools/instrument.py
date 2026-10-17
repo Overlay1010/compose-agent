@@ -43,6 +43,19 @@ GM_NAMES = [
 assert len(GM_NAMES) == 128
 
 
+# 화면에 보일 한국어 이름 (frontend/src/theme.ts GM_NAMES와 같은 목록). 없으면 영어 이름
+GM_NAMES_KO = {
+    0: "그랜드 피아노", 4: "전자 피아노", 5: "전자 피아노 (FM)", 9: "글로켄슈필", 24: "나일론 기타", 25: "스틸 기타",
+    27: "클린 일렉 기타", 32: "어쿠스틱 베이스", 33: "핑거 베이스", 34: "피크 베이스", 38: "신스 베이스",
+    48: "스트링 앙상블", 52: "합창", 61: "브라스 섹션", 73: "플룻", 80: "사각파 리드", 81: "톱니파 리드",
+    88: "뉴에이지 패드", 89: "따뜻한 패드",
+}
+
+
+def display_name(program: int) -> str:
+    return GM_NAMES_KO.get(program, GM_NAMES[program])
+
+
 def gm_name(program: int) -> str:
     return f"{program} {GM_NAMES[program]}"
 

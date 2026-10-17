@@ -57,7 +57,9 @@ button:disabled { opacity: 0.55; cursor: default; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 18px;
   background: #141518; border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.brand { display: flex; align-items: center; gap: 10px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; font-size: 15px; }
+.brand:hover:not(:disabled) { background: transparent; opacity: 0.85; }
+.brand:disabled { opacity: 1; cursor: default; }
 .logo { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: var(--brand); color: var(--brand-ink); }
 .project { display: flex; flex-direction: column; line-height: 1.25; padding-left: 14px; border-left: 1px solid var(--border); }
 .project .sub { font-size: 11px; color: var(--text-quiet); }

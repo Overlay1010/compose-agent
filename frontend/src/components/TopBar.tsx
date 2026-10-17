@@ -74,7 +74,12 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      <div className="brand">
+      <button
+        className="brand"
+        onClick={() => useProject.getState().close()}
+        disabled={!project}
+        title="처음 화면으로 (작업은 저장돼 있어요)"
+      >
         <span className="logo" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 18V5l11-2v13" />
@@ -83,7 +88,7 @@ export function TopBar() {
           </svg>
         </span>
         <span>Compose Agent</span>
-      </div>
+      </button>
 
       {project && heard && (
         <>

@@ -57,3 +57,28 @@ export interface VersionInfo {
   label: string // 무엇을 바꿨는지 한 줄
   current: boolean
 }
+
+// 백엔드 app/api/chat.py SessionOut · app/agent/session.py 화면 기록
+
+export interface LogEntry {
+  role: 'user' | 'agent' | 'note'
+  text: string
+  steps?: ToolStep[]
+  meta?: string
+  made_preview?: boolean
+}
+
+export interface SessionData {
+  project: Project
+  preview: Project | null
+  base_version: number | null
+  log: LogEntry[]
+}
+
+// 백엔드 app/api/projects.py RecentOut
+export interface RecentProject {
+  id: string
+  name: string
+  version: number
+  updated_at: string // ISO 시각, 메모리 저장소면 빈 문자열
+}
