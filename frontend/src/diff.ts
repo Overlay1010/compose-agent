@@ -1,4 +1,5 @@
 import type { Note, Project, Track } from './api/types'
+import { gmProgramOf } from './audio/instruments'
 
 export interface NoteDiff {
   same: Note[] // 그대로인 음
@@ -32,13 +33,13 @@ export function diffNotes(before: Note[], after: Note[]): NoteDiff {
   return { same, removed, added }
 }
 
-/** 미리보기에서 음이 하나라도 바뀐 트랙 id */
+/** 미리보기에서 음이 하나라도 바뀌었거나 악기가 바뀐 트랙 id */
 export function changedTrackIds(project: Project, preview: Project | null): Set<string> {
   const ids = new Set<string>()
   if (!preview) return ids
   for (const t of preview.tracks) {
     const original = project.tracks.find((o) => o.id === t.id)
-    if (!original || !sameNotes(original, t)) ids.add(t.id)
+    if (!original || !sameNotes(original, t) || gmProgramOf(original) !== gmProgramOf(t)) ids.add(t.id)
   }
   return ids
 }

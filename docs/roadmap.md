@@ -11,7 +11,8 @@
 뼈대 완성과 포트폴리오 첫 공개.
 
 - [x] MIDI 업로드 · 피아노롤 · 재생 (실제 악기 샘플)
-- [x] 편집 도구 7개 + 테스트: `transpose` `shift_octave` `quantize` `adjust_velocity` `swing` `set_tempo` `get_project_info`
+- [x] 편집 도구 8개 + 테스트: `transpose` `shift_octave` `quantize` `adjust_velocity` `swing` `set_tempo` `set_instrument` `get_project_info`
+- [x] 악기 바꾸기: 트랙마다 General MIDI 악기 128종 선택 상자(바로 새 버전) + 말로 바꾸기, 내보낸 MIDI에 악기 번호 유지
 - [x] LLM 에이전트 · 미리보기 · 적용 · 되돌리기 API
 - [ ] 채팅 화면 · 바뀐 소리/원래 소리 비교 · 버전 기록 화면
 - [ ] 평가: 정답 있는 명령 30개, 모델별 도구 선택 정확도 · 인자 정확도 · 응답 시간 · 비용
@@ -39,8 +40,8 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 - 멜로디: 코드 톤 중심 + 스케일 경과음, 모양(올라감 · 내려감 · 아치)과 리듬 밀도
 - 짧은 모티프(1~2마디)는 LLM이 직접 써도 되지만, 생성기 결과와 같은 검사(음역 · 스케일 · 박자)를 거친다
 - 결과는 다른 편집처럼 **미리보기 → 적용**. 마음에 안 들면 "다른 버전"으로 다시 생성 (같은 설정, 다른 무작위 시드)
-- 트랙 다루기: 새 트랙 추가 · 트랙 복제 · 악기 바꾸기 ("멜로디를 스트링으로 한 옥타브 아래 겹쳐줘"가 여기서 된다)
-- 도구: `generate_drums` `generate_chords` `generate_bassline` `generate_melody` `add_track` `duplicate_track` `set_instrument`
+- 트랙 다루기: 새 트랙 추가 · 트랙 복제 (악기 바꾸기는 v0.1에서 먼저 함 · "멜로디를 스트링으로 한 옥타브 아래 겹쳐줘"가 여기서 된다)
+- 도구: `generate_drums` `generate_chords` `generate_bassline` `generate_melody` `add_track` `duplicate_track`
 - 평가: 생성 명령 30개 · 규칙 위반 0개(스케일 밖 음, 박자 밖 음, 음역 초과) · 사람 블라인드 평가(직접 만든 것과 비교)
 - 나중 선택지: text-to-MIDI 학습 모델(GPU 필요)을 생성기 하나로 추가해 규칙 기반과 비교
 
@@ -82,11 +83,11 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 
 | 분야 | 도구 | 버전 |
 | --- | --- | --- |
-| 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo | v0.1 ✅ |
+| 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument | v0.1 ✅ |
 | 정보 | get_project_info | v0.1 ✅ |
 | 화성 | analyze_harmony · suggest_reharmonization · apply_chords | v0.2 |
 | 만들기 | generate_drums · generate_chords · generate_bassline · generate_melody | v0.3 |
-| 트랙 | add_track · duplicate_track · set_instrument | v0.3 |
+| 트랙 | add_track · duplicate_track | v0.3 |
 | 편곡 | harmonize_melody · arrange | v0.4 |
 | 허밍 | hum_to_midi · snap_to_key | v0.5 |
 | 소리 · 가사 | search_samples · add_sample_track · fit_lyrics | v0.6 |

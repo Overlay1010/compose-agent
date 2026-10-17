@@ -24,6 +24,8 @@ interface ProjectState {
   cancelPreview: () => Promise<void>
   restore: (version: number) => Promise<Project | null>
   undo: () => Promise<Project | null>
+  /** 트랙 악기 바꾸기 (미리보기는 그대로 둔다). 성공하면 새 버전 */
+  setInstrument: (trackId: string, program: number) => Promise<Project | null>
   loadVersions: () => Promise<void>
   setHistoryOpen: (open: boolean) => void
 }
@@ -90,6 +92,24 @@ export const useProject = create<ProjectState>((set, get) => {
     applyPreview: () => changeVersion(api.applyPreview),
     restore: (version) => changeVersion((id) => api.restoreVersion(id, version)),
     undo: () => changeVersion(api.undo),
+
+    setInstrument: async (trackId, program) => {
+      const { project, busy } = get()
+      if (!project || busy) return null
+      set({ busy: true, error: null })
+      try {
+        const r = await api.setInstrument(project.id, trackId, program)
+        if (r.project.version === project.version) return null // 이미 그 악기
+        set({ project: r.project, preview: r.preview, baseVersion: r.preview ? r.project.version : null })
+        void get().loadVersions()
+        return r.project
+      } catch (e) {
+        set({ error: message(e) })
+        return null
+      } finally {
+        set({ busy: false })
+      }
+    },
 
     cancelPreview: async () => {
       const { project, busy } = get()

@@ -1,16 +1,24 @@
 import { changedTrackIds } from '../diff'
 import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
-import { instrumentLabel, trackColor } from '../theme'
+import { useChat } from '../store/chat'
+import { GM_GROUPS, programName, trackColor } from '../theme'
+import { gmProgramOf } from '../audio/instruments'
 import { Meter } from './Meter'
 
 export function TrackList() {
-  const { project, preview, hearPreview, selectedTrackId, selectTrack } = useProject()
+  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument } = useProject()
+  const { sending, note } = useChat()
   const { muted, solo, toggleMute, toggleSolo, playing } = usePlayer()
   if (!project) return null
   const changed = changedTrackIds(project, preview)
   const off = silenced(project, muted, solo)
   const heard = hearPreview && preview ? preview : project
+
+  const changeInstrument = async (trackId: string, name: string, program: number) => {
+    const next = await setInstrument(trackId, program)
+    if (next) note(`${name} 악기를 ${programName(program)}(으)로 바꿨어요 (v${next.version}로 저장)`, true)
+  }
 
   return (
     <nav className="tracks" aria-label="트랙">
@@ -28,9 +36,7 @@ export function TrackList() {
                   {t.name}
                   {changed.has(t.id) && <span className="badge">미리보기</span>}
                 </span>
-                <span className="info">
-                  {instrumentLabel(t)} · 음 {t.notes.length}개
-                </span>
+                <span className="info">음 {t.notes.length}개</span>
                 <Meter
                   notes={heard.tracks.find((h) => h.id === t.id)?.notes ?? t.notes}
                   color={trackColor(project, t.id)}
@@ -54,6 +60,28 @@ export function TrackList() {
             >
               S
             </button>
+            {t.is_drum ? (
+              <span className="instrument drum">드럼 킷 (General MIDI)</span>
+            ) : (
+              <select
+                className="instrument"
+                value={gmProgramOf(t)}
+                disabled={busy || sending}
+                onChange={(e) => void changeInstrument(t.id, t.name, Number(e.target.value))}
+                aria-label={`${t.name} 악기`}
+                title="악기 바꾸기 (바로 새 버전으로 저장, 되돌리기 가능)"
+              >
+                {GM_GROUPS.map((g) => (
+                  <optgroup key={g.family} label={g.family}>
+                    {g.programs.map((p) => (
+                      <option key={p} value={p}>
+                        {programName(p)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            )}
           </li>
         ))}
       </ul>

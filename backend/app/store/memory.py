@@ -124,6 +124,15 @@ class ProjectStore:
         del self._previews[project_id]
         return self.add_version(pending.project, " · ".join(pending.labels))
 
+    def rebase_preview(self, project_id: str, project: Project) -> Preview | None:
+        """미리보기를 그대로 둔 채 그 아래 버전만 바뀌었을 때 (예: 화면에서 악기만 바꿈).
+        project는 새 현재 버전 위에서 다시 만든 미리보기 상태."""
+        pending = self.preview(project_id)
+        if pending is not None:
+            pending.project = project
+            pending.base_version = self.current(project_id).version
+        return pending
+
     def cancel_preview(self, project_id: str) -> None:
         self.preview(project_id)
         self._previews.pop(project_id, None)

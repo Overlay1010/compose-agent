@@ -105,6 +105,21 @@ export async function restoreVersion(projectId: string, version: number): Promis
   return parse<Project>(await post(`/projects/${projectId}/versions/${version}/restore`))
 }
 
+/** 화면에서 악기를 바꾼다. 바로 새 버전이 되고, 미리보기가 있으면 미리보기에도 들어간다. */
+export async function setInstrument(
+  projectId: string,
+  trackId: string,
+  program: number,
+): Promise<{ project: Project; preview: Project | null }> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/instrument`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ program }),
+    }),
+  )
+}
+
 export async function undo(projectId: string): Promise<Project> {
   return parse<Project>(await post(`/projects/${projectId}/undo`))
 }

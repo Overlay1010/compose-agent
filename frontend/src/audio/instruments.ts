@@ -75,7 +75,7 @@ const NAME_HINTS: [RegExp, number][] = [
 ]
 
 export function gmProgramOf(track: Track): number {
-  if (track.program !== 0) return track.program
+  if (track.program !== 0 || track.program_set) return track.program
   const name = track.name.toLowerCase()
   return NAME_HINTS.find(([re]) => re.test(name))?.[1] ?? 0
 }

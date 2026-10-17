@@ -11,6 +11,8 @@ export interface Track {
   id: string
   name: string
   program: number
+  /** 사용자가 악기를 직접 골랐음 (0이어도 트랙 이름으로 짐작하지 않음) */
+  program_set: boolean
   is_drum: boolean
   notes: Note[]
 }

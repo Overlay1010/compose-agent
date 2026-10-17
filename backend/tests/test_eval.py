@@ -25,7 +25,7 @@ def concrete(call: Call) -> dict:
             out[k] = None
         elif isinstance(v, Range):
             mid = (v.low + v.high) / 2
-            out[k] = int(mid) if k in ("semitones", "octaves") else mid
+            out[k] = int(mid) if k in ("semitones", "octaves", "program") else mid
         elif isinstance(v, Pitches):
             out[k] = sorted(v.must)
         else:

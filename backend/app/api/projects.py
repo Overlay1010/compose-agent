@@ -5,11 +5,13 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_to_midi_bytes
 from app.models.project import Project, ProjectSummary
 from app.store.memory import ProjectNotFound, store
+from app.tools.base import ToolError
+from app.tools.registry import run_tool
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -87,6 +89,34 @@ def restore_version(project_id: str, version: int) -> Project:
         return store.restore(project_id, version)
     except KeyError:
         raise _error(404, "version_not_found", f"v{version}을(를) 찾을 수 없어요. 오래된 버전은 최근 50개만 남아요.")
+
+
+class InstrumentIn(BaseModel):
+    program: int = Field(ge=0, le=127)
+
+
+class InstrumentOut(BaseModel):
+    project: Project
+    preview: Project | None = None
+
+
+@router.post("/{project_id}/tracks/{track_id}/instrument", response_model=InstrumentOut)
+def set_track_instrument(project_id: str, track_id: str, body: InstrumentIn) -> InstrumentOut:
+    """화면에서 악기를 고르면 바로 새 버전으로 올린다 (되돌리기 가능).
+    미리보기가 있으면 거기에도 같은 악기를 넣어 미리보기를 잃지 않게 한다."""
+    current = _get(project_id)
+    args = {"track_ids": [track_id], "program": body.program}
+    try:
+        result = run_tool(current, "set_instrument", args)
+    except ToolError as e:
+        raise _error(400, e.code, e.message)
+    pending = store.preview(project_id)
+    if not result.changed_settings or result.project is None:
+        return InstrumentOut(project=current, preview=pending.project if pending else None)
+    new = store.add_version(result.project, result.summary)
+    if pending is not None:
+        pending = store.rebase_preview(project_id, run_tool(pending.project, "set_instrument", args).project or pending.project)
+    return InstrumentOut(project=new, preview=pending.project if pending else None)
 
 
 @router.post("/{project_id}/undo", response_model=Project)

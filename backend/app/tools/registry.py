@@ -21,6 +21,7 @@ from app.tools.edits import (
     transpose,
 )
 from app.tools.info import ProjectInfoArgs, get_project_info
+from app.tools.instrument import SetInstrumentArgs, set_instrument
 from app.tools.tempo import SetTempoArgs, set_tempo
 
 TOOLS: dict[str, Tool] = {
@@ -68,6 +69,12 @@ TOOLS: dict[str, Tool] = {
             "곡 템포(BPM)를 바꾼다. 음표의 박 위치는 그대로라 마디는 안 바뀌고 빠르기만 달라진다.",
             SetTempoArgs,
             set_tempo,
+        ),
+        Tool(
+            "set_instrument",
+            "트랙의 악기(General MIDI 악기 번호)를 바꾼다. 음은 그대로고 소리만 달라진다. 드럼 트랙은 건너뛴다.",
+            SetInstrumentArgs,
+            set_instrument,
         ),
     ]
 }

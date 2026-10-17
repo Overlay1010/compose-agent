@@ -1,4 +1,4 @@
-"""정답 있는 명령 34개.
+"""정답 있는 명령 39개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -63,8 +63,10 @@ CASES: list[Case] = [
     case("Q03", "퀀타이즈", "fl_style_loose", "전부 16분음표로 퀀타이즈해줘",
          [Call("quantize", {"track_ids": ALL, "grid": SIXTEENTH, "strength": FULL})],
          alt=[(Call("quantize", {"track_ids": ["t2", "t3", "t4"], "grid": SIXTEENTH, "strength": FULL}),
-               Call("quantize", {"track_ids": ["t1"], "grid": SIXTEENTH, "strength": FULL}))],
-         note="드럼까지 포함해도, 빼도 정답. 멜로디 트랙과 드럼을 나눠 두 번 불러도 결과가 같아 정답"),
+               Call("quantize", {"track_ids": ["t1"], "grid": SIXTEENTH, "strength": FULL})),
+              tuple(Call("quantize", {"track_ids": [t], "grid": SIXTEENTH, "strength": FULL}) for t in ("t1", "t2", "t3", "t4")),
+              tuple(Call("quantize", {"track_ids": [t], "grid": SIXTEENTH, "strength": FULL}) for t in ("t2", "t3", "t4"))],
+         note="드럼까지 포함해도, 빼도 정답. 트랙을 나눠 여러 번 불러도 결과가 같아 정답"),
     case("Q04", "퀀타이즈", "fl_style_loose", "드럼만 8분음표 격자로 맞춰", [Call("quantize", {"track_ids": ["t1"], "grid": EIGHTH})]),
     case("Q05", "퀀타이즈", "fl_style_loose", "베이스 박자를 50%만 당겨줘",
          [Call("quantize", {"track_ids": ["t3"], "strength": Range(0.45, 0.55)})]),
@@ -110,6 +112,15 @@ CASES: list[Case] = [
          alt=[(Call("set_tempo", {"mode": "offset", "value": Range(3, 12)}),), (Call("set_tempo", {"mode": "set", "value": Range(87, 96)}),)],
          note="84 BPM에서 3~12 BPM 정도"),
     # ---------- 편집하면 안 되는 명령 ----------
+    case("I01", "악기", "lofi_groove", "베이스를 신스 베이스로 바꿔줘",
+         [Call("set_instrument", {"track_ids": ["t2"], "program": Range(38, 39)})]),
+    case("I02", "악기", "lofi_groove", "Rhodes를 그랜드 피아노 소리로 바꿔줘",
+         [Call("set_instrument", {"track_ids": ["t3"], "program": Range(0, 1)})]),
+    case("I03", "악기", "lofi_groove", "멜로디를 바이올린으로 바꿔줘",
+         [Call("set_instrument", {"track_ids": ["t5"], "program": 40})]),
+    case("I04", "악기", "lofi_groove", "패드를 스트링으로 바꾸고 템포 90으로 해줘",
+         [Call("set_instrument", {"track_ids": ["t4"], "program": Range(48, 51)}), Call("set_tempo", {"mode": "set", "value": 90.0})]),
+    case("I05", "악기", "lofi_groove", "드럼을 피아노 소리로 바꿔줘", note="드럼 트랙은 악기 번호를 바꿀 수 없음 → 편집하지 않고 알려 줌"),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -117,4 +128,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 34 and len({c.id for c in CASES}) == 34
+assert len(CASES) == 39 and len({c.id for c in CASES}) == 39
