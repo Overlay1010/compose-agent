@@ -34,6 +34,8 @@ interface ProjectState {
   setMix: (trackId: string, mix: { volume?: number; pan?: number }) => Promise<api.TrackChange | null>
   /** 드럼 소리별 크기 (그 소리 음들의 세기 × scale) */
   setLane: (trackId: string, pitch: number, scale: number) => Promise<api.TrackChange | null>
+  /** 벨로시티 편집창: 음 하나하나의 세기 */
+  setVelocities: (trackId: string, changes: { index: number; velocity: number }[]) => Promise<api.TrackChange | null>
   loadVersions: () => Promise<void>
   setHistoryOpen: (open: boolean) => void
 }
@@ -154,6 +156,8 @@ export const useProject = create<ProjectState>((set, get) => {
     setInstrument: (trackId, program) => changeTrack((id) => api.setInstrument(id, trackId, program)),
     setMix: (trackId, mix) => changeTrack((id) => api.setMix(id, trackId, mix)),
     setLane: (trackId, pitch, scale) => changeTrack((id) => api.setLane(id, trackId, pitch, scale)),
+    setVelocities: (trackId, changes) =>
+      changeTrack((id) => api.setVelocities(id, trackId, get().project!.version, changes)),
 
     cancelPreview: async () => {
       const { project, busy } = get()

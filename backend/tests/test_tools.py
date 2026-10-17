@@ -624,3 +624,23 @@ def test_lane_level_endpoint_scales_one_drum_sound(client):
     assert r.json()["note"].startswith("Drums Closed Hat 세기 ")
     nothing = client.post(f"/api/v1/projects/{pid}/tracks/t1/lane", json={"pitch": 99, "scale": 0.5})
     assert nothing.json()["note"] is None and nothing.json()["project"]["version"] == 2  # 그 소리가 없으면 그대로
+
+
+def test_velocity_editor_endpoint(client):
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    lead = client.get(f"/api/v1/projects/{pid}").json()["tracks"][4]
+    url = f"/api/v1/projects/{pid}/tracks/t5/velocities"
+    r = client.post(url, json={"base_version": 1, "changes": [{"index": 0, "velocity": 30}, {"index": 2, "velocity": 120}]})
+    assert r.status_code == 200
+    got = r.json()["project"]["tracks"][4]["notes"]
+    assert (got[0]["velocity"], got[2]["velocity"]) == (30, 120)
+    assert got[1] == lead["notes"][1] and got[0]["pitch"] == lead["notes"][0]["pitch"]  # 다른 음 · 음높이는 그대로
+    assert r.json()["project"]["version"] == 2 and r.json()["note"].startswith("Lead 음 2개의 세기")
+    # 화면이 본 버전이 옛날 것이면 거절
+    assert client.post(url, json={"base_version": 1, "changes": [{"index": 0, "velocity": 50}]}).status_code == 409
+    assert client.post(url, json={"base_version": 2, "changes": [{"index": 9999, "velocity": 50}]}).status_code == 400
+    assert client.post(url, json={"base_version": 2, "changes": [{"index": 0, "velocity": 0}]}).status_code == 422
+    same = client.post(url, json={"base_version": 2, "changes": [{"index": 0, "velocity": 30}]})
+    assert same.json()["note"] is None and same.json()["project"]["version"] == 2
