@@ -22,6 +22,9 @@ class Track(BaseModel):
     id: str
     name: str
     program: int = Field(default=0, ge=0, le=127, description="General MIDI 악기 번호")
+    program_set: bool = Field(
+        default=False, description="사용자가 악기를 직접 골랐음. 0(피아노)이어도 트랙 이름으로 악기를 짐작하지 않는다"
+    )
     is_drum: bool = False
     notes: list[Note] = Field(default_factory=list)
 

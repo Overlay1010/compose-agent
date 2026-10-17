@@ -21,9 +21,39 @@ const GM_NAMES: Record<number, string> = {
   88: '뉴에이지 패드', 89: '따뜻한 패드', 9: '글로켄슈필',
 }
 
+// General MIDI 악기 이름 (번호 = 목록 위치). 한국어 이름이 없는 악기는 이 이름을 보여 준다.
+const GM_EN = [
+  'Acoustic Grand Piano', 'Bright Acoustic Piano', 'Electric Grand Piano', 'Honky-tonk Piano', 'Electric Piano 1', 'Electric Piano 2', 'Harpsichord', 'Clavinet',
+  'Celesta', 'Glockenspiel', 'Music Box', 'Vibraphone', 'Marimba', 'Xylophone', 'Tubular Bells', 'Dulcimer',
+  'Drawbar Organ', 'Percussive Organ', 'Rock Organ', 'Church Organ', 'Reed Organ', 'Accordion', 'Harmonica', 'Tango Accordion',
+  'Nylon Guitar', 'Steel Guitar', 'Jazz Guitar', 'Clean Guitar', 'Muted Guitar', 'Overdriven Guitar', 'Distortion Guitar', 'Guitar Harmonics',
+  'Acoustic Bass', 'Finger Bass', 'Pick Bass', 'Fretless Bass', 'Slap Bass 1', 'Slap Bass 2', 'Synth Bass 1', 'Synth Bass 2',
+  'Violin', 'Viola', 'Cello', 'Contrabass', 'Tremolo Strings', 'Pizzicato Strings', 'Orchestral Harp', 'Timpani',
+  'String Ensemble 1', 'String Ensemble 2', 'Synth Strings 1', 'Synth Strings 2', 'Choir Aahs', 'Voice Oohs', 'Synth Choir', 'Orchestra Hit',
+  'Trumpet', 'Trombone', 'Tuba', 'Muted Trumpet', 'French Horn', 'Brass Section', 'Synth Brass 1', 'Synth Brass 2',
+  'Soprano Sax', 'Alto Sax', 'Tenor Sax', 'Baritone Sax', 'Oboe', 'English Horn', 'Bassoon', 'Clarinet',
+  'Piccolo', 'Flute', 'Recorder', 'Pan Flute', 'Blown Bottle', 'Shakuhachi', 'Whistle', 'Ocarina',
+  'Square Lead', 'Saw Lead', 'Calliope Lead', 'Chiff Lead', 'Charang Lead', 'Voice Lead', 'Fifths Lead', 'Bass + Lead',
+  'New Age Pad', 'Warm Pad', 'Polysynth Pad', 'Choir Pad', 'Bowed Pad', 'Metallic Pad', 'Halo Pad', 'Sweep Pad',
+  'Rain', 'Soundtrack', 'Crystal', 'Atmosphere', 'Brightness', 'Goblins', 'Echoes', 'Sci-fi',
+  'Sitar', 'Banjo', 'Shamisen', 'Koto', 'Kalimba', 'Bagpipe', 'Fiddle', 'Shanai',
+  'Tinkle Bell', 'Agogo', 'Steel Drums', 'Woodblock', 'Taiko Drum', 'Melodic Tom', 'Synth Drum', 'Reverse Cymbal',
+  'Guitar Fret Noise', 'Breath Noise', 'Seashore', 'Bird Tweet', 'Telephone Ring', 'Helicopter', 'Applause', 'Gunshot',
+]
+
+/** 악기 번호 하나의 이름 (한국어가 있으면 한국어) */
+export function programName(program: number): string {
+  return GM_NAMES[program] ?? GM_EN[program]
+}
+
+/** 악기 고르기 목록: 종류별 8개씩 */
+export const GM_GROUPS = GM_FAMILIES.map((family, f) => ({
+  family,
+  programs: Array.from({ length: 8 }, (_, i) => f * 8 + i),
+}))
+
 /** 화면에 보일 악기 이름. FL Studio처럼 번호가 0이면 트랙 이름으로 고른 악기(재생에 쓰는 것)를 보여 준다. */
 export function instrumentLabel(track: Track): string {
   if (track.is_drum) return '드럼'
-  const program = gmProgramOf(track)
-  return GM_NAMES[program] ?? GM_FAMILIES[Math.floor(program / 8)]
+  return programName(gmProgramOf(track))
 }

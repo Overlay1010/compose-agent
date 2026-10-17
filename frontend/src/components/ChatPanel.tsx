@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useChat } from '../store/chat'
+import { gmProgramOf } from '../audio/instruments'
 import { useProject } from '../store/project'
+import { programName } from '../theme'
 
 const SUGGESTIONS = [
   '지금 무슨 트랙 있어?',
+  '베이스를 신스 베이스로 바꿔줘',
   '하이햇 좀 약하게 하고 살짝 스윙 넣어줘',
   '박자 맞춰줘, 너무 딱딱하진 않게',
   '멜로디 한 옥타브 내려줘',
@@ -111,6 +114,17 @@ export function ChatPanel() {
           <p>
             <strong>미리보기</strong> · v{baseVersion} 기준 · 다음 명령도 이 위에 이어서 쌓여요
           </p>
+          {preview.tracks
+            .filter((t) => {
+              const before = project.tracks.find((o) => o.id === t.id)
+              return before && gmProgramOf(before) !== gmProgramOf(t)
+            })
+            .map((t) => (
+              <p className="tempo-change" key={t.id}>
+                {t.name} 악기 {programName(gmProgramOf(project.tracks.find((o) => o.id === t.id)!))} →{' '}
+                <strong>{programName(gmProgramOf(t))}</strong>
+              </p>
+            ))}
           {preview.tempo !== project.tempo && (
             <p className="tempo-change">
               템포 {project.tempo.toFixed(0)} → <strong>{preview.tempo.toFixed(0)} BPM</strong>

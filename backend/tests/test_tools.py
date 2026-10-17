@@ -266,8 +266,10 @@ def test_project_info(lofi):
 # ---------- 등록 · run_tool ----------
 
 
-def test_registry_has_seven_tools_with_schemas():
-    assert set(TOOLS) == {"transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo"}
+def test_registry_has_eight_tools_with_schemas():
+    assert set(TOOLS) == {
+        "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
+    }
     specs = tool_specs()
     for spec in specs:
         schema = spec["input_schema"]
@@ -358,3 +360,61 @@ def test_tempo_only_change_makes_a_preview():
     llm = FakeLLM(LLMReply(text="", tool_calls=[ToolCall("c0", "set_tempo", '{"mode": "set", "value": 100}')]), LLMReply(text="바꿨어요."))
     r = run_agent(p, "템포 100으로", llm)
     assert r.draft is not None and r.draft.tempo == 100 and "100 BPM" in r.label
+
+
+# ---------- set_instrument ----------
+
+def test_set_instrument_changes_program_only():
+    p = song(track("t1", (60, 0, 1, 80), name="Keys"), track("t2", (36, 0, 1, 80), name="Drums", drum=True))
+    r = run_tool(p, "set_instrument", {"track_ids": ["t1", "t2"], "program": 4})
+    keys = r.project.tracks[0]
+    assert (keys.program, keys.program_set) == (4, True)
+    assert keys.notes == p.tracks[0].notes and r.changed_settings and r.changed_notes == 0
+    assert r.project.tracks[1] == p.tracks[1]  # 드럼은 그대로
+    assert "Electric Piano 1" in r.summary and "건너뛰었어요" in r.summary
+
+
+def test_set_instrument_errors_and_noop():
+    p = song(track("t1", (60, 0, 1, 80)), track("t2", (36, 0, 1, 80), drum=True))
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "set_instrument", {"track_ids": ["t2"], "program": 4})
+    assert e.value.code == "drum_track"
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "set_instrument", {"track_ids": ["t9"], "program": 4})
+    assert e.value.code == "unknown_track"
+    with pytest.raises(ToolError):
+        run_tool(p, "set_instrument", {"track_ids": ["t1"], "program": 128})
+    # 지정 안 된 0을 피아노(0)로 고르면 바뀐 것 (이름으로 짐작하지 않게 표시)
+    chosen = run_tool(p, "set_instrument", {"track_ids": ["t1"], "program": 0})
+    assert chosen.changed_settings and chosen.project.tracks[0].program_set
+    again = run_tool(chosen.project, "set_instrument", {"track_ids": ["t1"], "program": 0})
+    assert not again.changed_settings and "바뀐 게 없어요" in again.summary
+
+
+def test_set_instrument_survives_export(lofi):
+    from app.midi_io.convert import project_to_midi_bytes
+
+    r = run_tool(lofi, "set_instrument", {"track_ids": ["t2"], "program": 38})
+    back = midi_bytes_to_project(project_to_midi_bytes(r.project))
+    assert next(t for t in back.tracks if t.name == r.project.tracks[1].name).program == 38
+
+
+def test_instrument_endpoint_makes_version_and_keeps_preview(client):
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    from app.store.memory import store
+
+    edited = run_tool(store.current(pid), "transpose", {"track_ids": ["t2"], "semitones": 2}).project
+    store.set_preview(pid, edited, "베이스 2키 올림")
+
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t2/instrument", json={"program": 38})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["project"]["version"] == 2 and body["project"]["tracks"][1]["program"] == 38
+    assert body["preview"]["tracks"][1]["program"] == 38  # 미리보기에도 들어감
+    assert body["preview"]["tracks"][1]["notes"] == [n.model_dump() for n in edited.tracks[1].notes]
+    applied = client.post(f"/api/v1/projects/{pid}/preview/apply")
+    assert applied.status_code == 200 and applied.json()["tracks"][1]["program"] == 38  # 충돌 없이 적용
+
+    assert client.post(f"/api/v1/projects/{pid}/tracks/t9/instrument", json={"program": 1}).status_code == 400

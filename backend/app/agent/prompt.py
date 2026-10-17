@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from app.models.project import Project
+from app.models.project import Project, Track
+from app.tools.instrument import gm_name
 
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -27,7 +28,8 @@ RULES = """너는 작곡가를 돕는 MIDI 편집 에이전트야. 사용자의 
 - 마디는 1부터 세고 끝 마디도 포함해. "2마디부터 4마디까지" → bars [2, 4]. 범위 말이 없으면 bars를 비워 둬.
 - 마디 범위는 그 말이 붙은 편집에만 적용해. 예: "5마디부터 드럼 약하게 하고 리드 한 옥타브 내려줘" → 드럼은 bars [5, 끝], 리드는 bars 없이 곡 전체.
 - 드럼 트랙의 음 번호는 음높이가 아니라 악기야. 하이햇 = 42(닫힘) · 44(페달) · 46(열림), 킥 = 35 · 36, 스네어 = 37 · 38 · 40, 클랩 = 39, 탐 = 41 · 43 · 45 · 47 · 48 · 50, 심벌 = 49 · 51 · 52 · 53 · 55 · 57 · 59. 아래 목록에서 실제로 쓰인 번호만 pitches에 넣어. **드럼에서 소리 하나(하이햇 · 킥 · 스네어 …)를 말하면 반드시 pitches로 그 소리만 골라.** pitches를 비우면 드럼 전체가 바뀌어.
-- 말 → 도구: "N키 / N반음 올려·내려" = transpose, "옥타브" = shift_octave, "박자 맞춰 / 정리 / 칼박" = quantize, "세게 / 약하게 / 볼륨 / 다이내믹" = adjust_velocity, "스윙 / 그루브 / 셔플 / 바운스" = swing, "지금 뭐 있어 / 트랙 알려줘" = get_project_info, "템포 · BPM · 빠르게 · 느리게 · 속도" = set_tempo.
+- 말 → 도구: "N키 / N반음 올려·내려" = transpose, "옥타브" = shift_octave, "박자 맞춰 / 정리 / 칼박" = quantize, "세게 / 약하게 / 볼륨 / 다이내믹" = adjust_velocity, "스윙 / 그루브 / 셔플 / 바운스" = swing, "지금 뭐 있어 / 트랙 알려줘" = get_project_info, "템포 · BPM · 빠르게 · 느리게 · 속도" = set_tempo, "악기 · 소리를 ○○로 바꿔줘" = set_instrument.
+- 악기 번호(General MIDI): 0 그랜드 피아노, 4 전자 피아노(Rhodes), 5 FM 피아노, 6 하프시코드, 11 비브라폰, 12 마림바, 16 오르간, 19 파이프 오르간, 21 아코디언, 24 나일론 기타, 25 어쿠스틱 기타, 27 클린 일렉 기타, 29 오버드라이브 기타, 30 디스토션 기타, 32 어쿠스틱(콘트라) 베이스, 33 핑거 베이스, 34 피크 베이스, 35 프렛리스 베이스, 36 슬랩 베이스, 38 · 39 신스 베이스, 40 바이올린, 42 첼로, 45 피치카토, 46 하프, 48 스트링 앙상블, 50 신스 스트링, 52 합창, 56 트럼펫, 57 트롬본, 60 호른, 61 브라스 섹션, 62 신스 브라스, 65 알토 색소폰, 66 테너 색소폰, 68 오보에, 71 클라리넷, 73 플룻, 75 팬플룻, 80 사각파 리드, 81 톱니파 리드, 88 뉴에이지 패드, 89 따뜻한 패드, 90 폴리신스 패드, 91 콰이어 패드, 95 스윕 패드, 104 시타르, 108 칼림바, 114 스틸 드럼. "신스로" 처럼 종류만 말하면 그 트랙 역할에 맞게 골라 (베이스 → 38, 멜로디 → 81, 화음 → 89).
 - 정도가 애매할 때: 스윙 "살짝" = 55~58%, 그냥 "스윙" = 60~62%, "많이 · 셔플" = 66%. 퀀타이즈 "너무 딱딱하지 않게 · 자연스럽게" = strength 0.6~0.8, 그 밖에는 1. 세기 "좀 약하게" = scale 0.7, "많이 약하게" = 0.5, "좀 세게" = 1.3, "많이 세게" = 1.6.
 - "박자를 N%만 당겨줘 · 맞춰줘"는 퀀타이즈 strength N/100이야 (스윙이 아님). 스윙은 "스윙 · 셔플 · 그루브"라고 말할 때만.
 - 템포 "조금 빠르게 · 느리게" = 지금 BPM의 5~10%, "많이" = 15~25%, "두 배 빠르게" = scale 2. 숫자를 말하면 그대로 (set · offset).
@@ -67,6 +69,13 @@ def note_name(pitch: int) -> str:
     return f"{NAMES[pitch % 12]}{pitch // 12 - 1}"
 
 
+def track_instrument(t: Track) -> str:
+    """사용자가 고른 악기면 GM 이름까지, 아니면 기존처럼 악기 종류."""
+    if t.program_set:
+        return f"악기: {gm_name(t.program)} · {GM_FAMILIES[t.program // 8]}"
+    return instrument(t.program)
+
+
 def project_summary(p: Project) -> str:
     num, den = p.time_signature
     lines = [f"이름: {p.name} · {p.tempo:.0f} BPM · {num}/{den}박자 · {p.bar_count}마디 · 버전 v{p.version}"]
@@ -78,7 +87,7 @@ def project_summary(p: Project) -> str:
         else:
             low, high = t.pitch_range or (0, 0)
             lines.append(
-                f"- {t.id} {t.name} · {instrument(t.program)} · 음 {len(t.notes)}개 · 음역 {note_name(low)}~{note_name(high)}"
+                f"- {t.id} {t.name} · {track_instrument(t)} · 음 {len(t.notes)}개 · 음역 {note_name(low)}~{note_name(high)}"
             )
     return "\n".join(lines)
 
