@@ -14,6 +14,8 @@ export interface Voice {
   play(pitch: number, duration: string, time: number, velocity: number): void
   releaseAll(): void
   dispose(): void
+  /** 드럼만: 이 소리(음 번호)를 잠깐 키우거나 줄인다 (레인 슬라이더를 끄는 동안 들으며 맞추기) */
+  setLaneGain?(pitch: number, gain: number): void
 }
 
 export function createVoice(track: Track): Voice {
@@ -214,6 +216,7 @@ class SampledDrumVoice implements Voice {
   private synth: SynthDrumVoice | null = null
   private openHat: Tone.ToneBufferSource | null = null
   private kit: number
+  private laneGain = new Map<number, number>()
 
   constructor(program: number) {
     this.kit = DRUM_KITS.some((k) => k.program === program) ? program : 0
@@ -248,13 +251,18 @@ class SampledDrumVoice implements Voice {
       if (this.openHat === src) this.openHat = null
       src.dispose()
     }
-    src.start(time, 0, undefined, Math.pow(velocity / 127, 1.5) * gain)
+    src.start(time, 0, undefined, Math.pow(velocity / 127, 1.5) * gain * (this.laneGain.get(pitch) ?? 1))
     if (pitch === OPEN_HAT) this.openHat = src
   }
 
   releaseAll() {
     this.openHat = null
     this.synth?.releaseAll()
+  }
+
+  setLaneGain(pitch: number, gain: number) {
+    // 세기 비율 → 소리 크기는 velocity^1.5로 계산하므로 같은 곡선을 쓴다
+    this.laneGain.set(pitch, Math.pow(gain, 1.5))
   }
 
   dispose() {

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_to_midi_bytes
 from app.models.project import Project, ProjectSummary
+from app.agent.prompt import DRUM_NAMES, note_name
 from app.agent.session import note
 from app.tools.instrument import display_name, kit_name
 from app.tools.mix import pan_text
@@ -131,6 +132,13 @@ def _change_text(before: Project, after: Project, track_id: str) -> str:
     """화면에서 바꾼 트랙 설정을 사람 말로 (대화 기록 · 화면 알림에 같은 문장을 쓴다)."""
     old = next(t for t in before.tracks if t.id == track_id)
     new = next(t for t in after.tracks if t.id == track_id)
+    if old.notes != new.notes:
+        # 소리(레인)별 세기: 바뀐 음의 번호로 소리 이름을 찾고 평균 세기를 비교한다
+        changed = {a.pitch for a, b in zip(old.notes, new.notes) if a != b}
+        pitch = min(changed) if changed else 0
+        avg = lambda t: round(sum(n.velocity for n in t.notes if n.pitch == pitch) / max(1, sum(n.pitch == pitch for n in t.notes)))  # noqa: E731
+        name = DRUM_NAMES.get(pitch, note_name(pitch)) if new.is_drum else note_name(pitch)
+        return f"{new.name} {name} 세기 {avg(old)} → {avg(new)}"
     if old.program != new.program or old.program_set != new.program_set:
         if new.is_drum:
             return f"{new.name} 드럼 킷을 {kit_name(new.program)}(으)로 바꿨어요"
@@ -152,7 +160,7 @@ def _change_track(project_id: str, tool: str, args: dict) -> TrackChangeOut:
     except ToolError as e:
         raise _error(400, e.code, e.message)
     pending = store.preview(project_id)
-    if not result.changed_settings or result.project is None:
+    if not (result.changed_settings or result.changed_notes) or result.project is None:
         return TrackChangeOut(project=current, preview=pending.project if pending else None)
     text = f"{_change_text(current, result.project, args['track_ids'][0])} (v{current.version + 1}로 저장)"
     new = store.add_version(result.project, result.summary)
@@ -172,6 +180,18 @@ def set_track_mix(project_id: str, track_id: str, body: MixIn) -> TrackChangeOut
     if body.volume is None and body.pan is None:
         raise _error(400, "invalid_args", "volume이나 pan 중 하나는 있어야 해요.")
     return _change_track(project_id, "set_mix", {"track_ids": [track_id], **body.model_dump(exclude_none=True)})
+
+
+class LaneIn(BaseModel):
+    pitch: int = Field(ge=0, le=127, description="드럼 소리(음 번호)")
+    scale: float = Field(ge=0.1, le=4, description="그 소리 음들의 세기에 곱할 값")
+
+
+@router.post("/{project_id}/tracks/{track_id}/lane", response_model=TrackChangeOut)
+def set_lane_level(project_id: str, track_id: str, body: LaneIn) -> TrackChangeOut:
+    """드럼 소리(레인)별 크기. 따로 저장하는 값이 아니라 그 소리 음들의 세기를 바꿔서 MIDI에도 그대로 남는다."""
+    args = {"track_ids": [track_id], "pitches": [body.pitch], "mode": "scale", "value": body.scale}
+    return _change_track(project_id, "adjust_velocity", args)
 
 
 @router.post("/{project_id}/undo", response_model=Project)

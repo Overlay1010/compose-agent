@@ -120,6 +120,11 @@ export function setMuted(trackId: string, muted: boolean) {
   if (c) c.volume.mute = muted
 }
 
+/** 드럼 소리 하나의 크기를 바로 바꾼다 (저장 전 미리 듣기, 1 = 그대로) */
+export function setLaneGain(trackId: string, pitch: number, gain: number) {
+  channels.get(trackId)?.voice.setLaneGain?.(pitch, gain)
+}
+
 /** 트랙 볼륨 · 팬을 바로 바꾼다 (슬라이더를 끄는 동안 들으면서 맞추기) */
 export function setMix(trackId: string, volume: number, pan: number) {
   const c = channels.get(trackId)
