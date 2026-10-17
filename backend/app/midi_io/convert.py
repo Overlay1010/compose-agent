@@ -131,6 +131,10 @@ def midi_bytes_to_project(data: bytes, name: str = "Untitled") -> Project:
         if not notes:
             continue
         track_name = inst.name.strip() or f"Track {i + 1}"
+        # 볼륨 · 팬은 처음 나온 값만 쓴다 (곡 중간 오토메이션은 아직 지원 안 함)
+        first_cc: dict[int, int] = {}
+        for c in sorted(inst.control_changes, key=lambda c: c.time):
+            first_cc.setdefault(c.number, c.value)
         is_drum = inst.is_drum or looks_like_drum(track_name) or looks_like_drum_notes(notes)
         tracks.append(
             Track(
@@ -138,6 +142,8 @@ def midi_bytes_to_project(data: bytes, name: str = "Untitled") -> Project:
                 name=track_name,
                 program=inst.program,
                 is_drum=is_drum,
+                volume=first_cc.get(7, 100),
+                pan=max(-64, min(63, first_cc.get(10, 64) - 64)),
                 notes=notes,
             )
         )
@@ -163,6 +169,11 @@ def project_to_midi_bytes(project: Project) -> bytes:
     sec_per_beat = 60.0 / project.tempo
     for track in project.tracks:
         inst = pretty_midi.Instrument(program=track.program, is_drum=track.is_drum, name=track.name)
+        # 기본값이 아닐 때만 넣는다 (DAW가 자기 기본값을 쓰게)
+        if track.volume != 100:
+            inst.control_changes.append(pretty_midi.ControlChange(7, track.volume, 0.0))
+        if track.pan != 0:
+            inst.control_changes.append(pretty_midi.ControlChange(10, track.pan + 64, 0.0))
         for n in track.notes:
             start = n.start * sec_per_beat
             inst.notes.append(

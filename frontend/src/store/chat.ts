@@ -46,6 +46,7 @@ const TOOL_LABELS: Record<string, string> = {
   copy_bars: '마디 복사',
   humanize: '사람 느낌 넣기',
   velocity_ramp: '점점 세기 바꾸기',
+  set_mix: '볼륨 · 팬 바꾸기',
   get_project_info: '트랙 확인',
   start_over: '미리보기 버리고 다시 시작',
 }

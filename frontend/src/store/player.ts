@@ -114,6 +114,9 @@ useProject.subscribe((state, prev) => {
     return
   }
   const source = (s: typeof state) => (s.hearPreview && s.preview ? s.preview : s.project)
+  // 볼륨 · 팬만 바뀌었으면 다시 불러오지 않고 그 자리에서 바꾼다
+  const next = source(state)
+  if (next && next !== source(prev) && player.adoptMix(next)) return
   const { playing, loadingSounds, muted, solo } = usePlayer.getState()
   if (source(state) !== source(prev) && playing && !loadingSounds) {
     // 바뀐 소리 ↔ 원래 소리, 새 미리보기, 적용 등으로 들을 버전이 바뀌면 같은 자리에서 이어 재생

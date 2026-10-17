@@ -1,4 +1,4 @@
-"""정답 있는 명령 49개.
+"""정답 있는 명령 52개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -77,7 +77,9 @@ CASES: list[Case] = [
     case("V04", "세기", "lofi_groove", "멜로디 세기를 전부 100으로 맞춰",
          [Call("adjust_velocity", {"track_ids": ["t5"], "mode": "set", "value": 100})]),
     case("V05", "세기", "lofi_groove", "베이스 볼륨 20 줄여줘",
-         [Call("adjust_velocity", {"track_ids": ["t2"], "mode": "offset", "value": -20})]),
+         [Call("set_mix", {"track_ids": ["t2"], "volume_offset": -20})],
+         alt=[(Call("adjust_velocity", {"track_ids": ["t2"], "mode": "offset", "value": -20}),)],
+         note="트랙 볼륨(set_mix)이 생긴 뒤로는 볼륨이 정답. 예전처럼 세기를 20 낮춰도 들리는 결과가 비슷해 인정"),
     case("V06", "세기", "lofi_groove", "스네어 조금 더 세게",
          velocity("t1", Range(1.05, 1.5), Range(5, 30), pitches=Pitches(frozenset({37, 38, 40}), frozenset({38})))),
     # ---------- 스윙 ----------
@@ -141,6 +143,14 @@ CASES: list[Case] = [
          [Call("velocity_ramp", {"track_ids": ALL, "bars": [13, 16], "start": Range(0.9, 1.0), "end": Range(0.2, 0.6)})]),
     case("H04", "연주 느낌", "lofi_groove", "처음 4마디 Rhodes 점점 크게",
          [Call("velocity_ramp", {"track_ids": ["t3"], "bars": [1, 4], "start": Range(0.2, 0.7), "end": Range(0.95, 1.3)})]),
+    case("X01", "믹스", "lofi_groove", "패드 볼륨 좀 줄여줘",
+         [Call("set_mix", {"track_ids": ["t4"], "volume_offset": Range(-20, -8)})],
+         alt=[(Call("set_mix", {"track_ids": ["t4"], "volume": Range(75, 92)}),)]),
+    case("X02", "믹스", "lofi_groove", "리드를 왼쪽으로 조금 보내줘",
+         [Call("set_mix", {"track_ids": ["t5"], "pan": Range(-30, -10)})]),
+    case("X03", "믹스", "lofi_groove", "Rhodes는 오른쪽으로 보내고 볼륨은 80으로 해줘",
+         [Call("set_mix", {"track_ids": ["t3"], "pan": Range(20, 63), "volume": 80})],
+         alt=[(Call("set_mix", {"track_ids": ["t3"], "pan": Range(20, 63)}), Call("set_mix", {"track_ids": ["t3"], "volume": 80}))]),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -148,4 +158,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 49 and len({c.id for c in CASES}) == 49
+assert len(CASES) == 52 and len({c.id for c in CASES}) == 52

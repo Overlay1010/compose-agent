@@ -26,6 +26,8 @@ interface ProjectState {
   undo: () => Promise<Project | null>
   /** 트랙 악기 바꾸기 (미리보기는 그대로 둔다). 성공하면 새 버전 */
   setInstrument: (trackId: string, program: number) => Promise<Project | null>
+  /** 트랙 볼륨 · 팬 바꾸기 (미리보기는 그대로 둔다). 성공하면 새 버전 */
+  setMix: (trackId: string, mix: { volume?: number; pan?: number }) => Promise<Project | null>
   loadVersions: () => Promise<void>
   setHistoryOpen: (open: boolean) => void
 }
@@ -33,6 +35,27 @@ interface ProjectState {
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export const useProject = create<ProjectState>((set, get) => {
+  /** 트랙 설정(악기 · 볼륨 · 팬)을 바꾸는 요청. 미리보기는 서버가 같이 고쳐서 돌려준다 */
+  const changeTrack = async (
+    request: (id: string) => Promise<{ project: Project; preview: Project | null }>,
+  ): Promise<Project | null> => {
+    const { project, busy } = get()
+    if (!project || busy) return null
+    set({ busy: true, error: null })
+    try {
+      const r = await request(project.id)
+      if (r.project.version === project.version) return null // 이미 그 값
+      set({ project: r.project, preview: r.preview, baseVersion: r.preview ? r.project.version : null })
+      void get().loadVersions()
+      return r.project
+    } catch (e) {
+      set({ error: message(e) })
+      return null
+    } finally {
+      set({ busy: false })
+    }
+  }
+
   /** 새 버전이 생기는 요청(적용 · 되돌리기)을 같은 방식으로 처리한다 */
   const changeVersion = async (request: (id: string) => Promise<Project>): Promise<Project | null> => {
     const { project, busy } = get()
@@ -93,23 +116,8 @@ export const useProject = create<ProjectState>((set, get) => {
     restore: (version) => changeVersion((id) => api.restoreVersion(id, version)),
     undo: () => changeVersion(api.undo),
 
-    setInstrument: async (trackId, program) => {
-      const { project, busy } = get()
-      if (!project || busy) return null
-      set({ busy: true, error: null })
-      try {
-        const r = await api.setInstrument(project.id, trackId, program)
-        if (r.project.version === project.version) return null // 이미 그 악기
-        set({ project: r.project, preview: r.preview, baseVersion: r.preview ? r.project.version : null })
-        void get().loadVersions()
-        return r.project
-      } catch (e) {
-        set({ error: message(e) })
-        return null
-      } finally {
-        set({ busy: false })
-      }
-    },
+    setInstrument: (trackId, program) => changeTrack((id) => api.setInstrument(id, trackId, program)),
+    setMix: (trackId, mix) => changeTrack((id) => api.setMix(id, trackId, mix)),
 
     cancelPreview: async () => {
       const { project, busy } = get()

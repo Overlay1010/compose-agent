@@ -9,8 +9,16 @@ import { createVoice, type Voice } from './instruments'
 interface Channel {
   name: string
   voice: Voice
+  /** 트랙 볼륨(페이더) */
+  fader: Tone.Volume
+  panner: Tone.Panner
+  /** 음소거 · 솔로 전용 (페이더 값과 섞이지 않게 따로 둔다) */
   volume: Tone.Volume
 }
+
+/** MIDI 볼륨(0~127) → 데시벨. 100이 0dB, GM 권장 곡선(40·log10) */
+const faderDb = (volume: number) => (volume <= 0 ? -Infinity : 40 * Math.log10(volume / 100))
+const panValue = (pan: number) => Math.max(-1, Math.min(1, pan / 64))
 
 let master: Tone.Volume | null = null
 let loaded: Project | null = null
@@ -38,6 +46,8 @@ function load(project: Project, muted: Record<string, boolean>) {
   t.cancel()
   for (const c of channels.values()) {
     c.voice.dispose()
+    c.fader.dispose()
+    c.panner.dispose()
     c.volume.dispose()
   }
   channels = new Map()
@@ -51,8 +61,10 @@ function load(project: Project, muted: Record<string, boolean>) {
     const voice = createVoice(track)
     const volume = new Tone.Volume().connect(master)
     volume.mute = !!muted[track.id]
-    voice.output.connect(volume)
-    channels.set(track.id, { name: track.name, voice, volume })
+    const panner = new Tone.Panner(panValue(track.pan)).connect(volume)
+    const fader = new Tone.Volume(faderDb(track.volume)).connect(panner)
+    voice.output.connect(fader)
+    channels.set(track.id, { name: track.name, voice, fader, panner, volume })
 
     for (const n of track.notes) {
       t.schedule(
@@ -98,6 +110,29 @@ export function stop() {
 export function setMuted(trackId: string, muted: boolean) {
   const c = channels.get(trackId)
   if (c) c.volume.mute = muted
+}
+
+/** 트랙 볼륨 · 팬을 바로 바꾼다 (슬라이더를 끄는 동안 들으면서 맞추기) */
+export function setMix(trackId: string, volume: number, pan: number) {
+  const c = channels.get(trackId)
+  if (!c) return
+  c.fader.volume.rampTo(faderDb(volume), 0.05)
+  c.panner.pan.rampTo(panValue(pan), 0.05)
+}
+
+// 볼륨 · 팬을 뺀 나머지(음 · 악기 · 템포)가 같은지 보는 열쇠
+const soundKey = (p: Project) =>
+  JSON.stringify({ ...p, id: 0, version: 0, name: '', warnings: [], tracks: p.tracks.map((t) => ({ ...t, volume: 0, pan: 0 })) })
+
+/**
+ * 불러 둔 곡과 볼륨 · 팬만 다른 새 버전이면, 다시 불러오지 않고 볼륨 · 팬만 바꾼 뒤 그 버전을 쓴다.
+ * 재생 중에 끊기지 않게 하려는 것. 그렇게 했으면 true.
+ */
+export function adoptMix(project: Project): boolean {
+  if (!loaded || loaded === project || soundKey(loaded) !== soundKey(project)) return false
+  for (const t of project.tracks) setMix(t.id, t.volume, t.pan)
+  loaded = project
+  return true
 }
 
 /** 지금 들리고 있는 위치(박). 예약용 lookahead를 빼고 실제 소리 기준으로 계산한다. */
