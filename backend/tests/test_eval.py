@@ -9,7 +9,7 @@ from app.agent.loop import ToolStep
 from app.midi_io.convert import midi_bytes_to_project
 from app.tools import run_tool
 from eval.cases import CASES
-from eval.spec import ALL, Call, Case, Pitches, Range, score
+from eval.spec import ALL, Call, Case, OneOf, Pitches, Range, score
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import make_samples  # noqa: E402
@@ -28,6 +28,8 @@ def concrete(call: Call) -> dict:
             out[k] = int(mid) if k in ("semitones", "octaves", "program", "velocity", "times", "volume", "volume_offset", "pan", "octaves") else mid
         elif isinstance(v, Pitches):
             out[k] = sorted(v.must)
+        elif isinstance(v, OneOf):
+            out[k] = sorted(v.values)[0]
         else:
             out[k] = v
     return {k: v for k, v in out.items() if v is not None}

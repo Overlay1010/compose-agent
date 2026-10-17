@@ -48,6 +48,7 @@ const TOOL_LABELS: Record<string, string> = {
   velocity_ramp: '점점 세기 바꾸기',
   set_mix: '볼륨 · 팬 바꾸기',
   duplicate_track: '트랙 복제',
+  set_drum_sound: '드럼 소리 바꾸기',
   get_project_info: '트랙 확인',
   start_over: '미리보기 버리고 다시 시작',
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Note, Track } from '../api/types'
-import { DRUM_NAMES } from '../audio/instruments'
+import { DRUM_NAMES, DRUM_ROLES, DRUM_SOUNDS, drumSoundOf } from '../audio/instruments'
 import * as player from '../audio/player'
 import { positionBeats } from '../audio/player'
 import { useChat } from '../store/chat'
@@ -409,14 +409,50 @@ function DrumLanes({ track }: { track: Track }) {
   return (
     <div className="lanes">
       <h3>
-        소리별 크기 <span className="info">손을 떼면 그 소리 음들의 세기를 바꿔 저장해요 (MIDI에도 남아요)</span>
+        소리별 소리 · 크기{' '}
+        <span className="info">소리는 이 앱에만 저장돼요 · 크기는 그 소리 음들의 세기를 바꿔 MIDI에도 남아요</span>
       </h3>
       <div className="lane-grid">
         {lanes.map((l) => (
-          <LaneSlider key={`${track.id}:${l.pitch}:${l.level}`} trackId={track.id} pitch={l.pitch} level={l.level} />
+          <div className="lane" key={l.pitch}>
+            <span className="lane-name">{DRUM_NAMES[l.pitch] ?? noteName(l.pitch)}</span>
+            <SoundPicker track={track} pitch={l.pitch} />
+            <LaneSlider key={`${track.id}:${l.pitch}:${l.level}`} trackId={track.id} pitch={l.pitch} level={l.level} />
+          </div>
         ))}
       </div>
     </div>
+  )
+}
+
+/** 레인 하나의 소리 고르기: 킷 기본 소리 + 같은 역할의 다른 소리 */
+function SoundPicker({ track, pitch }: { track: Track; pitch: number }) {
+  const { busy, setDrumSound } = useProject()
+  const { sending, note } = useChat()
+  const role = DRUM_ROLES[pitch]
+  if (!role) return <span className="lane-sound none">바꿀 수 있는 소리 없음</span>
+  const picked = track.drum_sounds?.[pitch]
+  const kitSound = drumSoundOf(track.program, pitch)!
+  return (
+    <select
+      className="lane-sound"
+      value={picked ?? 'default'}
+      disabled={busy || sending}
+      aria-label={`${DRUM_NAMES[pitch] ?? pitch} 소리`}
+      onChange={async (e) => {
+        const changed = await setDrumSound(track.id, pitch, e.target.value)
+        if (changed?.note) note(changed.note, true)
+      }}
+    >
+      <option value="default">{DRUM_SOUNDS[kitSound].name} (킷 기본)</option>
+      {Object.entries(DRUM_SOUNDS)
+        .filter(([id, s]) => s.role === role && id !== kitSound)
+        .map(([id, s]) => (
+          <option key={id} value={id}>
+            {s.name}
+          </option>
+        ))}
+    </select>
   )
 }
 
@@ -438,8 +474,7 @@ function LaneSlider({ trackId, pitch, level }: { trackId: string; pitch: number;
   }
 
   return (
-    <label title={`${name} 평균 세기 (1~127)`}>
-      <span className="lane-name">{name}</span>
+    <label className="lane-level" title={`${name} 평균 세기 (1~127)`}>
       <input
         type="range"
         min={Math.max(1, Math.round(level * 0.1))}

@@ -39,7 +39,7 @@ export function changedTrackIds(project: Project, preview: Project | null): Set<
   if (!preview) return ids
   for (const t of preview.tracks) {
     const original = project.tracks.find((o) => o.id === t.id)
-    if (!original || !sameNotes(original, t) || gmProgramOf(original) !== gmProgramOf(t) || !sameMix(original, t)) ids.add(t.id)
+    if (!original || !sameNotes(original, t) || gmProgramOf(original) !== gmProgramOf(t) || !sameMix(original, t) || !sameDrumSounds(original, t)) ids.add(t.id)
   }
   return ids
 }
@@ -64,6 +64,10 @@ export function changedRange(project: Project, preview: Project | null): { start
 }
 
 export const sameMix = (a: Track, b: Track) => a.volume === b.volume && a.pan === b.pan
+
+/** 드럼 레인별로 고른 소리가 같은지 */
+export const sameDrumSounds = (a: Track, b: Track) =>
+  JSON.stringify(Object.entries(a.drum_sounds ?? {}).sort()) === JSON.stringify(Object.entries(b.drum_sounds ?? {}).sort())
 
 /** 화면용 팬 표시: 가운데 · 왼쪽 20 · 오른쪽 40 */
 export const panLabel = (pan: number) => (pan === 0 ? '가운데' : `${pan < 0 ? '왼쪽' : '오른쪽'} ${Math.abs(pan)}`)

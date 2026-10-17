@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyWithNote, cancelWithNote, undoWithNote } from '../actions'
 import { useChat } from '../store/chat'
-import { gmProgramOf } from '../audio/instruments'
+import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/instruments'
 import { useProject } from '../store/project'
-import { panLabel, sameMix } from '../diff'
+import { panLabel, sameDrumSounds, sameMix } from '../diff'
 import { soundName } from '../theme'
 
 const SUGGESTIONS = [
@@ -117,6 +117,23 @@ export function ChatPanel() {
                 <strong>{soundName(t)}</strong>
               </p>
             ))}
+          {preview.tracks.map((t) => {
+            const before = project.tracks.find((o) => o.id === t.id)
+            if (!before || sameDrumSounds(before, t) || before.program !== t.program) return null
+            const changed = [...new Set([...Object.keys(before.drum_sounds ?? {}), ...Object.keys(t.drum_sounds ?? {})])]
+              .filter((p) => before.drum_sounds?.[p] !== t.drum_sounds?.[p])
+              .map(Number)
+            return (
+              <p className="tempo-change" key={`drum-${t.id}`}>
+                {t.name}{' '}
+                <strong>
+                  {changed
+                    .map((p) => `${DRUM_NAMES[p] ?? p} → ${DRUM_SOUNDS[drumSoundOf(t.program, p, t.drum_sounds)!]?.name ?? p}`)
+                    .join(' · ')}
+                </strong>
+              </p>
+            )
+          })}
           {preview.tracks.map((t) => {
             const before = project.tracks.find((o) => o.id === t.id)
             if (!before || sameMix(before, t)) return null
