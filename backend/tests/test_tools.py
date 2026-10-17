@@ -706,3 +706,20 @@ def test_drum_sound_endpoint(client):
     assert r.json()["project"]["tracks"][0]["drum_sounds"] == {"45": "tom_808"}
     assert r.json()["note"] == "Drums Low Tom 소리를 808 탐(으)로 바꿨어요 (v2로 저장)"
     assert client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sound", json={"pitch": 36, "sound": "hat_808"}).status_code == 400
+
+
+def test_duplicate_track_top_and_bottom_voice():
+    # C 코드(조금씩 어긋나게 친 것) → F 코드 → 한 음
+    chords = track("t1", (60, 0, 2, 80), (64, 0.02, 2, 80), (67, 0.04, 2, 80),
+                   (65, 2, 2, 80), (69, 2, 2, 80), (72, 2.01, 2, 80), (74, 4, 1, 90), name="Chords")
+    p = song(chords)
+    top = run_tool(p, "duplicate_track", {"track_id": "t1", "voice": "top", "program": 81})
+    new = top.project.tracks[-1]
+    assert [n.pitch for n in new.notes] == [67, 72, 74] and new.name == "Chords 탑노트"
+    assert "맨 위 음만" in top.summary and "7개 중" in top.summary
+    low = run_tool(p, "duplicate_track", {"track_id": "t1", "voice": "bottom", "octaves": -1})
+    assert [n.pitch for n in low.project.tracks[-1].notes] == [48, 53, 62] and low.project.tracks[-1].name == "Chords 베이스"
+    again = run_tool(top.project, "duplicate_track", {"track_id": "t1", "voice": "top"})
+    assert again.project.tracks[-1].name == "Chords 탑노트 2"
+    with pytest.raises(ToolError):
+        run_tool(song(track("t1", (36, 0, 1, 80), drum=True)), "duplicate_track", {"track_id": "t1", "voice": "top"})
