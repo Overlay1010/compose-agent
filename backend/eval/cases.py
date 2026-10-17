@@ -1,4 +1,4 @@
-"""정답 있는 명령 52개.
+"""정답 있는 명령 54개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -151,6 +151,10 @@ CASES: list[Case] = [
     case("X03", "믹스", "lofi_groove", "Rhodes는 오른쪽으로 보내고 볼륨은 80으로 해줘",
          [Call("set_mix", {"track_ids": ["t3"], "pan": Range(20, 63), "volume": 80})],
          alt=[(Call("set_mix", {"track_ids": ["t3"], "pan": Range(20, 63)}), Call("set_mix", {"track_ids": ["t3"], "volume": 80}))]),
+    case("K01", "트랙", "lofi_groove", "멜로디를 스트링으로 한 옥타브 아래 겹쳐줘",
+         [Call("duplicate_track", {"track_id": "t5", "octaves": -1, "program": Range(40, 51)})]),
+    case("K02", "트랙", "lofi_groove", "베이스 트랙 하나 더 복사해줘",
+         [Call("duplicate_track", {"track_id": "t2", "octaves": Range(0, 0, default=0)})]),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -158,4 +162,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 52 and len({c.id for c in CASES}) == 52
+assert len(CASES) == 54 and len({c.id for c in CASES}) == 54

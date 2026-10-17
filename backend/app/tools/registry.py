@@ -26,6 +26,7 @@ from app.tools.instrument import SetInstrumentArgs, set_instrument
 from app.tools.mix import SetMixArgs, set_mix
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
+from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
     t.name: t
@@ -114,6 +115,12 @@ TOOLS: dict[str, Tool] = {
             "트랙 전체의 볼륨(페이더)과 좌우 위치(팬)를 바꾼다. 음 세기는 그대로.",
             SetMixArgs,
             set_mix,
+        ),
+        Tool(
+            "duplicate_track",
+            "트랙을 복사해 새 트랙을 만든다. 옥타브를 옮기거나 악기를 바꿔 겹치기(더블링)에 쓴다. 결과에 새 트랙 id가 나온다.",
+            DuplicateTrackArgs,
+            duplicate_track,
         ),
     ]
 }

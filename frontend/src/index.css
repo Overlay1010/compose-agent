@@ -85,7 +85,7 @@ button:disabled { opacity: 0.55; cursor: default; }
 main { flex: 1; display: grid; grid-template-columns: 248px minmax(0, 1fr) 380px; min-height: 0; }
 main.no-project { grid-template-columns: 1fr; }
 
-.tracks { padding: 14px 10px; border-right: 1px solid var(--border); background: #121316; }
+.tracks { padding: 14px 10px; border-right: 1px solid var(--border); background: #121316; overflow-y: auto; min-height: 0; }
 .tracks-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 6px 6px; }
 .tracks-head h2 { margin: 0; color: var(--text-2); }
 .tracks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -101,12 +101,16 @@ select.instrument:hover:not(:disabled) { border-color: #3a4566; color: var(--tex
 select.instrument:disabled { opacity: 0.5; cursor: default; }
 .instrument.drum { display: flex; align-items: center; border-style: dashed; color: var(--text-quiet); }
 .tracks li.selected { background: #1d2027; border-color: #3a4566; }
+.tracks li.new { border-style: dashed; border-color: var(--change-line); }
+.tracks li.new.selected { border-style: solid; }
+.new-count { color: var(--change-line); font-weight: 600; }
 .tracks li.silent .body, .tracks li.silent .stripe { opacity: 0.4; }
 .track { flex: 1; min-width: 0; min-height: 50px; justify-content: flex-start; gap: 10px; padding: 6px 8px; border: 0; background: transparent; text-align: left; }
 .track:hover:not(:disabled) { background: transparent; }
 .track .stripe { width: 4px; align-self: stretch; border-radius: 4px; flex: none; }
 .track .body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.track .name { font-weight: 600; }
+.track .name { display: flex; align-items: center; min-width: 0; font-weight: 600; white-space: nowrap; }
+.track .name .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .track .info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ms { width: 34px; min-height: 40px; padding: 0; font-size: 12px; font-weight: 700; color: var(--text-quiet); }
 .ms.mute.on { background: var(--text); color: #141518; border-color: var(--text); }
@@ -125,7 +129,7 @@ select.instrument:disabled { opacity: 0.5; cursor: default; }
 .overview-area { position: relative; cursor: pointer; border-radius: 6px; overflow: hidden; }
 .overview-area canvas { display: block; }
 .overview-head-line { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; background: var(--playhead); pointer-events: none; }
-.badge { margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--change); color: var(--brand-ink); vertical-align: 1px; }
+.badge { flex: none; white-space: nowrap; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--change); color: var(--brand-ink); vertical-align: 1px; }
 
 .roll { padding: 14px 16px; min-width: 0; }
 .roll h2 { font-size: 15px; display: flex; align-items: baseline; gap: 10px; }

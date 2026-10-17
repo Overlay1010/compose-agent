@@ -35,6 +35,12 @@ interface ProjectState {
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export const useProject = create<ProjectState>((set, get) => {
+  /** 보고 있던 트랙이 이 버전에 없으면(미리보기의 새 트랙 등) 첫 트랙을 고른다 */
+  const keepSelection = (p: Project) => {
+    const id = get().selectedTrackId
+    return p.tracks.some((t) => t.id === id) ? id : (p.tracks[0]?.id ?? null)
+  }
+
   /** 트랙 설정(악기 · 볼륨 · 팬)을 바꾸는 요청. 미리보기는 서버가 같이 고쳐서 돌려준다 */
   const changeTrack = async (
     request: (id: string) => Promise<{ project: Project; preview: Project | null }>,
@@ -63,7 +69,7 @@ export const useProject = create<ProjectState>((set, get) => {
     set({ busy: true, error: null })
     try {
       const next = await request(project.id)
-      set({ project: next, preview: null, baseVersion: null, hearPreview: true })
+      set({ project: next, preview: null, baseVersion: null, hearPreview: true, selectedTrackId: keepSelection(next) })
       void get().loadVersions()
       return next
     } catch (e) {
@@ -125,7 +131,8 @@ export const useProject = create<ProjectState>((set, get) => {
       set({ busy: true, error: null })
       try {
         await api.cancelPreview(project.id)
-        set({ preview: null, baseVersion: null, hearPreview: true })
+        // 미리보기의 새 트랙을 보고 있었으면 그 트랙이 없어지므로 첫 트랙으로
+        set({ preview: null, baseVersion: null, hearPreview: true, selectedTrackId: keepSelection(project) })
       } catch (e) {
         set({ error: message(e) })
       } finally {
