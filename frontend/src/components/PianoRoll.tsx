@@ -246,8 +246,150 @@ export function PianoRoll() {
           <div className="playhead" ref={head} />
         </div>
       </div>
+      {realTrack && !realTrack.is_drum && realTrack.notes.length > 0 && (
+        <VelocityLane track={realTrack} beatsPerBar={(project.time_signature[0] * 4) / project.time_signature[1]} scroller={scroller} />
+      )}
       {realTrack?.is_drum && realTrack.notes.length > 0 && <DrumLanes track={realTrack} />}
     </section>
+  )
+}
+
+const VEL_PX = 72 // 벨로시티 편집창 높이 (세기 127 = 맨 위)
+const BAR_PX = 4 // 막대 폭
+
+/**
+ * 벨로시티 편집창 (DAW의 벨로시티 레인). 음마다 막대 높이 = 세기.
+ * 누르면 그 자리 음, 끌면 지나간 음들의 세기를 마우스 높이로 바꾸고, 손을 떼면 한 번만 새 버전으로 저장한다.
+ * 같은 시각의 화음은 함께 바뀐다. 미리보기가 있으면 음 순서가 달라질 수 있어 편집을 막는다.
+ */
+function VelocityLane({ track, beatsPerBar, scroller }: { track: Track; beatsPerBar: number; scroller: React.RefObject<HTMLDivElement | null> }) {
+  const { project, preview, busy, setVelocities } = useProject()
+  const { sending, note } = useChat()
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const [draft, setDraft] = useState<Map<number, number>>(new Map())
+  const drag = useRef<{ lastX: number } | null>(null)
+  const locked = !!preview
+  const lengthBeats = Math.ceil(Math.max(...track.notes.map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
+  const width = KEY_PX + lengthBeats * BEAT_PX
+  const barX = (n: Note) => KEY_PX + n.start * BEAT_PX + 1
+
+  // 피아노롤을 가로로 스크롤하면 같이 따라간다
+  useEffect(() => {
+    const roll = scroller.current
+    if (!roll) return
+    const follow = () => {
+      if (box.current) box.current.scrollLeft = roll.scrollLeft
+    }
+    follow()
+    roll.addEventListener('scroll', follow)
+    return () => roll.removeEventListener('scroll', follow)
+  }, [scroller])
+
+  useEffect(() => {
+    const el = canvas.current
+    if (!el || !project) return
+    const dpr = window.devicePixelRatio || 1
+    el.width = width * dpr
+    el.height = VEL_PX * dpr
+    el.style.width = `${width}px`
+    el.style.height = `${VEL_PX}px`
+    const ctx = el.getContext('2d')!
+    ctx.scale(dpr, dpr)
+    const css = getComputedStyle(document.documentElement)
+    const color = (v: string) => css.getPropertyValue(v).trim()
+    ctx.fillStyle = color('--surface')
+    ctx.fillRect(0, 0, width, VEL_PX)
+    // 마디선 + 세기 64 · 127 기준선
+    for (let b = 0; b <= lengthBeats; b += beatsPerBar) {
+      ctx.fillStyle = color('--grid-strong')
+      ctx.fillRect(KEY_PX + b * BEAT_PX, 0, 1, VEL_PX)
+    }
+    ctx.fillStyle = color('--grid')
+    ctx.fillRect(KEY_PX, Math.round(VEL_PX / 2), width - KEY_PX, 1)
+    ctx.fillStyle = color('--surface-2')
+    ctx.fillRect(0, 0, KEY_PX - 1, VEL_PX)
+    ctx.fillStyle = color('--text-quiet')
+    ctx.font = '10px system-ui'
+    ctx.fillText('세기', 8, 14)
+    ctx.fillText('127', 8, VEL_PX - 22)
+    ctx.fillText('1', 8, VEL_PX - 6)
+
+    const noteColor = trackColor(project, track.id)
+    track.notes.forEach((n, i) => {
+      const v = draft.get(i) ?? n.velocity
+      const h = Math.max(2, (v / 127) * (VEL_PX - 6))
+      const x = barX(n)
+      ctx.fillStyle = draft.has(i) ? color('--change') : noteColor
+      ctx.globalAlpha = locked ? 0.35 : 0.9
+      ctx.fillRect(x, VEL_PX - h, BAR_PX - 1, h)
+      ctx.fillRect(x - 1, VEL_PX - h, BAR_PX + 1, 2) // 머리
+    })
+    ctx.globalAlpha = 1
+  }, [project, track, draft, width, lengthBeats, beatsPerBar, locked])
+
+  const velocityAt = (y: number) => Math.max(1, Math.min(127, Math.round((1 - (y - 3) / (VEL_PX - 6)) * 127)))
+
+  /** x1~x2(캔버스 좌표) 사이 막대의 음들을 세기 v로 */
+  const paint = (x1: number, x2: number, v: number) => {
+    const lo = Math.min(x1, x2) - BAR_PX
+    const hi = Math.max(x1, x2) + 1
+    setDraft((prev) => {
+      const next = new Map(prev)
+      track.notes.forEach((n, i) => {
+        const x = barX(n)
+        if (x >= lo && x <= hi) next.set(i, v)
+      })
+      return next
+    })
+  }
+
+  const commit = async () => {
+    drag.current = null
+    const changes = [...draft.entries()].map(([index, velocity]) => ({ index, velocity }))
+    if (!changes.length) return
+    const changed = await setVelocities(track.id, changes)
+    setDraft(new Map())
+    if (changed?.note) note(changed.note, true)
+  }
+
+  const disabled = locked || busy || sending
+  return (
+    <div className="vel-lane">
+      <div className="vel-head">
+        <h3>벨로시티</h3>
+        <span className="info">
+          {locked ? '미리보기를 적용하거나 취소한 뒤 편집할 수 있어요' : '막대를 누르거나 끌어서 음마다 세기를 바꿔요 · 손을 떼면 저장 (MIDI에도 남아요)'}
+        </span>
+      </div>
+      <div className="vel-scroll" ref={box}>
+        <canvas
+          ref={canvas}
+          className={disabled ? 'locked' : undefined}
+          aria-label={`${track.name} 벨로시티 편집`}
+          onPointerDown={(e) => {
+            if (disabled || e.button !== 0) return
+            e.currentTarget.setPointerCapture(e.pointerId)
+            const r = e.currentTarget.getBoundingClientRect()
+            const x = e.clientX - r.left
+            drag.current = { lastX: x }
+            paint(x, x, velocityAt(e.clientY - r.top))
+          }}
+          onPointerMove={(e) => {
+            if (!drag.current) return
+            const r = e.currentTarget.getBoundingClientRect()
+            const x = e.clientX - r.left
+            paint(drag.current.lastX, x, velocityAt(e.clientY - r.top))
+            drag.current.lastX = x
+          }}
+          onPointerUp={() => void commit()}
+          onPointerCancel={() => {
+            drag.current = null
+            setDraft(new Map())
+          }}
+        />
+      </div>
+    </div>
   )
 }
 

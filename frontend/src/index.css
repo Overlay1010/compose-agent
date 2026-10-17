@@ -203,6 +203,14 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 .composer textarea::placeholder { color: var(--text-quiet); }
 .composer button.primary { min-height: 44px; }
 
+/* ---------- 벨로시티 편집창 ---------- */
+.vel-lane { margin-top: 8px; }
+.vel-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.vel-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.vel-scroll { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.vel-scroll canvas { display: block; cursor: ns-resize; touch-action: none; }
+.vel-scroll canvas.locked { cursor: not-allowed; }
+
 /* ---------- 드럼 소리별 크기 ---------- */
 .lanes { margin-top: 12px; }
 .lanes h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }

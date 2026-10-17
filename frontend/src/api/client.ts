@@ -142,6 +142,22 @@ export async function setMix(
   )
 }
 
+/** 벨로시티 편집창: 음 순서(index)로 세기를 직접 바꾼다. baseVersion이 지금 버전과 다르면 409 */
+export async function setVelocities(
+  projectId: string,
+  trackId: string,
+  baseVersion: number,
+  changes: { index: number; velocity: number }[],
+): Promise<TrackChange> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/velocities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_version: baseVersion, changes }),
+    }),
+  )
+}
+
 /** 드럼 소리(레인)별 크기: 그 소리 음들의 세기에 scale을 곱한다 (MIDI에 그대로 남음) */
 export async function setLane(projectId: string, trackId: string, pitch: number, scale: number): Promise<TrackChange> {
   return parse(

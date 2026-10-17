@@ -182,6 +182,52 @@ def set_track_mix(project_id: str, track_id: str, body: MixIn) -> TrackChangeOut
     return _change_track(project_id, "set_mix", {"track_ids": [track_id], **body.model_dump(exclude_none=True)})
 
 
+class VelocityChange(BaseModel):
+    index: int = Field(ge=0, description="트랙 안 음의 순서 (base_version 기준)")
+    velocity: int = Field(ge=1, le=127)
+
+
+class VelocitiesIn(BaseModel):
+    base_version: int = Field(description="화면이 보고 있던 버전. 그사이 바뀌었으면 고치지 않는다")
+    changes: list[VelocityChange] = Field(min_length=1, max_length=5000)
+
+
+@router.post("/{project_id}/tracks/{track_id}/velocities", response_model=TrackChangeOut)
+def set_velocities(project_id: str, track_id: str, body: VelocitiesIn) -> TrackChangeOut:
+    """벨로시티 편집창: 음 하나하나의 세기를 직접 바꾼다. 바로 새 버전 (되돌리기 가능).
+
+    음을 순서(index)로 가리키므로, 화면이 본 버전과 지금 버전이 다르면 엉뚱한 음을 고치지 않게 409로 거절한다.
+    미리보기가 있으면 음 순서가 미리보기와 어긋날 수 있어 화면에서 편집을 막는다 (여기서도 거절).
+    """
+    current = _get(project_id)
+    if body.base_version != current.version:
+        raise _error(409, "version_changed", "그사이 버전이 바뀌었어요. 화면을 다시 불러온 뒤 편집해 주세요.")
+    if store.preview(project_id) is not None:
+        raise _error(409, "preview_pending", "적용하지 않은 미리보기가 있어요. 적용하거나 취소한 뒤 세기를 편집해 주세요.")
+    track = next((t for t in current.tracks if t.id == track_id), None)
+    if track is None:
+        raise _error(404, "unknown_track", f"없는 트랙이에요: {track_id}")
+    if any(c.index >= len(track.notes) for c in body.changes):
+        raise _error(400, "invalid_args", f"음 순서가 범위를 벗어나요 (이 트랙은 음 {len(track.notes)}개).")
+
+    notes = list(track.notes)
+    changed = 0
+    for c in body.changes:
+        if notes[c.index].velocity != c.velocity:
+            notes[c.index] = notes[c.index].model_copy(update={"velocity": c.velocity})
+            changed += 1
+    if not changed:
+        return TrackChangeOut(project=current, preview=None)
+    edited = current.model_copy(
+        update={"tracks": [t.model_copy(update={"notes": notes}) if t.id == track_id else t for t in current.tracks]}
+    )
+    text = f"{track.name} 음 {changed}개의 세기를 직접 바꿨어요"
+    new = store.add_version(edited, text)
+    text += f" (v{new.version}로 저장)"
+    store.add_log(project_id, note(text))
+    return TrackChangeOut(project=new, preview=None, note=text)
+
+
 class LaneIn(BaseModel):
     pitch: int = Field(ge=0, le=127, description="드럼 소리(음 번호)")
     scale: float = Field(ge=0.1, le=4, description="그 소리 음들의 세기에 곱할 값")
