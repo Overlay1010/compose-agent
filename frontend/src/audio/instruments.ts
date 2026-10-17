@@ -356,7 +356,9 @@ class SampledDrumVoice implements Voice {
       this.openHat = null
     }
     // 한 번 치고 버리는 소스라서 같은 시각에 겹쳐 울려도 문제없다
-    const src = new Tone.ToneBufferSource(this.buffers.get(file)).connect(this.bus)
+    // 이 드럼과 같은 오디오 공간(context)에 만든다. 음원 내보내기(Tone.Offline)는 녹음 중에 전역 context를
+    // 원래대로 되돌리므로, 전역 기본값으로 만들면 녹음용 노드에 연결하지 못한다
+    const src = new Tone.ToneBufferSource({ url: this.buffers.get(file), context: this.bus.context }).connect(this.bus)
     src.playbackRate.value = rate
     src.onended = () => {
       if (this.openHat === src) this.openHat = null

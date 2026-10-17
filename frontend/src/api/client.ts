@@ -204,6 +204,32 @@ export function downloadTracksZip(projectId: string): Promise<void> {
   return download(`${exportUrl(projectId)}/tracks`)
 }
 
+/** 브라우저가 만든 파일(Blob)을 이 이름으로 저장 */
+export function saveBlob(blob: Blob, name: string) {
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+}
+
+/** 서버(ffmpeg)에서 바꿀 수 있는 음원 형식. 없으면 [] (WAV만) */
+export async function audioFormats(): Promise<string[]> {
+  return (await parse<{ formats: string[] }>(await fetch(`${BASE}/audio/formats`))).formats
+}
+
+/** WAV → MP3 · FLAC · OGG · M4A · MP4 (서버 ffmpeg) */
+export async function convertAudio(wav: Blob, format: string, name: string): Promise<Blob> {
+  const res = await fetch(`${BASE}/audio/convert?format=${format}&name=${encodeURIComponent(name)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'audio/wav' },
+    body: wav,
+  })
+  if (!res.ok) await parse(res)
+  return res.blob()
+}
+
 /** 파일 내려받기. 서버 오류면 오류 문구가 .txt로 저장되지 않게 먼저 확인하고 ApiError를 던진다 */
 async function download(url: string): Promise<void> {
   const res = await fetch(url)
@@ -214,13 +240,7 @@ async function download(url: string): Promise<void> {
   // 파일 이름은 Content-Disposition의 filename*=UTF-8''… 에서
   const header = res.headers.get('Content-Disposition') ?? ''
   const match = /filename\*=UTF-8''([^;]+)/i.exec(header)
-  const name = match ? decodeURIComponent(match[1]) : 'project.mid'
-  const blobUrl = URL.createObjectURL(await res.blob())
-  const a = document.createElement('a')
-  a.href = blobUrl
-  a.download = name
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+  saveBlob(await res.blob(), match ? decodeURIComponent(match[1]) : 'project.mid')
 }
 
 export function exportUrl(projectId: string): string {
