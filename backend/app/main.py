@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.agent import LLMError, LLMUnavailable
-from app.api import chat, projects
+from app.api import audio, chat, projects
 from app.tools import ToolError
 
 app = FastAPI(title="Compose Agent", version="0.1.0")
@@ -40,3 +40,4 @@ def health() -> dict[str, str]:
 
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
+app.include_router(audio.router, prefix="/api/v1")

@@ -33,6 +33,8 @@ compose-agent/
 
 필요한 것: Python 3.11 이상, Node.js 20 이상
 
+선택: [ffmpeg](https://ffmpeg.org/download.html) — PATH에 있으면 음원을 MP3 · FLAC · OGG · M4A · MP4로도 내보낸다. 없으면 WAV만 (WAV는 브라우저에서 바로 만든다).
+
 **1. 백엔드** (터미널 1)
 
 ```powershell

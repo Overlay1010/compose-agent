@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { downloadMidi, downloadTracksZip } from '../api/client'
+import { audioFormats, convertAudio, downloadMidi, downloadTracksZip, saveBlob } from '../api/client'
+import { peakOf, renderMix, toWav } from '../audio/render'
 import { positionBeats } from '../audio/player'
 import { useShortcutHelp } from '../shortcuts'
-import { usePlayer } from '../store/player'
+import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 
 function PlayIcon() {
@@ -22,10 +23,47 @@ function StopIcon() {
 }
 
 /** 내보내기 메뉴: 전체 곡 하나 · 트랙별 .zip · 트랙 하나만. 현재 버전 기준 (적용 전 미리보기는 빠짐) */
+const AUDIO_LABELS: Record<string, string> = { wav: 'WAV · 무손실', mp3: 'MP3', flac: 'FLAC · 무손실', ogg: 'OGG', m4a: 'M4A · AAC', mp4: 'MP4 · 소리만' }
+
 function ExportMenu() {
   const { project, preview } = useProject()
   const [open, setOpen] = useState(false)
+  const [formats, setFormats] = useState<string[]>(['wav'])
+  const [working, setWorking] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
+
+  // 서버에 ffmpeg가 있으면 MP3 등도 보여 준다
+  useEffect(() => {
+    audioFormats()
+      .then((f) => setFormats(['wav', ...f]))
+      .catch(() => setFormats(['wav']))
+  }, [])
+
+  /** 들리는 그대로(음소거 · 솔로 반영) 녹음 → 형식 변환 → 저장 */
+  const exportAudio = async (format: string) => {
+    if (!project) return
+    setWorking(`${format.toUpperCase()} 만드는 중… (악기를 불러와 녹음해요)`)
+    usePlayer.getState().stop() // 녹음하는 동안은 Tone.js 전역 오디오가 녹음용으로 바뀌어서 재생을 멈춘다
+    try {
+      const { muted, solo } = usePlayer.getState()
+      const buffer = await renderMix(project, silenced(project, muted, solo))
+      const wav = toWav(buffer)
+      const name = `${project.name}_v${project.version}`
+      if (format === 'wav') saveBlob(wav, `${name}.wav`)
+      else {
+        setWorking(`${format.toUpperCase()}로 바꾸는 중…`)
+        saveBlob(await convertAudio(wav, format, name), `${name}.${format}`)
+      }
+      setOpen(false)
+      if (peakOf(buffer) >= 0.999) {
+        useProject.setState({ error: '음원은 만들었지만 소리가 너무 커서 일부가 깨졌을 수 있어요. 트랙 볼륨을 조금 줄여 보세요.' })
+      }
+    } catch (e) {
+      useProject.setState({ error: `음원으로 내보내지 못했어요: ${e instanceof Error ? e.message : String(e)}` })
+    } finally {
+      setWorking(null)
+    }
+  }
 
   // 메뉴 밖을 누르거나 Esc면 닫는다
   useEffect(() => {
@@ -60,6 +98,7 @@ function ExportMenu() {
       </button>
       {open && (
         <div className="export-menu" role="menu">
+          <p className="export-sep">MIDI</p>
           <button role="menuitem" onClick={() => run(downloadMidi(project.id))}>
             <strong>전체 곡 · 파일 하나</strong>
             <span>모든 트랙이 든 .mid</span>
@@ -68,7 +107,20 @@ function ExportMenu() {
             <strong>트랙별로 한 번에</strong>
             <span>트랙마다 .mid + 전체 곡 .mid를 .zip으로</span>
           </button>
-          <p className="export-sep">트랙 하나만</p>
+          <p className="export-sep">음원 (들리는 그대로 · 음소거 · 솔로 반영)</p>
+          <div className="export-formats">
+            {formats.map((f) => (
+              <button key={f} role="menuitem" className="fmt" disabled={!!working} onClick={() => void exportAudio(f)}>
+                {AUDIO_LABELS[f] ?? f.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {working && (
+            <p className="export-working" aria-live="polite">
+              <span className="spinner small" aria-hidden="true" /> {working}
+            </p>
+          )}
+          <p className="export-sep">트랙 하나만 (MIDI)</p>
           {project.tracks.map((t) => (
             <button key={t.id} role="menuitem" className="one" onClick={() => run(downloadMidi(project.id, t.id))}>
               {t.name}
@@ -76,7 +128,7 @@ function ExportMenu() {
             </button>
           ))}
           <p className="export-note">
-            v{project.version} 기준{preview ? ' · 적용 전 미리보기는 들어가지 않아요' : ''} · 드럼 소리 선택은 MIDI에 안 담겨요
+            v{project.version} 기준{preview ? ' · 적용 전 미리보기는 들어가지 않아요' : ''} · 드럼 소리 선택은 MIDI에는 안 담기고 음원에는 담겨요
           </p>
         </div>
       )}

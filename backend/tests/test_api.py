@@ -1,3 +1,5 @@
+import pytest
+
 from app.midi_io.convert import midi_bytes_to_project
 
 
@@ -72,3 +74,39 @@ def test_export_one_track_and_zip(client):
     assert files.namelist() == ["00 전체 곡 - 내 곡_ 1_2.mid", "01 Drums.mid", "02 탑노트.mid"]
     drums = midi_bytes_to_project(files.read("01 Drums.mid"))
     assert drums.tracks[0].is_drum and len(drums.tracks) == 1
+
+
+def make_wav(seconds: float = 0.5) -> bytes:
+    import io
+    import math
+    import struct
+    import wave
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(44100)
+        frames = b"".join(
+            struct.pack("<hh", v, v) for v in (int(8000 * math.sin(2 * math.pi * 440 * i / 44100)) for i in range(int(44100 * seconds)))
+        )
+        w.writeframes(frames)
+    return buf.getvalue()
+
+
+@pytest.mark.skipif(__import__("shutil").which("ffmpeg") is None, reason="ffmpeg 없음")
+@pytest.mark.parametrize("fmt, magic", [("mp3", (b"ID3", b"\xff\xfb", b"\xff\xf3")), ("flac", (b"fLaC",)), ("ogg", (b"OggS",)), ("m4a", (b"\x00\x00\x00",)), ("mp4", (b"\x00\x00\x00",))])
+def test_audio_convert(client, fmt, magic):
+    r = client.post("/api/v1/audio/convert", params={"format": fmt, "name": "내 곡"}, content=make_wav())
+    assert r.status_code == 200, r.text
+    assert r.content.startswith(magic)
+    if fmt in ("m4a", "mp4"):
+        assert r.content[4:8] == b"ftyp"
+    assert f"%EB%82%B4%20%EA%B3%A1.{fmt}" in r.headers["content-disposition"]
+
+
+def test_audio_convert_rejects_bad_input(client):
+    assert client.post("/api/v1/audio/convert", params={"format": "exe"}, content=make_wav()).status_code == 400
+    assert client.post("/api/v1/audio/convert", params={"format": "mp3"}, content=b"hello").status_code in (400, 503)
+    assert "formats" in client.get("/api/v1/audio/formats").json()
+
