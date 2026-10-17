@@ -17,7 +17,7 @@ export interface Voice {
 }
 
 export function createVoice(track: Track): Voice {
-  return track.is_drum ? new SampledDrumVoice() : new SampledVoice(track)
+  return track.is_drum ? new SampledDrumVoice(track.program) : new SampledVoice(track)
 }
 
 const LOAD_TIMEOUT_MS = 15000
@@ -153,8 +153,11 @@ export const DRUM_NAMES: Record<number, string> = {
   57: 'Crash 2', 59: 'Ride 2',
 }
 
-// GM 드럼 번호 → [샘플 파일, 재생 속도]. 탐은 같은 샘플을 속도만 바꿔 높낮이를 나눈다.
-const DRUM_SAMPLES: Record<number, [string, number]> = {
+// [샘플 파일, 재생 속도, 크기(기본 1)]. 탐은 같은 샘플을 속도만 바꿔 높낮이를 나눈다.
+type DrumSample = [file: string, rate: number, gain?: number]
+
+// GM 드럼 번호 → 스탠다드 킷 샘플
+const DRUM_SAMPLES: Record<number, DrumSample> = {
   35: ['drum_bass_hard', 1], 36: ['drum_heavy_kick', 1],
   37: ['drum_snare_soft', 1.1], 38: ['drum_snare_hard', 1], 39: ['perc_snap', 1], 40: ['drum_snare_hard', 1.05],
   42: ['drum_cymbal_closed', 1], 44: ['drum_cymbal_pedal', 1], 46: ['drum_cymbal_open', 1],
@@ -163,7 +166,43 @@ const DRUM_SAMPLES: Record<number, [string, number]> = {
   49: ['drum_cymbal_hard', 1], 52: ['drum_cymbal_hard', 0.9], 55: ['drum_splash_hard', 1], 57: ['drum_cymbal_hard', 1.05],
   51: ['drum_cymbal_soft', 1], 53: ['drum_cymbal_soft', 1.2], 59: ['drum_cymbal_soft', 0.95],
 }
-const DRUM_DEFAULT: [string, number] = ['drum_cymbal_closed', 1] // 목록에 없는 번호
+const DRUM_DEFAULT: DrumSample = ['drum_cymbal_closed', 1] // 목록에 없는 번호
+
+/** 고를 수 있는 드럼 킷 (GM 드럼 킷 번호, 백엔드 app/tools/instrument.py DRUM_KITS와 같은 목록) */
+export const DRUM_KITS: { program: number; name: string }[] = [
+  { program: 0, name: '스탠다드' },
+  { program: 16, name: '파워' },
+  { program: 24, name: '일렉트로닉' },
+  { program: 25, name: 'TR-808' },
+]
+
+export const kitName = (program: number) => DRUM_KITS.find((k) => k.program === program)?.name ?? '스탠다드'
+
+// 킷마다 스탠다드와 다른 소리만 적는다 (샘플 고른 기준: 길이 · 밝기 · 저역 비율을 재서 비교).
+// 크기가 큰 샘플(최대값 1.4)은 gain을 낮춰 다른 소리와 맞춘다.
+const TOMS = [41, 43, 45, 47, 48, 50]
+const KIT_SAMPLES: Record<number, Record<number, DrumSample>> = {
+  // 파워: 묵직한 킥 · 큰 스네어 · 낮게 튠한 탐
+  16: {
+    35: ['bd_klub', 0.95, 0.7], 36: ['bd_klub', 1, 0.7], 38: ['sn_dolf', 1, 0.7], 40: ['sn_dolf', 1.05, 0.7],
+    ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, [['drum_tom_lo_hard', 'drum_tom_mid_hard', 'drum_tom_hi_hard'][Math.floor(i / 2)], 0.82 + (i % 2) * 0.08]])),
+  },
+  // 일렉트로닉: 짧은 킥 · 전자 스네어 · 짧은 하이햇 · 퍼즈 탐
+  24: {
+    35: ['elec_hollow_kick', 1, 0.7], 36: ['elec_soft_kick', 1, 0.7], 37: ['elec_hi_snare', 1.1], 38: ['elec_snare', 1], 40: ['elec_lo_snare', 1],
+    42: ['hat_sci', 1], 44: ['hat_sci', 0.9], 46: ['hat_noiz', 1],
+    ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, ['elec_fuzz_tom', 0.75 + i * 0.1, 0.8]])),
+    49: ['elec_cymbal', 1], 57: ['elec_cymbal', 0.95],
+  },
+  // TR-808: 길게 울리는 808 킥 · 짧은 하이햇 · 낮은 음의 탐(킥 샘플을 높여서)
+  25: {
+    35: ['bd_808', 0.95], 36: ['bd_808', 1], 38: ['elec_hi_snare', 1], 40: ['elec_hi_snare', 0.95],
+    42: ['hat_bdu', 1], 44: ['hat_bdu', 0.9], 46: ['hat_len', 1],
+    ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, ['bd_pure', 1.6 + i * 0.3]])),
+  },
+}
+
+const drumSample = (kit: number, pitch: number): DrumSample => KIT_SAMPLES[kit]?.[pitch] ?? DRUM_SAMPLES[pitch] ?? DRUM_DEFAULT
 const CLOSED_HATS = new Set([42, 44])
 const OPEN_HAT = 46
 
@@ -174,9 +213,12 @@ class SampledDrumVoice implements Voice {
   private buffers: Tone.ToneAudioBuffers | null = null
   private synth: SynthDrumVoice | null = null
   private openHat: Tone.ToneBufferSource | null = null
+  private kit: number
 
-  constructor() {
-    const files = new Set([...Object.values(DRUM_SAMPLES), DRUM_DEFAULT].map(([f]) => f))
+  constructor(program: number) {
+    this.kit = DRUM_KITS.some((k) => k.program === program) ? program : 0
+    const pitches = [...new Set([...Object.keys(DRUM_SAMPLES), ...Object.keys(KIT_SAMPLES[this.kit] ?? {})].map(Number))]
+    const files = new Set([...pitches.map((p) => drumSample(this.kit, p)), DRUM_DEFAULT].map(([f]) => f))
     const urls = Object.fromEntries([...files].map((f) => [f, `${f}.flac`]))
     this.ready = waitLoad((done, fail) => {
       this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: '/samples/drums/', onload: done, onerror: fail })
@@ -193,7 +235,7 @@ class SampledDrumVoice implements Voice {
   play(pitch: number, duration: string, time: number, velocity: number) {
     if (!this.buffers?.loaded) return this.synth?.play(pitch, duration, time, velocity)
 
-    const [file, rate] = DRUM_SAMPLES[pitch] ?? DRUM_DEFAULT
+    const [file, rate, gain = 1] = drumSample(this.kit, pitch)
     // 닫힌 하이햇이 울리면 열린 하이햇 소리를 끊는다 (실제 하이햇처럼)
     if (CLOSED_HATS.has(pitch) && this.openHat) {
       this.openHat.stop(time)
@@ -206,7 +248,7 @@ class SampledDrumVoice implements Voice {
       if (this.openHat === src) this.openHat = null
       src.dispose()
     }
-    src.start(time, 0, undefined, Math.pow(velocity / 127, 1.5))
+    src.start(time, 0, undefined, Math.pow(velocity / 127, 1.5) * gain)
     if (pitch === OPEN_HAT) this.openHat = src
   }
 

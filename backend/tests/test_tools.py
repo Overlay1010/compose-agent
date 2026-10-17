@@ -584,3 +584,24 @@ def test_duplicated_track_survives_export():
     r = run_tool(p, "duplicate_track", {"track_id": "t1", "octaves": 1, "program": 40})
     back = midi_bytes_to_project(project_to_midi_bytes(r.project))
     assert [(t.name, t.program, t.notes[0].pitch) for t in back.tracks] == [("Lead", 0, 60), ("Lead 2", 40, 72)]
+
+
+def test_set_instrument_drum_kits():
+    p = song(track("t1", (60, 0, 1, 80), name="Keys"), track("t2", (36, 0, 1, 80), drum=True, name="Drums"))
+    r = run_tool(p, "set_instrument", {"track_ids": ["t2"], "program": 25})
+    assert r.project.tracks[1].program == 25 and r.changed_settings and "TR-808" in r.summary
+    assert r.project.tracks[0] == p.tracks[0]
+    same = run_tool(p, "set_instrument", {"track_ids": ["t2"], "program": 0})  # 이미 스탠다드(0)
+    assert not same.changed_settings and "스탠다드" in same.summary
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "set_instrument", {"track_ids": ["t2"], "program": 33})  # 드럼을 베이스로는 안 됨
+    assert e.value.code == "drum_track" and "25 TR-808" in e.value.message
+
+
+def test_drum_kit_survives_export():
+    from app.midi_io.convert import project_to_midi_bytes
+
+    p = song(track("t1", (36, 0, 1, 80), drum=True, name="Drums"))
+    r = run_tool(p, "set_instrument", {"track_ids": ["t1"], "program": 24})
+    back = midi_bytes_to_project(project_to_midi_bytes(r.project))
+    assert back.tracks[0].is_drum and back.tracks[0].program == 24

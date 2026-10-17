@@ -5,8 +5,8 @@ import { changedTrackIds, panLabel } from '../diff'
 import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 import { useChat } from '../store/chat'
-import { GM_GROUPS, programName, trackColor } from '../theme'
-import { gmProgramOf } from '../audio/instruments'
+import { GM_GROUPS, soundName, programName, trackColor } from '../theme'
+import { DRUM_KITS, gmProgramOf } from '../audio/instruments'
 import { Meter } from './Meter'
 
 export function TrackList() {
@@ -84,9 +84,22 @@ export function TrackList() {
             </button>
             {isNew(t.id) ? (
               // 아직 없는 트랙이라 악기 · 볼륨은 적용한 뒤에 바꿀 수 있다
-              <span className="instrument drum">{t.is_drum ? '드럼 킷 (General MIDI)' : programName(gmProgramOf(t))}</span>
+              <span className="instrument drum">{soundName(t)}</span>
             ) : t.is_drum ? (
-              <span className="instrument drum">드럼 킷 (General MIDI)</span>
+              <select
+                className="instrument"
+                value={DRUM_KITS.some((k) => k.program === t.program) ? t.program : 0}
+                disabled={busy || sending}
+                onChange={(e) => void changeInstrument(t.id, Number(e.target.value))}
+                aria-label={`${t.name} 드럼 킷`}
+                title="드럼 킷 바꾸기 (바로 새 버전으로 저장, 되돌리기 가능)"
+              >
+                {DRUM_KITS.map((k) => (
+                  <option key={k.program} value={k.program}>
+                    드럼 킷 · {k.name}
+                  </option>
+                ))}
+              </select>
             ) : (
               <select
                 className="instrument"

@@ -40,7 +40,7 @@ const TOOL_LABELS: Record<string, string> = {
   adjust_velocity: '세기 조절',
   swing: '스윙 넣기',
   set_tempo: '템포 바꾸기',
-  set_instrument: '악기 바꾸기',
+  set_instrument: '악기 · 드럼 킷 바꾸기',
   delete_notes: '음 지우기',
   set_length: '음 길이 바꾸기',
   copy_bars: '마디 복사',
