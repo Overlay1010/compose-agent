@@ -19,7 +19,7 @@ export interface Voice {
 }
 
 export function createVoice(track: Track): Voice {
-  return track.is_drum ? new SampledDrumVoice(track.program) : new SampledVoice(track)
+  return track.is_drum ? new SampledDrumVoice(track) : new SampledVoice(track)
 }
 
 const LOAD_TIMEOUT_MS = 15000
@@ -155,23 +155,79 @@ export const DRUM_NAMES: Record<number, string> = {
   57: 'Crash 2', 59: 'Ride 2',
 }
 
-// [샘플 파일, 재생 속도, 크기(기본 1)]. 탐은 같은 샘플을 속도만 바꿔 높낮이를 나눈다.
+// [샘플 파일, 재생 속도, 크기(기본 1)]
 type DrumSample = [file: string, rate: number, gain?: number]
 
-// GM 드럼 번호 → 스탠다드 킷 샘플
-const DRUM_SAMPLES: Record<number, DrumSample> = {
-  35: ['drum_bass_hard', 1], 36: ['drum_heavy_kick', 1],
-  37: ['drum_snare_soft', 1.1], 38: ['drum_snare_hard', 1], 39: ['perc_snap', 1], 40: ['drum_snare_hard', 1.05],
-  42: ['drum_cymbal_closed', 1], 44: ['drum_cymbal_pedal', 1], 46: ['drum_cymbal_open', 1],
-  41: ['drum_tom_lo_hard', 0.9], 43: ['drum_tom_lo_hard', 1], 45: ['drum_tom_mid_hard', 0.95],
-  47: ['drum_tom_mid_hard', 1.05], 48: ['drum_tom_hi_hard', 0.95], 50: ['drum_tom_hi_hard', 1.05],
-  49: ['drum_cymbal_hard', 1], 52: ['drum_cymbal_hard', 0.9], 55: ['drum_splash_hard', 1], 57: ['drum_cymbal_hard', 1.05],
-  51: ['drum_cymbal_soft', 1], 53: ['drum_cymbal_soft', 1.2], 59: ['drum_cymbal_soft', 0.95],
-}
-const DRUM_DEFAULT: DrumSample = ['drum_cymbal_closed', 1] // 목록에 없는 번호
+export type DrumRole = 'kick' | 'snare' | 'clap' | 'hat' | 'openhat' | 'tom' | 'crash' | 'ride'
 
-/** 고를 수 있는 드럼 킷 (GM 드럼 킷 번호, 백엔드 app/tools/instrument.py DRUM_KITS와 같은 목록) */
-// 8 · 32는 GM2 표준 번호, 26~28은 이 앱 전용 (DAW에서는 각 DAW 드럼 소리로 열림)
+// GM 드럼 번호 → 역할 (백엔드 app/tools/drums.py ROLES와 같음). 같은 역할끼리만 소리를 바꿀 수 있다
+export const DRUM_ROLES: Record<number, DrumRole> = {
+  35: 'kick', 36: 'kick', 37: 'snare', 38: 'snare', 40: 'snare', 39: 'clap',
+  42: 'hat', 44: 'hat', 46: 'openhat',
+  41: 'tom', 43: 'tom', 45: 'tom', 47: 'tom', 48: 'tom', 50: 'tom',
+  49: 'crash', 52: 'crash', 55: 'crash', 57: 'crash', 51: 'ride', 53: 'ride', 59: 'ride',
+}
+
+const TOMS = [41, 43, 45, 47, 48, 50] // 낮은 탐 → 높은 탐
+// 탐 소리는 탐 6개(TOMS 순서)에 각각 샘플 · 속도를 둬서 높낮이를 나눈다
+const toms = (file: string, rates: number[], gain = 1): DrumSample[] => rates.map((r) => [file, r, gain])
+
+/**
+ * 드럼 소리 목록 (백엔드 app/tools/drums.py DRUM_SOUNDS와 같은 id · 이름, 테스트가 확인).
+ * 샘플은 모두 Sonic Pi CC0. 고른 기준: 길이 · 밝기(스펙트럼 중심) · 저역 비율을 재서 비교 (docs/devlog.md v0.1-16 · 19).
+ */
+export const DRUM_SOUNDS: Record<string, { name: string; role: DrumRole; sample: DrumSample | DrumSample[] }> = {
+  kick_acoustic: { name: '어쿠스틱 킥', role: 'kick', sample: ['drum_heavy_kick', 1] },
+  kick_soft: { name: '부드러운 킥', role: 'kick', sample: ['drum_bass_soft', 1] },
+  kick_punch: { name: '펀치 킥', role: 'kick', sample: ['bd_klub', 1, 0.7] },
+  kick_808: { name: '808 킥', role: 'kick', sample: ['bd_808', 1] },
+  kick_house: { name: '하우스 킥', role: 'kick', sample: ['bd_haus', 1, 0.7] },
+  kick_lofi: { name: '둥근 로파이 킥', role: 'kick', sample: ['bd_gas', 1] },
+  kick_boombap: { name: '붐뱁 킥', role: 'kick', sample: ['bd_fat', 1, 1.6] },
+  kick_electro: { name: '일렉 킥', role: 'kick', sample: ['elec_soft_kick', 1, 0.7] },
+  snare_acoustic: { name: '어쿠스틱 스네어', role: 'snare', sample: ['drum_snare_hard', 1] },
+  snare_soft: { name: '부드러운 스네어', role: 'snare', sample: ['drum_snare_soft', 1] },
+  snare_big: { name: '큰 스네어', role: 'snare', sample: ['sn_dolf', 1, 0.7] },
+  snare_lofi: { name: '먹먹한 스네어', role: 'snare', sample: ['sn_dub', 0.95, 0.7] },
+  snare_909: { name: '909 스네어', role: 'snare', sample: ['sn_generic', 1, 0.8] },
+  snare_boombap: { name: '붐뱁 스네어', role: 'snare', sample: ['sn_zome', 1, 0.75] },
+  snare_electro: { name: '일렉 스네어', role: 'snare', sample: ['elec_snare', 1] },
+  snare_808: { name: '808 스네어', role: 'snare', sample: ['elec_hi_snare', 1] },
+  clap: { name: '클랩', role: 'clap', sample: ['perc_snap', 1] },
+  clap_909: { name: '909 클랩', role: 'clap', sample: ['perc_snap2', 1, 0.7] },
+  hat_acoustic: { name: '어쿠스틱 하이햇', role: 'hat', sample: ['drum_cymbal_closed', 1] },
+  hat_808: { name: '808 하이햇', role: 'hat', sample: ['hat_bdu', 1] },
+  hat_909: { name: '909 하이햇', role: 'hat', sample: ['hat_raw', 1] },
+  hat_soft: { name: '작고 부드러운 하이햇', role: 'hat', sample: ['hat_tap', 1, 2.5] },
+  hat_crisp: { name: '또렷한 하이햇', role: 'hat', sample: ['hat_zild', 1] },
+  hat_electro: { name: '일렉 하이햇', role: 'hat', sample: ['hat_sci', 1] },
+  openhat_acoustic: { name: '어쿠스틱 오픈햇', role: 'openhat', sample: ['drum_cymbal_open', 1] },
+  openhat_808: { name: '808 오픈햇', role: 'openhat', sample: ['hat_len', 1] },
+  openhat_909: { name: '909 오픈햇', role: 'openhat', sample: ['hat_gump', 1, 0.8] },
+  openhat_soft: { name: '부드러운 오픈햇', role: 'openhat', sample: ['hat_cats', 1, 1.5] },
+  openhat_electro: { name: '일렉 오픈햇', role: 'openhat', sample: ['hat_noiz', 1] },
+  tom_acoustic: {
+    name: '어쿠스틱 탐', role: 'tom',
+    sample: [['drum_tom_lo_hard', 0.9], ['drum_tom_lo_hard', 1], ['drum_tom_mid_hard', 0.95], ['drum_tom_mid_hard', 1.05], ['drum_tom_hi_hard', 0.95], ['drum_tom_hi_hard', 1.05]],
+  },
+  tom_deep: {
+    name: '낮고 큰 탐', role: 'tom',
+    sample: [['drum_tom_lo_hard', 0.82], ['drum_tom_lo_hard', 0.9], ['drum_tom_mid_hard', 0.82], ['drum_tom_mid_hard', 0.9], ['drum_tom_hi_hard', 0.82], ['drum_tom_hi_hard', 0.9]],
+  },
+  // 둥글고 낮은 킥(bd_gas)을 높여서 쓰는 부드러운 탐
+  tom_round: { name: '둥근 로파이 탐', role: 'tom', sample: toms('bd_gas', [1.5, 1.7, 1.9, 2.15, 2.4, 2.7]) },
+  tom_808: { name: '808 탐', role: 'tom', sample: toms('bd_pure', [1.6, 1.9, 2.2, 2.5, 2.8, 3.1]) },
+  tom_electro: { name: '일렉 탐', role: 'tom', sample: toms('elec_fuzz_tom', [0.75, 0.85, 0.95, 1.05, 1.15, 1.25], 0.8) },
+  crash_acoustic: { name: '어쿠스틱 크래시', role: 'crash', sample: ['drum_cymbal_hard', 1] },
+  crash_splash: { name: '스플래시', role: 'crash', sample: ['drum_splash_hard', 1] },
+  crash_electro: { name: '일렉 심벌', role: 'crash', sample: ['elec_cymbal', 1] },
+  ride_acoustic: { name: '어쿠스틱 라이드', role: 'ride', sample: ['drum_cymbal_soft', 1] },
+  ride_jazz: { name: '재즈 라이드', role: 'ride', sample: ['ride_via', 1, 1.5] },
+  ride_bright: { name: '밝은 라이드', role: 'ride', sample: ['ride_tri', 1, 1.3] },
+}
+
+/** 고를 수 있는 드럼 킷 (GM 드럼 킷 번호, 백엔드 app/tools/instrument.py DRUM_KITS와 같은 목록).
+ *  8 · 32는 GM2 표준 번호, 26~28은 이 앱 전용 (DAW에서는 각 DAW 드럼 소리로 열림) */
 export const DRUM_KITS: { program: number; name: string }[] = [
   { program: 0, name: '스탠다드' },
   { program: 8, name: '룸' },
@@ -185,49 +241,62 @@ export const DRUM_KITS: { program: number; name: string }[] = [
 ]
 
 export const kitName = (program: number) => DRUM_KITS.find((k) => k.program === program)?.name ?? '스탠다드'
+export const kitOf = (program: number) => (DRUM_KITS.some((k) => k.program === program) ? program : 0)
 
-// 킷마다 스탠다드와 다른 소리만 적는다 (샘플 고른 기준: 길이 · 밝기 · 저역 비율을 재서 비교).
-// 크기가 큰 샘플(최대값 1.4)은 gain을 낮춰 다른 소리와 맞춘다.
-const TOMS = [41, 43, 45, 47, 48, 50]
-const KIT_SAMPLES: Record<number, Record<number, DrumSample>> = {
-  // 파워: 묵직한 킥 · 큰 스네어 · 낮게 튠한 탐
-  16: {
-    35: ['bd_klub', 0.95, 0.7], 36: ['bd_klub', 1, 0.7], 38: ['sn_dolf', 1, 0.7], 40: ['sn_dolf', 1.05, 0.7],
-    ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, [['drum_tom_lo_hard', 'drum_tom_mid_hard', 'drum_tom_hi_hard'][Math.floor(i / 2)], 0.82 + (i % 2) * 0.08]])),
-  },
-  // 일렉트로닉: 짧은 킥 · 전자 스네어 · 짧은 하이햇 · 퍼즈 탐
+// 킷 = 역할마다 어떤 소리를 쓸지. 모든 킷이 8가지 역할을 다 채운다
+type Kit = Record<DrumRole, string>
+const STANDARD: Kit = {
+  kick: 'kick_acoustic', snare: 'snare_acoustic', clap: 'clap', hat: 'hat_acoustic', openhat: 'openhat_acoustic',
+  tom: 'tom_acoustic', crash: 'crash_acoustic', ride: 'ride_acoustic',
+}
+const KITS: Record<number, Kit> = {
+  0: STANDARD,
+  8: STANDARD, // 룸: 같은 소리 + 방 울림 (KIT_FX)
+  16: { ...STANDARD, kick: 'kick_punch', snare: 'snare_big', tom: 'tom_deep' },
   24: {
-    35: ['elec_hollow_kick', 1, 0.7], 36: ['elec_soft_kick', 1, 0.7], 37: ['elec_hi_snare', 1.1], 38: ['elec_snare', 1], 40: ['elec_lo_snare', 1],
-    42: ['hat_sci', 1], 44: ['hat_sci', 0.9], 46: ['hat_noiz', 1],
-    ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, ['elec_fuzz_tom', 0.75 + i * 0.1, 0.8]])),
-    49: ['elec_cymbal', 1], 57: ['elec_cymbal', 0.95],
+    kick: 'kick_electro', snare: 'snare_electro', clap: 'clap_909', hat: 'hat_electro', openhat: 'openhat_electro',
+    tom: 'tom_electro', crash: 'crash_electro', ride: 'ride_bright',
   },
-  // TR-808: 길게 울리는 808 킥 · 짧은 하이햇 · 낮은 음의 탐(킥 샘플을 높여서)
   25: {
-    35: ['bd_808', 0.95], 36: ['bd_808', 1], 38: ['elec_hi_snare', 1], 40: ['elec_hi_snare', 0.95],
-    42: ['hat_bdu', 1], 44: ['hat_bdu', 0.9], 46: ['hat_len', 1],
-    ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, ['bd_pure', 1.6 + i * 0.3]])),
+    kick: 'kick_808', snare: 'snare_808', clap: 'clap', hat: 'hat_808', openhat: 'openhat_808',
+    tom: 'tom_808', crash: 'crash_electro', ride: 'ride_bright',
   },
-  // 하우스 (909): 짧고 단단한 킥 · 909식 클랩 · 밝은 하이햇
   26: {
-    35: ['bd_haus', 0.95, 0.7], 36: ['bd_haus', 1, 0.7], 38: ['sn_generic', 1, 0.8], 40: ['sn_generic', 1.05, 0.8],
-    39: ['perc_snap2', 1, 0.7], 42: ['hat_raw', 1], 44: ['hat_raw', 0.9], 46: ['hat_gump', 1, 0.8],
+    kick: 'kick_house', snare: 'snare_909', clap: 'clap_909', hat: 'hat_909', openhat: 'openhat_909',
+    tom: 'tom_808', crash: 'crash_electro', ride: 'ride_bright',
   },
-  // 로파이: 둥글고 낮은 킥 · 먹먹한 스네어 · 작은 하이햇 (필터는 KIT_FX)
   27: {
-    35: ['bd_gas', 0.95], 36: ['bd_gas', 1], 38: ['sn_dub', 0.95, 0.7], 40: ['sn_dub', 1, 0.7],
-    42: ['hat_tap', 1, 2.5], 44: ['hat_tap', 0.9, 2.5], 46: ['hat_cats', 1, 1.5],
+    kick: 'kick_lofi', snare: 'snare_lofi', clap: 'clap', hat: 'hat_soft', openhat: 'openhat_soft',
+    tom: 'tom_round', crash: 'crash_splash', ride: 'ride_jazz',
   },
-  // 붐뱁: 굵은 킥 · 큰 스네어
-  28: {
-    35: ['bd_fat', 0.95, 1.6], 36: ['bd_fat', 1, 1.6], 38: ['sn_zome', 1, 0.75], 40: ['sn_zome', 1.05, 0.75],
-    42: ['hat_zild', 1], 44: ['hat_zild', 0.9],
-  },
-  // 재즈: 부드러운 킥 · 스네어, 길게 울리는 라이드 (잔향은 KIT_FX)
-  32: {
-    35: ['drum_bass_soft', 0.95], 36: ['drum_bass_soft', 1], 38: ['drum_snare_soft', 1], 40: ['drum_snare_soft', 1.05],
-    51: ['ride_via', 1, 1.5], 59: ['ride_tri', 1, 1.3], 53: ['ride_tri', 1.2, 1.3],
-  },
+  28: { ...STANDARD, kick: 'kick_boombap', snare: 'snare_boombap', hat: 'hat_crisp', tom: 'tom_deep' },
+  32: { ...STANDARD, kick: 'kick_soft', snare: 'snare_soft', crash: 'crash_splash', ride: 'ride_jazz' },
+}
+
+/** 레인(음 번호)에서 지금 나는 소리 id: 따로 고른 소리, 없으면 킷 소리 */
+export function drumSoundOf(program: number, pitch: number, picked: Record<string, string> = {}): string | null {
+  const role = DRUM_ROLES[pitch]
+  if (!role) return null
+  return picked[pitch] ?? KITS[kitOf(program)][role]
+}
+
+// 같은 역할 안에서 번호마다 살짝 다르게 (Kick 2는 조금 낮게, 사이드 스틱은 작고 높게 …)
+const PITCH_TWEAK: Record<number, [rate: number, gain: number]> = {
+  35: [0.95, 1], 37: [1.1, 0.6], 40: [1.05, 1], 44: [0.9, 0.9], 52: [0.9, 1], 55: [1.15, 0.8], 57: [1.05, 1], 53: [1.2, 1], 59: [0.95, 1],
+}
+const DRUM_DEFAULT: DrumSample = ['drum_cymbal_closed', 1] // 역할이 없는 번호 (탬버린 · 카우벨 등)
+
+function drumSample(program: number, pitch: number, picked: Record<string, string>): DrumSample {
+  const id = drumSoundOf(program, pitch, picked)
+  const sound = id ? DRUM_SOUNDS[id] : undefined
+  if (!sound) return DRUM_DEFAULT
+  if (sound.role === 'tom') {
+    const set = sound.sample as DrumSample[]
+    return set[Math.max(0, TOMS.indexOf(pitch))]
+  }
+  const [file, rate, gain = 1] = sound.sample as DrumSample
+  const [r, g] = PITCH_TWEAK[pitch] ?? [1, 1]
+  return [file, rate * r, gain * g]
 }
 
 // 킷 소리 뒤에 거는 효과 (룸 · 재즈 = 방 울림, 로파이 = 고음을 깎아 먹먹하게)
@@ -236,8 +305,6 @@ const KIT_FX: Record<number, () => Tone.ToneAudioNode[]> = {
   27: () => [new Tone.Filter({ frequency: 2600, type: 'lowpass', rolloff: -24 })],
   32: () => [new Tone.Reverb({ decay: 1.8, wet: 0.18 })],
 }
-
-const drumSample = (kit: number, pitch: number): DrumSample => KIT_SAMPLES[kit]?.[pitch] ?? DRUM_SAMPLES[pitch] ?? DRUM_DEFAULT
 const CLOSED_HATS = new Set([42, 44])
 const OPEN_HAT = 46
 
@@ -252,12 +319,15 @@ class SampledDrumVoice implements Voice {
   private synth: SynthDrumVoice | null = null
   private openHat: Tone.ToneBufferSource | null = null
   private kit: number
+  private picked: Record<string, string>
   private laneGain = new Map<number, number>()
 
-  constructor(program: number) {
-    this.kit = DRUM_KITS.some((k) => k.program === program) ? program : 0
-    const pitches = [...new Set([...Object.keys(DRUM_SAMPLES), ...Object.keys(KIT_SAMPLES[this.kit] ?? {})].map(Number))]
-    const files = new Set([...pitches.map((p) => drumSample(this.kit, p)), DRUM_DEFAULT].map(([f]) => f))
+  constructor(track: Track) {
+    this.kit = kitOf(track.program)
+    this.picked = track.drum_sounds ?? {}
+    // 이 트랙에 쓰인 소리의 샘플만 불러온다
+    const pitches = [...new Set(track.notes.map((n) => n.pitch))]
+    const files = new Set([...pitches.map((p) => drumSample(this.kit, p, this.picked)), DRUM_DEFAULT].map(([f]) => f))
     const urls = Object.fromEntries([...files].map((f) => [f, `${f}.flac`]))
     this.fx = KIT_FX[this.kit]?.() ?? []
     this.bus.chain(...this.fx, this.output)
@@ -279,7 +349,7 @@ class SampledDrumVoice implements Voice {
   play(pitch: number, duration: string, time: number, velocity: number) {
     if (!this.buffers?.loaded) return this.synth?.play(pitch, duration, time, velocity)
 
-    const [file, rate, gain = 1] = drumSample(this.kit, pitch)
+    const [file, rate, gain = 1] = drumSample(this.kit, pitch, this.picked)
     // 닫힌 하이햇이 울리면 열린 하이햇 소리를 끊는다 (실제 하이햇처럼)
     if (CLOSED_HATS.has(pitch) && this.openHat) {
       this.openHat.stop(time)

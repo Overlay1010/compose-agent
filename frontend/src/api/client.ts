@@ -158,6 +158,17 @@ export async function setVelocities(
   )
 }
 
+/** 드럼 레인 하나의 소리 고르기 (sound = 소리 id 또는 "default") */
+export async function setDrumSound(projectId: string, trackId: string, pitch: number, sound: string): Promise<TrackChange> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/drum-sound`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pitch, sound }),
+    }),
+  )
+}
+
 /** 드럼 소리(레인)별 크기: 그 소리 음들의 세기에 scale을 곱한다 (MIDI에 그대로 남음) */
 export async function setLane(projectId: string, trackId: string, pitch: number, scale: number): Promise<TrackChange> {
   return parse(

@@ -20,6 +20,7 @@ from app.tools.edits import (
     swing,
     transpose,
 )
+from app.tools.drums import SetDrumSoundArgs, set_drum_sound
 from app.tools.feel import HumanizeArgs, VelocityRampArgs, humanize, velocity_ramp
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
@@ -112,7 +113,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "set_mix",
-            "트랙 전체의 볼륨(페이더)과 좌우 위치(팬)를 바꾼다. 음 세기는 그대로.",
+            "트랙 전체의 볼륨(페이더)과 좌우 위치(팬)를 바꾼다. 곡 전체에만 걸리고 마디 범위는 정할 수 없다 (\"9마디부터 약하게\"처럼 마디가 붙으면 adjust_velocity). 음 세기는 그대로.",
             SetMixArgs,
             set_mix,
         ),
@@ -121,6 +122,12 @@ TOOLS: dict[str, Tool] = {
             "트랙을 복사해 새 트랙을 만든다. 옥타브를 옮기거나 악기를 바꿔 겹치기(더블링)에 쓴다. 결과에 새 트랙 id가 나온다.",
             DuplicateTrackArgs,
             duplicate_track,
+        ),
+        Tool(
+            "set_drum_sound",
+            "드럼 트랙에서 소리 하나(레인)만 다른 소리로 바꾼다 (예: 탐만 808 탐으로). 같은 역할의 소리끼리만. 킷 전체는 set_instrument.",
+            SetDrumSoundArgs,
+            set_drum_sound,
         ),
     ]
 }

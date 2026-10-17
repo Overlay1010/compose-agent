@@ -44,6 +44,19 @@ class Pitches:
         return f"{sorted(self.must)}⊆고른 음⊆{sorted(self.allowed)}"
 
 
+@dataclass(frozen=True)
+class OneOf:
+    """여러 값 중 하나면 정답 (예: 탐 소리 = 어쿠스틱 말고 아무 탐)."""
+
+    values: frozenset[Any]
+
+    def ok(self, value: Any) -> bool:
+        return value in self.values
+
+    def __str__(self) -> str:
+        return "|".join(sorted(map(str, self.values)))
+
+
 ALL = "ALL"  # track_ids를 비우거나(전체), 해당 트랙을 전부 고른 경우
 
 
@@ -64,7 +77,7 @@ class Call:
                         return False
                 elif got is None or set(got) != set(want):
                     return False
-            elif isinstance(want, (Range, Pitches)):
+            elif isinstance(want, (Range, Pitches, OneOf)):
                 if not want.ok(got):
                     return False
             elif key == "bars":

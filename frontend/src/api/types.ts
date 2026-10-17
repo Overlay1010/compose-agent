@@ -16,6 +16,8 @@ export interface Track {
   is_drum: boolean
   volume: number // 트랙 볼륨 0~127 (MIDI CC7, 기본 100)
   pan: number // 좌우 -64(왼쪽) ~ 63(오른쪽), 0 가운데
+  /** 드럼만: 레인(음 번호)별로 킷 대신 고른 소리 id. 이 앱에만 저장 (MIDI에는 없음) */
+  drum_sounds: Record<string, string>
   notes: Note[]
 }
 

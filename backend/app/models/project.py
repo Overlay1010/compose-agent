@@ -28,6 +28,10 @@ class Track(BaseModel):
     is_drum: bool = False
     volume: int = Field(default=100, ge=0, le=127, description="트랙 볼륨 (MIDI CC7). 100이 기본")
     pan: int = Field(default=0, ge=-64, le=63, description="좌우 위치 (MIDI CC10 - 64). -64 왼쪽, 0 가운데, 63 오른쪽")
+    drum_sounds: dict[int, str] = Field(
+        default_factory=dict,
+        description="드럼만: 레인(음 번호)별로 킷 대신 고른 소리 id (app/tools/drums.py). MIDI에는 담기지 않는다",
+    )
     notes: list[Note] = Field(default_factory=list)
 
     @property

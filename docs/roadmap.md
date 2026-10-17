@@ -11,11 +11,11 @@
 뼈대 완성과 포트폴리오 첫 공개.
 
 - [x] MIDI 업로드 · 피아노롤 · 재생 (실제 악기 샘플)
-- [x] 편집 도구 15개 + 테스트: `transpose` `shift_octave` `quantize` `adjust_velocity` `swing` `set_tempo` `set_instrument` `delete_notes` `set_length` `copy_bars` `humanize` `velocity_ramp` `set_mix` `duplicate_track` `get_project_info`
+- [x] 편집 도구 16개 + 테스트: `transpose` `shift_octave` `quantize` `adjust_velocity` `swing` `set_tempo` `set_instrument` `delete_notes` `set_length` `copy_bars` `humanize` `velocity_ramp` `set_mix` `duplicate_track` `set_drum_sound` `get_project_info`
 - [x] 악기 바꾸기: 트랙마다 General MIDI 악기 128종 선택 상자(바로 새 버전) + 말로 바꾸기, 내보낸 MIDI에 악기 번호 유지
 - [x] LLM 에이전트 · 미리보기 · 적용 · 되돌리기 API
 - [x] 채팅 화면 · 바뀐 소리/원래 소리 비교 · 버전 기록 화면 · 진행 상황 실시간 표시
-- [x] 평가: 정답 있는 명령 54개 + 이어지는 대화 9개, 모델별 정확도 · 응답 시간 · 토큰 (docs/eval.md)
+- [x] 평가: 정답 있는 명령 61개 + 이어지는 대화 9개, 모델별 정확도 · 응답 시간 · 토큰 (docs/eval.md)
 - [x] 사람이 친 느낌(휴머나이즈) · 점점 세게/여리게
 - [x] 트랙 볼륨 · 팬: 트랙마다 슬라이더(손을 떼면 한 번만 새 버전) + 말로 바꾸기, MIDI CC7 · CC10으로 내보내기
 - [x] 트랙 복제(옥타브 · 악기 바꿔 겹치기). 미리보기에만 있는 새 트랙을 목록 · 피아노롤 · 전체 구성에 표시 (v0.3 트랙 추가에서도 씀)
@@ -23,6 +23,7 @@
 - [x] 구간 반복 재생: 전체 구성에서 끌어서 마디 고르기, 켜면 기본은 미리보기로 바뀐 마디
 - [x] 단축키 13개 (Space · B 비교 · Enter 적용 · Esc 취소 · Ctrl+Z · 화살표 · L 반복 · M/S · / · ?)
 - [x] 드럼 킷 9가지: 스탠다드 · 룸 · 파워 · 일렉트로닉 · TR-808 · 하우스(909) · 로파이 · 붐뱁 · 재즈 (Sonic Pi CC0 샘플 + 킷별 잔향 · 필터), 킷 번호로 내보내기
+- [x] 드럼 소리 하나씩 고르기 (40가지 · 같은 역할끼리, 이 앱에만 저장) + 모든 킷이 8가지 역할을 킷에 맞는 소리로 채움
 - [x] 드럼 소리별 크기: 피아노롤 아래 슬라이더 (그 소리 음들의 세기를 바꿔 MIDI에도 남김)
 - [x] 벨로시티 편집창: 멜로디 트랙 피아노롤 아래에서 음마다 세기를 누르거나 끌어서 바꾸기
 - [ ] README 시연 GIF
@@ -92,7 +93,7 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 
 | 분야 | 도구 | 버전 |
 | --- | --- | --- |
-| 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument · delete_notes · set_length · copy_bars · humanize · velocity_ramp · set_mix · duplicate_track | v0.1 ✅ |
+| 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument · delete_notes · set_length · copy_bars · humanize · velocity_ramp · set_mix · duplicate_track · set_drum_sound | v0.1 ✅ |
 | 정보 | get_project_info | v0.1 ✅ |
 | 화성 | analyze_harmony · suggest_reharmonization · apply_chords | v0.2 |
 | 만들기 | generate_drums · generate_chords · generate_bassline · generate_melody | v0.3 |
@@ -102,4 +103,4 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 | 소리 · 가사 | search_samples · add_sample_track · fit_lyrics | v0.6 |
 | 프로젝트 | save_project · export_audio | v1.0 |
 
-15개 → 32개
+16개 → 33개

@@ -1,4 +1,4 @@
-"""정답 있는 명령 58개.
+"""정답 있는 명령 61개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from eval.spec import ALL, Call, Case, Pitches, Range
+from eval.spec import ALL, Call, Case, OneOf, Pitches, Range
 
 HATS = Pitches(frozenset({42, 44, 46}), frozenset({42}))
 SOFTER = Range(0.5, 0.85)  # "좀 약하게"
@@ -130,6 +130,17 @@ CASES: list[Case] = [
          [Call("set_instrument", {"track_ids": ["t1"], "program": 27})]),
     case("I09", "악기", "lofi_groove", "재즈 드럼 킷으로 해줘",
          [Call("set_instrument", {"track_ids": ["t1"], "program": 32})]),
+    # lofi_groove 드럼에 쓰인 탐: 43 Floor Tom · 45 Low Tom · 48 Hi-Mid Tom · 50 High Tom (스탠다드 킷 = 어쿠스틱 탐)
+    case("I10", "악기", "lofi_groove", "탐 소리가 너무 촌스러워",
+         [Call("set_drum_sound", {"track_id": "t1", "pitches": Pitches(frozenset({41, 43, 45, 47, 48, 50}), frozenset({43, 45, 48, 50})),
+                                  "sound": OneOf(frozenset({"tom_deep", "tom_round", "tom_808", "tom_electro"}))})],
+         note="소리 하나가 별로라는 말 → 거절하지 말고 같은 역할의 다른 소리로"),
+    case("I11", "악기", "lofi_groove", "킥만 808 킥으로 바꿔줘",
+         [Call("set_drum_sound", {"track_id": "t1", "pitches": Pitches(frozenset({35, 36}), frozenset({36})), "sound": "kick_808"})]),
+    case("I12", "악기", "lofi_groove", "하이햇을 부드러운 걸로 바꿔줘",
+         [Call("set_drum_sound", {"track_id": "t1", "pitches": Pitches(frozenset({42, 44}), frozenset({42})), "sound": "hat_soft"})],
+         alt=[(Call("set_drum_sound", {"track_id": "t1", "pitches": Pitches(frozenset({42, 44}), frozenset({42})), "sound": "hat_soft"}),
+               Call("set_drum_sound", {"track_id": "t1", "pitches": [46], "sound": "openhat_soft"}))]),
     case("I05", "악기", "lofi_groove", "드럼을 피아노 소리로 바꿔줘", note="드럼 트랙은 악기 번호를 바꿀 수 없음 → 편집하지 않고 알려 줌"),
     case("E01", "음 · 마디", "lofi_groove", "8마디부터 드럼 빼줘",
          [Call("delete_notes", {"track_ids": ["t1"], "bars": [8, 16]})]),
@@ -170,4 +181,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 58 and len({c.id for c in CASES}) == 58
+assert len(CASES) == 61 and len({c.id for c in CASES}) == 61

@@ -12,6 +12,7 @@ from app.models.project import Project, ProjectSummary
 from app.agent.prompt import DRUM_NAMES, note_name
 from app.agent.session import note
 from app.tools.instrument import display_name, kit_name
+from app.tools.drums import ROLE_NAMES, ROLES, sound_name
 from app.tools.mix import pan_text
 from app.store.memory import ProjectNotFound, store
 from app.tools.base import ToolError
@@ -132,6 +133,11 @@ def _change_text(before: Project, after: Project, track_id: str) -> str:
     """화면에서 바꾼 트랙 설정을 사람 말로 (대화 기록 · 화면 알림에 같은 문장을 쓴다)."""
     old = next(t for t in before.tracks if t.id == track_id)
     new = next(t for t in after.tracks if t.id == track_id)
+    if old.drum_sounds != new.drum_sounds and old.program == new.program:
+        pitches = {p for p in {*old.drum_sounds, *new.drum_sounds} if old.drum_sounds.get(p) != new.drum_sounds.get(p)}
+        p = min(pitches)
+        role = ROLE_NAMES.get(ROLES.get(p, ""), DRUM_NAMES.get(p, str(p)))
+        return f"{new.name} {DRUM_NAMES.get(p, role)} 소리를 {sound_name(new.drum_sounds.get(p, 'default'))}(으)로 바꿨어요"
     if old.notes != new.notes:
         # 소리(레인)별 세기: 바뀐 음의 번호로 소리 이름을 찾고 평균 세기를 비교한다
         changed = {a.pitch for a, b in zip(old.notes, new.notes) if a != b}
@@ -162,7 +168,7 @@ def _change_track(project_id: str, tool: str, args: dict) -> TrackChangeOut:
     pending = store.preview(project_id)
     if not (result.changed_settings or result.changed_notes) or result.project is None:
         return TrackChangeOut(project=current, preview=pending.project if pending else None)
-    text = f"{_change_text(current, result.project, args['track_ids'][0])} (v{current.version + 1}로 저장)"
+    text = f"{_change_text(current, result.project, _track_of(args))} (v{current.version + 1}로 저장)"
     new = store.add_version(result.project, result.summary)
     store.add_log(project_id, note(text))
     if pending is not None:
@@ -228,6 +234,17 @@ def set_velocities(project_id: str, track_id: str, body: VelocitiesIn) -> TrackC
     return TrackChangeOut(project=new, preview=None, note=text)
 
 
+class DrumSoundIn(BaseModel):
+    pitch: int = Field(ge=0, le=127)
+    sound: str = Field(description='소리 id 또는 "default"')
+
+
+@router.post("/{project_id}/tracks/{track_id}/drum-sound", response_model=TrackChangeOut)
+def set_track_drum_sound(project_id: str, track_id: str, body: DrumSoundIn) -> TrackChangeOut:
+    """드럼 레인 하나의 소리 고르기 (킷은 그대로). 이 앱에만 저장되고 MIDI에는 담기지 않는다."""
+    return _change_track(project_id, "set_drum_sound", {"track_id": track_id, "pitches": [body.pitch], "sound": body.sound})
+
+
 class LaneIn(BaseModel):
     pitch: int = Field(ge=0, le=127, description="드럼 소리(음 번호)")
     scale: float = Field(ge=0.1, le=4, description="그 소리 음들의 세기에 곱할 값")
@@ -238,6 +255,10 @@ def set_lane_level(project_id: str, track_id: str, body: LaneIn) -> TrackChangeO
     """드럼 소리(레인)별 크기. 따로 저장하는 값이 아니라 그 소리 음들의 세기를 바꿔서 MIDI에도 그대로 남는다."""
     args = {"track_ids": [track_id], "pitches": [body.pitch], "mode": "scale", "value": body.scale}
     return _change_track(project_id, "adjust_velocity", args)
+
+
+def _track_of(args: dict) -> str:
+    return args.get("track_id") or args["track_ids"][0]
 
 
 @router.post("/{project_id}/undo", response_model=Project)

@@ -269,7 +269,7 @@ def test_project_info(lofi):
 def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
-        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix", "duplicate_track",
+        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix", "duplicate_track", "set_drum_sound",
     }
     specs = tool_specs()
     for spec in specs:
@@ -644,3 +644,65 @@ def test_velocity_editor_endpoint(client):
     assert client.post(url, json={"base_version": 2, "changes": [{"index": 0, "velocity": 0}]}).status_code == 422
     same = client.post(url, json={"base_version": 2, "changes": [{"index": 0, "velocity": 30}]})
     assert same.json()["note"] is None and same.json()["project"]["version"] == 2
+
+
+# ---------- set_drum_sound ----------
+
+def drum_song():
+    return song(
+        track("t1", (36, 0, 0.5, 90), (43, 1, 0.5, 80), (45, 2, 0.5, 80), (42, 3, 0.5, 70), drum=True, name="Drums"),
+        track("t2", (40, 0, 1, 80), name="Bass"),
+    )
+
+
+def test_set_drum_sound_changes_one_lane():
+    p = drum_song()
+    r = run_tool(p, "set_drum_sound", {"track_id": "t1", "pitches": [41, 43, 45], "sound": "tom_808"})
+    assert r.project.tracks[0].drum_sounds == {43: "tom_808", 45: "tom_808"}  # 안 쓰인 41은 뺀다
+    assert r.project.tracks[0].notes == p.tracks[0].notes and r.changed_settings and "808 탐" in r.summary
+    back = run_tool(r.project, "set_drum_sound", {"track_id": "t1", "pitches": [43], "sound": "default"})
+    assert back.project.tracks[0].drum_sounds == {45: "tom_808"}
+    same = run_tool(r.project, "set_drum_sound", {"track_id": "t1", "pitches": [43, 45], "sound": "tom_808"})
+    assert not same.changed_settings
+
+
+def test_set_drum_sound_errors():
+    p = drum_song()
+    for args, code in (
+        ({"track_id": "t1", "pitches": [36], "sound": "hat_808"}, "wrong_role"),
+        ({"track_id": "t1", "pitches": [36], "sound": "kick_nope"}, "unknown_sound"),
+        ({"track_id": "t1", "pitches": [99], "sound": "kick_808"}, "unknown_pitch"),
+        ({"track_id": "t2", "pitches": [40], "sound": "kick_808"}, "not_drum"),
+    ):
+        with pytest.raises(ToolError) as e:
+            run_tool(p, "set_drum_sound", args)
+        assert e.value.code == code
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "set_drum_sound", {"track_id": "t1", "pitches": [36], "sound": "hat_808"})
+    assert "kick_808" in e.value.message  # 킥 레인에 쓸 수 있는 소리를 알려 줌
+
+
+def test_kit_change_resets_picked_sounds():
+    p = run_tool(drum_song(), "set_drum_sound", {"track_id": "t1", "pitches": [43], "sound": "tom_round"}).project
+    r = run_tool(p, "set_instrument", {"track_ids": ["t1"], "program": 25})
+    assert r.project.tracks[0].drum_sounds == {}
+
+
+def test_drum_sound_list_matches_frontend():
+    import re
+    from app.tools.drums import DRUM_SOUNDS
+
+    ts = (Path(__file__).resolve().parents[2] / "frontend/src/audio/instruments.ts").read_text(encoding="utf-8")
+    block = ts[ts.index("export const DRUM_SOUNDS") : ts.index("\n}", ts.index("export const DRUM_SOUNDS"))]
+    assert set(re.findall(r"^  (\w+): ", block, re.M)) == set(DRUM_SOUNDS)
+
+
+def test_drum_sound_endpoint(client):
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sound", json={"pitch": 45, "sound": "tom_808"})
+    assert r.status_code == 200
+    assert r.json()["project"]["tracks"][0]["drum_sounds"] == {"45": "tom_808"}
+    assert r.json()["note"] == "Drums Low Tom 소리를 808 탐(으)로 바꿨어요 (v2로 저장)"
+    assert client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sound", json={"pitch": 36, "sound": "hat_808"}).status_code == 400
