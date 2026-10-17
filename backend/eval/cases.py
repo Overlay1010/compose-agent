@@ -1,4 +1,4 @@
-"""정답 있는 명령 56개.
+"""정답 있는 명령 58개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -126,6 +126,10 @@ CASES: list[Case] = [
          [Call("set_instrument", {"track_ids": ["t1"], "program": 25})]),
     case("I07", "악기", "lofi_groove", "드럼 소리를 일렉트로닉으로 바꿔줘",
          [Call("set_instrument", {"track_ids": ["t1"], "program": 24})]),
+    case("I08", "악기", "lofi_groove", "드럼을 좀 더 로파이한 킷으로 바꿔줘",
+         [Call("set_instrument", {"track_ids": ["t1"], "program": 27})]),
+    case("I09", "악기", "lofi_groove", "재즈 드럼 킷으로 해줘",
+         [Call("set_instrument", {"track_ids": ["t1"], "program": 32})]),
     case("I05", "악기", "lofi_groove", "드럼을 피아노 소리로 바꿔줘", note="드럼 트랙은 악기 번호를 바꿀 수 없음 → 편집하지 않고 알려 줌"),
     case("E01", "음 · 마디", "lofi_groove", "8마디부터 드럼 빼줘",
          [Call("delete_notes", {"track_ids": ["t1"], "bars": [8, 16]})]),
@@ -166,4 +170,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 56 and len({c.id for c in CASES}) == 56
+assert len(CASES) == 58 and len({c.id for c in CASES}) == 58

@@ -54,7 +54,11 @@ GM_NAMES_KO = {
 
 # General MIDI 드럼 킷 (드럼 채널의 프로그램 번호). 화면에서 소리가 실제로 다른 킷만 둔다
 # (frontend/src/audio/instruments.ts DRUM_KITS와 같은 목록)
-DRUM_KITS = {0: "스탠다드", 16: "파워", 24: "일렉트로닉", 25: "TR-808"}
+# 8 · 32는 GM2 표준 번호, 26~28은 이 앱 전용 (DAW에서는 각 DAW 드럼 소리로 열림)
+DRUM_KITS = {
+    0: "스탠다드", 8: "룸", 16: "파워", 24: "일렉트로닉", 25: "TR-808",
+    26: "하우스 (909)", 27: "로파이", 28: "붐뱁", 32: "재즈",
+}
 
 
 def kit_name(program: int) -> str:
@@ -76,7 +80,7 @@ class SetInstrumentArgs(BaseModel):
     program: int = Field(
         ge=0, le=127,
         description="General MIDI 악기 번호 0~127 (예: 0 피아노, 33 핑거 베이스, 38 신스 베이스). "
-        "드럼 트랙이면 드럼 킷 번호: 0 스탠다드, 16 파워, 24 일렉트로닉, 25 TR-808",
+        "드럼 트랙이면 드럼 킷 번호: 0 스탠다드, 8 룸, 16 파워, 24 일렉트로닉, 25 TR-808, 26 하우스, 27 로파이, 28 붐뱁, 32 재즈",
     )
 
 
