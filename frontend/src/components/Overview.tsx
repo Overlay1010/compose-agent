@@ -68,7 +68,8 @@ export function Overview() {
       }
       // 미리보기로 바뀐 음은 라임, 나머지는 트랙 색
       const original = project.tracks.find((o) => o.id === t.id)
-      const changed = new Set(original && shown !== project ? diffNotes(original.notes, t.notes).added : [])
+      // 원래 없던 트랙(미리보기의 새 트랙)은 음 전부가 바뀐 음
+      const changed = new Set(shown === project ? [] : original ? diffNotes(original.notes, t.notes).added : t.notes)
       const pitches = t.notes.map((n) => n.pitch)
       const lo = Math.min(...pitches)
       const hi = Math.max(...pitches)

@@ -5,7 +5,9 @@ import { gmProgramOf } from './audio/instruments'
 const TRACK_COLORS = ['#8ea4ff', '#4fd1b8', '#b79cff', '#6fb3e0', '#ff8fbf', '#ff9f43', '#e6e3dc', '#f2d36b']
 
 export function trackColor(project: { tracks: Track[] }, trackId: string): string {
-  const i = Math.max(0, project.tracks.findIndex((t) => t.id === trackId))
+  // 미리보기에만 있는 새 트랙(t6 …)은 목록에 없으니 id 번호로 색을 고른다
+  const found = project.tracks.findIndex((t) => t.id === trackId)
+  const i = found >= 0 ? found : Math.max(0, Number(trackId.replace(/\D/g, '')) - 1 || 0)
   return TRACK_COLORS[i % TRACK_COLORS.length]
 }
 

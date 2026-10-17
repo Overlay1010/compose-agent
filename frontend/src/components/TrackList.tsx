@@ -17,6 +17,9 @@ export function TrackList() {
   const changed = changedTrackIds(project, preview)
   const off = silenced(project, muted, solo)
   const heard = hearPreview && preview ? preview : project
+  // 미리보기에서 새로 생기는 트랙 (트랙 복제 등). 적용하기 전에는 목록 끝에 따로 보인다
+  const added = preview ? preview.tracks.filter((t) => !project.tracks.some((o) => o.id === t.id)) : []
+  const isNew = (id: string) => added.some((t) => t.id === id)
 
   const changeInstrument = async (trackId: string, name: string, program: number) => {
     const next = await setInstrument(trackId, program)
@@ -26,20 +29,36 @@ export function TrackList() {
   return (
     <nav className="tracks" aria-label="트랙">
       <div className="tracks-head">
-        <h2>트랙 {project.tracks.length}</h2>
+        <h2>
+          트랙 {project.tracks.length}
+          {added.length > 0 && <span className="new-count"> + 새 {added.length}</span>}
+        </h2>
         <span className="hint">M 음소거 · S 솔로</span>
       </div>
       <ul>
-        {project.tracks.map((t) => (
-          <li key={t.id} className={[t.id === selectedTrackId ? 'selected' : '', off[t.id] ? 'silent' : ''].join(' ')}>
+        {[...project.tracks, ...added].map((t) => (
+          <li
+            key={t.id}
+            className={[
+              t.id === selectedTrackId ? 'selected' : '',
+              off[t.id] || (isNew(t.id) && !hearPreview) ? 'silent' : '',
+              isNew(t.id) ? 'new' : '',
+            ].join(' ')}
+          >
             <button className="track" onClick={() => selectTrack(t.id)} aria-pressed={t.id === selectedTrackId}>
               <span className="stripe" aria-hidden="true" style={{ background: trackColor(project, t.id) }} />
               <span className="body">
                 <span className="name">
-                  {t.name}
-                  {changed.has(t.id) && <span className="badge">미리보기</span>}
+                  <span className="label">{t.name}</span>
+                  {isNew(t.id) ? (
+                    <span className="badge">새 트랙</span>
+                  ) : (
+                    changed.has(t.id) && <span className="badge">미리보기</span>
+                  )}
                 </span>
-                <span className="info">음 {t.notes.length}개</span>
+                <span className="info">
+                  음 {t.notes.length}개
+                </span>
                 <Meter
                   notes={heard.tracks.find((h) => h.id === t.id)?.notes ?? t.notes}
                   color={trackColor(project, t.id)}
@@ -63,7 +82,10 @@ export function TrackList() {
             >
               S
             </button>
-            {t.is_drum ? (
+            {isNew(t.id) ? (
+              // 아직 없는 트랙이라 악기 · 볼륨은 적용한 뒤에 바꿀 수 있다
+              <span className="instrument drum">{t.is_drum ? '드럼 킷 (General MIDI)' : programName(gmProgramOf(t))}</span>
+            ) : t.is_drum ? (
               <span className="instrument drum">드럼 킷 (General MIDI)</span>
             ) : (
               <select
@@ -85,7 +107,7 @@ export function TrackList() {
                 ))}
               </select>
             )}
-            <MixControls key={`${t.id}:${t.volume}:${t.pan}`} track={t} />
+            {!isNew(t.id) && <MixControls key={`${t.id}:${t.volume}:${t.pan}`} track={t} />}
           </li>
         ))}
       </ul>

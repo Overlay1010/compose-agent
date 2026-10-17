@@ -269,7 +269,7 @@ def test_project_info(lofi):
 def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
-        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix",
+        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix", "duplicate_track",
     }
     specs = tool_specs()
     for spec in specs:
@@ -547,3 +547,40 @@ def test_mix_endpoint(client):
     t4 = r.json()["project"]["tracks"][3]
     assert (t4["volume"], t4["pan"], r.json()["project"]["version"]) == (60, -20, 2)
     assert client.post(f"/api/v1/projects/{pid}/tracks/t4/mix", json={}).status_code == 400
+
+
+# ---------- duplicate_track ----------
+
+def test_duplicate_track_with_octave_and_instrument():
+    p = song(track("t1", (60, 0, 1, 80), (67, 1, 1, 90), name="Lead"), track("t2", (36, 0, 1, 80), drum=True, name="Drums"))
+    r = run_tool(p, "duplicate_track", {"track_id": "t1", "octaves": -1, "program": 48})
+    new = r.project.tracks[-1]
+    assert (new.id, new.name, new.program, new.program_set) == ("t3", "Lead 2", 48, True)
+    assert [n.pitch for n in new.notes] == [48, 55] and r.changed_notes == 2
+    assert r.project.tracks[:2] == p.tracks  # 원래 트랙은 그대로
+    assert "t3" in r.summary and "String Ensemble 1" in r.summary
+    again = run_tool(r.project, "duplicate_track", {"track_id": "t1"})
+    assert again.project.tracks[-1].name == "Lead 3" and again.project.tracks[-1].id == "t4"
+    named = run_tool(p, "duplicate_track", {"track_id": "t2", "name": "Drums Copy"})
+    assert named.project.tracks[-1].is_drum and named.project.tracks[-1].name == "Drums Copy"
+
+
+def test_duplicate_track_errors():
+    p = song(track("t1", (120, 0, 1, 80)), track("t2", (36, 0, 1, 80), drum=True))
+    for args, code in (
+        ({"track_id": "t9"}, "unknown_track"),
+        ({"track_id": "t2", "octaves": 1}, "drum_track"),
+        ({"track_id": "t1", "octaves": 1}, "out_of_range"),
+    ):
+        with pytest.raises(ToolError) as e:
+            run_tool(p, "duplicate_track", args)
+        assert e.value.code == code
+
+
+def test_duplicated_track_survives_export():
+    from app.midi_io.convert import project_to_midi_bytes
+
+    p = song(track("t1", (60, 0, 1, 80), name="Lead"))
+    r = run_tool(p, "duplicate_track", {"track_id": "t1", "octaves": 1, "program": 40})
+    back = midi_bytes_to_project(project_to_midi_bytes(r.project))
+    assert [(t.name, t.program, t.notes[0].pitch) for t in back.tracks] == [("Lead", 0, 60), ("Lead 2", 40, 72)]

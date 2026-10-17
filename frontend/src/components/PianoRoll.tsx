@@ -26,8 +26,11 @@ export function PianoRoll() {
   const canvas = useRef<HTMLCanvasElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
-  const track = project?.tracks.find((t) => t.id === selectedTrackId)
+  const realTrack = project?.tracks.find((t) => t.id === selectedTrackId)
   const previewTrack = preview?.tracks.find((t) => t.id === selectedTrackId)
+  // 미리보기에만 있는 새 트랙은 "원래 음이 없는 트랙"으로 보고 음 전부를 바뀔 음으로 그린다
+  const isNew = !realTrack && !!previewTrack
+  const track = useMemo(() => realTrack ?? (previewTrack ? { ...previewTrack, notes: [] } : undefined), [realTrack, previewTrack])
   const diff = useMemo(() => (track && previewTrack ? diffNotes(track.notes, previewTrack.notes) : null), [track, previewTrack])
   const changed = !!diff && (diff.added.length > 0 || diff.removed.length > 0)
   // 미리보기에서 바뀐 트랙이고 "바뀐 소리"를 듣는 중이면 바뀔 음 · 원래 위치를 같이 그린다
@@ -35,11 +38,19 @@ export function PianoRoll() {
 
   useEffect(() => {
     const el = canvas.current
-    if (!el || !project || !track || track.notes.length === 0) return
+    if (!el || !project || !track) return
 
     const beatsPerBar = (project.time_signature[0] * 4) / project.time_signature[1]
     // 줄과 길이는 원래 음 + 바뀐 음을 모두 담게 잡는다 (조옮김으로 음역이 넓어질 수 있음)
     const all: Note[] = showDiff && diff ? [...track.notes, ...diff.added] : track.notes
+    if (all.length === 0) {
+      // 음이 하나도 없는 트랙 (다 지웠거나, 원래 소리로 보는 새 트랙)
+      el.width = 0
+      el.height = 0
+      el.style.width = '0px'
+      el.style.height = '0px'
+      return
+    }
     const pitches = all.map((n) => n.pitch)
     // 위에서부터 그릴 줄(음 번호) 목록. 멜로디는 음역 전체(위아래 2칸 여유), 드럼은 쓰인 음만.
     const rows = track.is_drum
@@ -199,20 +210,34 @@ export function PianoRoll() {
       {showDiff && diff && (
         <p className="legend">
           <strong>미리보기 중</strong>
-          {diff.added.length > 0 && (
+          {isNew ? (
             <span>
               <i className="swatch change" aria-hidden="true" />
-              바뀔 음 {diff.added.length}개
+              새 트랙 · 음 {diff.added.length}개 (적용하면 생겨요)
             </span>
+          ) : (
+            <>
+              {diff.added.length > 0 && (
+                <span>
+                  <i className="swatch change" aria-hidden="true" />
+                  바뀔 음 {diff.added.length}개
+                </span>
+              )}
+              <span>
+                <i className="swatch ghost" aria-hidden="true" />
+                {/* 지우기만 한 편집이면 점선 음은 "사라질 음"이다 */}
+                {diff.added.length > 0 ? '원래 위치' : `지울 음 ${diff.removed.length}개`}
+              </span>
+            </>
           )}
-          <span>
-            <i className="swatch ghost" aria-hidden="true" />
-            {/* 지우기만 한 편집이면 점선 음은 "사라질 음"이다 */}
-            {diff.added.length > 0 ? '원래 위치' : `지울 음 ${diff.removed.length}개`}
-          </span>
         </p>
       )}
-      {changed && !hearPreview && <p className="legend">원래 소리를 듣는 중이에요 (미리보기 적용 전 상태)</p>}
+      {changed && !hearPreview && (
+        <p className="legend">
+          {isNew ? '원래 소리에는 없는 새 트랙이에요. "바뀐 소리"를 고르면 보여요.' : '원래 소리를 듣는 중이에요 (미리보기 적용 전 상태)'}
+        </p>
+      )}
+      {!changed && track.notes.length === 0 && <p className="legend">이 트랙에는 음이 없어요.</p>}
       <div className="roll-scroll" ref={scroller}>
         <div className="roll-canvas">
           <canvas ref={canvas} />
