@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ChatPanel } from './components/ChatPanel'
 import { PianoRoll } from './components/PianoRoll'
+import { ShortcutHelp } from './components/ShortcutHelp'
 import { TopBar } from './components/TopBar'
 import { TrackList } from './components/TrackList'
 import { VersionPanel } from './components/VersionPanel'
 import { reopen } from './store/chat'
 import { usePlayer } from './store/player'
 import { useProject } from './store/project'
+import { handleShortcut } from './shortcuts'
 
 const isMidi = (f: File) => /\.midi?$/i.test(f.name)
 
@@ -27,13 +29,10 @@ export default function App() {
     return () => window.removeEventListener('hashchange', openFromHash)
   }, [])
 
-  // 스페이스바 = 재생·정지 (DAW와 같은 습관). 글자를 입력하는 칸에서는 무시한다.
+  // 단축키 (shortcuts.ts). 글자를 입력하는 칸에서는 무시한다.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || e.repeat || !useProject.getState().project) return
-      if ((e.target as HTMLElement).closest('input, textarea, [contenteditable]')) return
-      e.preventDefault()
-      usePlayer.getState().toggle()
+      if (handleShortcut(e)) e.preventDefault()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -73,6 +72,7 @@ export default function App() {
         <ChatPanel />
       </main>
       <VersionPanel />
+      <ShortcutHelp />
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
           <span>여기에 놓으면 열어요</span>

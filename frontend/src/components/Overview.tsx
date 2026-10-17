@@ -173,12 +173,6 @@ export function Overview() {
             drag.current = null
             setDragging(null)
           }}
-          onKeyDown={(e) => {
-            // 키보드로도 마디 단위 이동
-            if (e.key === 'ArrowRight') seek(Math.min(lengthBeats - bpb, (Math.floor(cursor / bpb) + 1) * bpb))
-            if (e.key === 'ArrowLeft') seek(Math.max(0, (Math.ceil(cursor / bpb) - 1) * bpb))
-            if (e.key === 'Home') seek(0)
-          }}
         >
           <canvas ref={canvas} />
           {(dragging ?? loop) && (
