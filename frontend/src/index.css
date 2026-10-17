@@ -68,6 +68,8 @@ button:disabled { opacity: 0.55; cursor: default; }
 .transport .icon { width: 40px; min-height: 40px; padding: 0; border: 0; background: transparent; color: var(--text-2); }
 .transport .play { width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 10px; background: var(--brand); color: var(--brand-ink); }
 .transport .play:hover:not(:disabled) { background: #d6ff5a; }
+.transport .loop.on { color: var(--change-line); background: rgba(198, 244, 50, 0.12); border-radius: 10px; }
+.loop-range { padding: 0 6px 0 2px; font-size: 12px; font-weight: 600; color: var(--change-line); white-space: nowrap; }
 .spinner { width: 16px; height: 16px; border-radius: 99px; border: 2.5px solid rgba(17, 26, 2, 0.3); border-top-color: var(--brand-ink); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .lcd { display: flex; border-radius: 12px; background: #0b0c0e; border: 1px solid var(--border); font-family: var(--mono); overflow: hidden; }
@@ -130,6 +132,8 @@ select.instrument:disabled { opacity: 0.5; cursor: default; }
 .overview-labels i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
 .overview-area { position: relative; cursor: pointer; border-radius: 6px; overflow: hidden; }
 .overview-area canvas { display: block; }
+.loop-region { position: absolute; top: 0; bottom: 0; background: rgba(198, 244, 50, 0.06); border-left: 1px dashed rgba(198, 244, 50, 0.4); border-right: 1px dashed rgba(198, 244, 50, 0.4); pointer-events: none; }
+.loop-region.on { background: rgba(198, 244, 50, 0.16); border-color: var(--change-line); border-style: solid; }
 .overview-head-line { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; background: var(--playhead); pointer-events: none; }
 .badge { flex: none; white-space: nowrap; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--change); color: var(--brand-ink); vertical-align: 1px; }
 

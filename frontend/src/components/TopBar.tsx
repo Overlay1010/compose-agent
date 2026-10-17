@@ -20,6 +20,14 @@ function StopIcon() {
   )
 }
 
+/** 반복 구간을 마디로: "3~4마디" */
+function loopText(loop: { start: number; end: number }, p: { time_signature: [number, number] }) {
+  const bpb = (p.time_signature[0] * 4) / p.time_signature[1]
+  const first = Math.round(loop.start / bpb) + 1
+  const last = Math.round(loop.end / bpb)
+  return first === last ? `${first}마디` : `${first}~${last}마디`
+}
+
 /** 마디 · 박 · 16분 위치와 시간. 재생 중에는 매 프레임 갱신한다. */
 function TransportDisplay({ bpm, beatsPerBar }: { bpm: number; beatsPerBar: number }) {
   const playing = usePlayer((s) => s.playing)
@@ -64,7 +72,7 @@ function TransportDisplay({ bpm, beatsPerBar }: { bpm: number; beatsPerBar: numb
 
 export function TopBar() {
   const { project, preview, hearPreview, loading, upload, setHistoryOpen } = useProject()
-  const { playing, loadingSounds, toggle, restart } = usePlayer()
+  const { playing, loadingSounds, toggle, restart, loop, looping, toggleLoop } = usePlayer()
   const input = useRef<HTMLInputElement>(null)
   const heard = preview && hearPreview ? preview : project
   const tempoText =
@@ -113,6 +121,21 @@ export function TopBar() {
               >
                 {loadingSounds ? <span className="spinner" aria-hidden="true" /> : playing ? <StopIcon /> : <PlayIcon />}
               </button>
+              <button
+                className={looping ? 'icon loop on' : 'icon loop'}
+                onClick={toggleLoop}
+                aria-pressed={looping}
+                aria-label="구간 반복"
+                title={loop ? `구간 반복 · ${loopText(loop, heard)}` : '구간 반복 (전체 구성에서 끌어서 구간을 고를 수 있어요)'}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m17 2 4 4-4 4" />
+                  <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                  <path d="m7 22-4-4 4-4" />
+                  <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+                </svg>
+              </button>
+              {looping && loop && <span className="loop-range">{loopText(loop, heard)}</span>}
             </div>
             <TransportDisplay bpm={heard.tempo} beatsPerBar={(heard.time_signature[0] * 4) / heard.time_signature[1]} />
             <div className="lcd">
