@@ -20,6 +20,7 @@ from app.tools.edits import (
     swing,
     transpose,
 )
+from app.tools.feel import HumanizeArgs, VelocityRampArgs, humanize, velocity_ramp
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
@@ -94,6 +95,18 @@ TOOLS: dict[str, Tool] = {
             "마디 범위를 다른 마디로 복사한다. times로 여러 번 이어 붙여 반복할 수 있다. 기본은 붙일 자리의 음을 지우고 넣는다.",
             CopyBarsArgs,
             copy_bars,
+        ),
+        Tool(
+            "humanize",
+            "사람이 친 것처럼 음 시작 위치와 세기를 조금씩 무작위로 흔든다 (퀀타이즈의 반대).",
+            HumanizeArgs,
+            humanize,
+        ),
+        Tool(
+            "velocity_ramp",
+            "범위 처음부터 끝까지 세기를 점점 바꾼다 (크레셴도 · 디크레셴도 · 페이드 인/아웃).",
+            VelocityRampArgs,
+            velocity_ramp,
         ),
     ]
 }

@@ -1,4 +1,4 @@
-"""정답 있는 명령 45개.
+"""정답 있는 명령 49개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -133,6 +133,14 @@ CASES: list[Case] = [
          [Call("copy_bars", {"track_ids": ["t1"], "bars": [1, 4], "to_bar": 5})]),
     case("E06", "음 · 마디", "lofi_groove", "1~2마디를 16마디까지 계속 반복해줘",
          [Call("copy_bars", {"track_ids": ALL, "bars": [1, 2], "to_bar": 3, "times": 7})]),
+    case("H01", "연주 느낌", "lofi_groove", "드럼을 사람이 친 것처럼 살짝 흔들어줘",
+         [Call("humanize", {"track_ids": ["t1"], "timing": Range(0.005, 0.015, default=0.02), "velocity": Range(3, 8)})]),
+    case("H02", "연주 느낌", "lofi_groove", "리드가 너무 기계 같아, 사람이 연주한 느낌으로 해줘",
+         [Call("humanize", {"track_ids": ["t5"], "timing": Range(0.005, 0.05, default=0.02)})]),
+    case("H03", "연주 느낌", "lofi_groove", "마지막 4마디 점점 작게 해줘",
+         [Call("velocity_ramp", {"track_ids": ALL, "bars": [13, 16], "start": Range(0.9, 1.0), "end": Range(0.2, 0.6)})]),
+    case("H04", "연주 느낌", "lofi_groove", "처음 4마디 Rhodes 점점 크게",
+         [Call("velocity_ramp", {"track_ids": ["t3"], "bars": [1, 4], "start": Range(0.2, 0.7), "end": Range(0.95, 1.3)})]),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -140,4 +148,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 45 and len({c.id for c in CASES}) == 45
+assert len(CASES) == 49 and len({c.id for c in CASES}) == 49
