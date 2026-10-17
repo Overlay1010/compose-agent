@@ -120,6 +120,21 @@ export async function setInstrument(
   )
 }
 
+/** 화면에서 트랙 볼륨 · 팬을 바꾼다. 악기 바꾸기와 같이 바로 새 버전이 된다. */
+export async function setMix(
+  projectId: string,
+  trackId: string,
+  mix: { volume?: number; pan?: number },
+): Promise<{ project: Project; preview: Project | null }> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/mix`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mix),
+    }),
+  )
+}
+
 export async function undo(projectId: string): Promise<Project> {
   return parse<Project>(await post(`/projects/${projectId}/undo`))
 }

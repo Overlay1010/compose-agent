@@ -26,6 +26,8 @@ class Track(BaseModel):
         default=False, description="사용자가 악기를 직접 골랐음. 0(피아노)이어도 트랙 이름으로 악기를 짐작하지 않는다"
     )
     is_drum: bool = False
+    volume: int = Field(default=100, ge=0, le=127, description="트랙 볼륨 (MIDI CC7). 100이 기본")
+    pan: int = Field(default=0, ge=-64, le=63, description="좌우 위치 (MIDI CC10 - 64). -64 왼쪽, 0 가운데, 63 오른쪽")
     notes: list[Note] = Field(default_factory=list)
 
     @property

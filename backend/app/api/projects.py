@@ -95,28 +95,43 @@ class InstrumentIn(BaseModel):
     program: int = Field(ge=0, le=127)
 
 
-class InstrumentOut(BaseModel):
+class MixIn(BaseModel):
+    volume: int | None = Field(default=None, ge=0, le=127)
+    pan: int | None = Field(default=None, ge=-64, le=63)
+
+
+class TrackChangeOut(BaseModel):
     project: Project
     preview: Project | None = None
 
 
-@router.post("/{project_id}/tracks/{track_id}/instrument", response_model=InstrumentOut)
-def set_track_instrument(project_id: str, track_id: str, body: InstrumentIn) -> InstrumentOut:
-    """화면에서 악기를 고르면 바로 새 버전으로 올린다 (되돌리기 가능).
-    미리보기가 있으면 거기에도 같은 악기를 넣어 미리보기를 잃지 않게 한다."""
+def _change_track(project_id: str, tool: str, args: dict) -> TrackChangeOut:
+    """화면에서 트랙 설정(악기 · 볼륨 · 팬)을 바꾸면 바로 새 버전으로 올린다 (되돌리기 가능).
+    미리보기가 있으면 거기에도 같은 설정을 넣어 미리보기를 잃지 않게 한다."""
     current = _get(project_id)
-    args = {"track_ids": [track_id], "program": body.program}
     try:
-        result = run_tool(current, "set_instrument", args)
+        result = run_tool(current, tool, args)
     except ToolError as e:
         raise _error(400, e.code, e.message)
     pending = store.preview(project_id)
     if not result.changed_settings or result.project is None:
-        return InstrumentOut(project=current, preview=pending.project if pending else None)
+        return TrackChangeOut(project=current, preview=pending.project if pending else None)
     new = store.add_version(result.project, result.summary)
     if pending is not None:
-        pending = store.rebase_preview(project_id, run_tool(pending.project, "set_instrument", args).project or pending.project)
-    return InstrumentOut(project=new, preview=pending.project if pending else None)
+        pending = store.rebase_preview(project_id, run_tool(pending.project, tool, args).project or pending.project)
+    return TrackChangeOut(project=new, preview=pending.project if pending else None)
+
+
+@router.post("/{project_id}/tracks/{track_id}/instrument", response_model=TrackChangeOut)
+def set_track_instrument(project_id: str, track_id: str, body: InstrumentIn) -> TrackChangeOut:
+    return _change_track(project_id, "set_instrument", {"track_ids": [track_id], "program": body.program})
+
+
+@router.post("/{project_id}/tracks/{track_id}/mix", response_model=TrackChangeOut)
+def set_track_mix(project_id: str, track_id: str, body: MixIn) -> TrackChangeOut:
+    if body.volume is None and body.pan is None:
+        raise _error(400, "invalid_args", "volume이나 pan 중 하나는 있어야 해요.")
+    return _change_track(project_id, "set_mix", {"track_ids": [track_id], **body.model_dump(exclude_none=True)})
 
 
 @router.post("/{project_id}/undo", response_model=Project)

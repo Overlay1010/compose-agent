@@ -14,6 +14,8 @@ export interface Track {
   /** 사용자가 악기를 직접 골랐음 (0이어도 트랙 이름으로 짐작하지 않음) */
   program_set: boolean
   is_drum: boolean
+  volume: number // 트랙 볼륨 0~127 (MIDI CC7, 기본 100)
+  pan: number // 좌우 -64(왼쪽) ~ 63(오른쪽), 0 가운데
   notes: Note[]
 }
 

@@ -33,16 +33,21 @@ export function diffNotes(before: Note[], after: Note[]): NoteDiff {
   return { same, removed, added }
 }
 
-/** 미리보기에서 음이 하나라도 바뀌었거나 악기가 바뀐 트랙 id */
+/** 미리보기에서 음이 하나라도 바뀌었거나 악기 · 볼륨 · 팬이 바뀐 트랙 id */
 export function changedTrackIds(project: Project, preview: Project | null): Set<string> {
   const ids = new Set<string>()
   if (!preview) return ids
   for (const t of preview.tracks) {
     const original = project.tracks.find((o) => o.id === t.id)
-    if (!original || !sameNotes(original, t) || gmProgramOf(original) !== gmProgramOf(t)) ids.add(t.id)
+    if (!original || !sameNotes(original, t) || gmProgramOf(original) !== gmProgramOf(t) || !sameMix(original, t)) ids.add(t.id)
   }
   return ids
 }
+
+export const sameMix = (a: Track, b: Track) => a.volume === b.volume && a.pan === b.pan
+
+/** 화면용 팬 표시: 가운데 · 왼쪽 20 · 오른쪽 40 */
+export const panLabel = (pan: number) => (pan === 0 ? '가운데' : `${pan < 0 ? '왼쪽' : '오른쪽'} ${Math.abs(pan)}`)
 
 function sameNotes(a: Track, b: Track): boolean {
   if (a.notes.length !== b.notes.length) return false

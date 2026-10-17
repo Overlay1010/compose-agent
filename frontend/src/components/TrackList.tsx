@@ -1,4 +1,7 @@
-import { changedTrackIds } from '../diff'
+import { useState } from 'react'
+import type { Track } from '../api/types'
+import * as player from '../audio/player'
+import { changedTrackIds, panLabel } from '../diff'
 import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 import { useChat } from '../store/chat'
@@ -82,9 +85,85 @@ export function TrackList() {
                 ))}
               </select>
             )}
+            <MixControls key={`${t.id}:${t.volume}:${t.pan}`} track={t} />
           </li>
         ))}
       </ul>
     </nav>
+  )
+}
+
+/**
+ * 볼륨 · 팬 슬라이더. 끄는 동안은 소리만 바로 바꾸고(새 버전 X), 손을 떼면 한 번만 새 버전으로 저장한다.
+ * key에 볼륨 · 팬을 넣어 두어, 되돌리기 등으로 값이 바뀌면 끄던 값이 초기화된다.
+ */
+function MixControls({ track }: { track: Track }) {
+  const { busy, setMix } = useProject()
+  const { sending, note } = useChat()
+  const [volume, setVolume] = useState(track.volume)
+  const [pan, setPan] = useState(track.pan)
+
+  const commit = async (v = volume, p = pan) => {
+    if (v === track.volume && p === track.pan) return
+    const next = await setMix(track.id, { volume: v, pan: p })
+    if (next) {
+      const parts = [
+        v !== track.volume && `볼륨 ${track.volume} → ${v}`,
+        p !== track.pan && `팬 ${panLabel(track.pan)} → ${panLabel(p)}`,
+      ].filter(Boolean)
+      note(`${track.name} ${parts.join(' · ')} (v${next.version}로 저장)`, true)
+    } else {
+      // 저장이 안 됐으면 소리와 슬라이더를 원래대로
+      player.setMix(track.id, track.volume, track.pan)
+      setVolume(track.volume)
+      setPan(track.pan)
+    }
+  }
+  const disabled = busy || sending
+  const live = { onPointerUp: () => void commit(), onKeyUp: () => void commit() }
+
+  return (
+    <div className="mix">
+      <label title="트랙 볼륨 (0~127, 기본 100). 손을 떼면 새 버전으로 저장">
+        <span>볼륨</span>
+        <input
+          type="range"
+          min={0}
+          max={127}
+          value={volume}
+          disabled={disabled}
+          aria-label={`${track.name} 볼륨`}
+          onChange={(e) => {
+            setVolume(Number(e.target.value))
+            player.setMix(track.id, Number(e.target.value), pan)
+          }}
+          {...live}
+        />
+        <output>{volume}</output>
+      </label>
+      <label title="좌우 위치. 두 번 누르면 가운데로">
+        <span>팬</span>
+        <input
+          type="range"
+          min={-64}
+          max={63}
+          value={pan}
+          disabled={disabled}
+          aria-label={`${track.name} 팬`}
+          aria-valuetext={panLabel(pan)}
+          onChange={(e) => {
+            setPan(Number(e.target.value))
+            player.setMix(track.id, volume, Number(e.target.value))
+          }}
+          onDoubleClick={() => {
+            setPan(0)
+            player.setMix(track.id, volume, 0)
+            void commit(volume, 0)
+          }}
+          {...live}
+        />
+        <output>{pan === 0 ? 'C' : `${pan < 0 ? 'L' : 'R'}${Math.abs(pan)}`}</output>
+      </label>
+    </div>
   )
 }

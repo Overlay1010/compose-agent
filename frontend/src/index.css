@@ -90,6 +90,11 @@ main.no-project { grid-template-columns: 1fr; }
 .tracks-head h2 { margin: 0; color: var(--text-2); }
 .tracks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .tracks li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px; border-radius: 12px; border: 1px solid transparent; }
+.mix { flex-basis: calc(100% - 22px); margin: -2px 0 2px 22px; display: grid; gap: 0; }
+.mix label { display: grid; grid-template-columns: 26px 1fr 30px; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--text-quiet); }
+.mix input[type=range] { flex: 1; min-width: 0; height: 18px; accent-color: var(--text-2); cursor: pointer; }
+.mix input[type=range]:disabled { opacity: 0.5; cursor: default; }
+.mix output { width: 26px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); }
 .instrument { flex-basis: calc(100% - 22px); margin: -4px 0 2px 22px; min-height: 28px; padding: 2px 8px; border-radius: 8px; border: 1px solid var(--border); background: #17191d; color: var(--text-2); font: inherit; font-size: 12px; }
 select.instrument { cursor: pointer; }
 select.instrument:hover:not(:disabled) { border-color: #3a4566; color: var(--text); }

@@ -23,6 +23,7 @@ from app.tools.edits import (
 from app.tools.feel import HumanizeArgs, VelocityRampArgs, humanize, velocity_ramp
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
+from app.tools.mix import SetMixArgs, set_mix
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
 
@@ -107,6 +108,12 @@ TOOLS: dict[str, Tool] = {
             "범위 처음부터 끝까지 세기를 점점 바꾼다 (크레셴도 · 디크레셴도 · 페이드 인/아웃).",
             VelocityRampArgs,
             velocity_ramp,
+        ),
+        Tool(
+            "set_mix",
+            "트랙 전체의 볼륨(페이더)과 좌우 위치(팬)를 바꾼다. 음 세기는 그대로.",
+            SetMixArgs,
+            set_mix,
         ),
     ]
 }

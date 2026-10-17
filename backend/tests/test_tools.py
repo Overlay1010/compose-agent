@@ -269,7 +269,7 @@ def test_project_info(lofi):
 def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
-        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp",
+        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix",
     }
     specs = tool_specs()
     for spec in specs:
@@ -508,3 +508,42 @@ def test_velocity_ramp_over_bars():
     up = run_tool(p, "velocity_ramp", {"start": 0.5, "end": 1})  # bars 없으면 첫 음 ~ 마지막 음
     assert [n.velocity for n in by_track(up.project, "t1")] == [50, 67, 83, 100]
     assert run_tool(p, "velocity_ramp", {"bars": [9, 9], "start": 1, "end": 0.5}).changed_notes == 0
+
+
+# ---------- set_mix ----------
+
+def test_set_mix_volume_and_pan():
+    p = song(track("t1", (60, 0, 1, 80), name="Pad"), track("t2", (36, 0, 1, 80), drum=True, name="Drums"))
+    r = run_tool(p, "set_mix", {"track_ids": ["t1"], "volume_offset": -20, "pan": -30})
+    pad = r.project.tracks[0]
+    assert (pad.volume, pad.pan) == (80, -30) and pad.notes == p.tracks[0].notes
+    assert r.changed_settings and "볼륨 100 → 80" in r.summary and "왼쪽 30" in r.summary
+    drums = run_tool(p, "set_mix", {"track_ids": ["t2"], "volume": 127})  # 드럼도 볼륨은 바꿀 수 있음
+    assert drums.project.tracks[1].volume == 127
+    clipped = run_tool(p, "set_mix", {"track_ids": ["t1"], "volume_offset": -127})
+    assert clipped.project.tracks[0].volume == 0
+    same = run_tool(p, "set_mix", {"track_ids": ["t1"], "volume": 100})
+    assert not same.changed_settings
+    for bad in ({"track_ids": ["t1"]}, {"track_ids": ["t1"], "volume": 90, "volume_offset": 5}, {"track_ids": ["t1"], "pan": 64}):
+        with pytest.raises(ToolError):
+            run_tool(p, "set_mix", bad)
+
+
+def test_mix_survives_export():
+    from app.midi_io.convert import project_to_midi_bytes
+
+    p = song(track("t1", (60, 0, 1, 80), name="Pad"), track("t2", (40, 0, 1, 80), name="Bass"))
+    mixed = run_tool(p, "set_mix", {"track_ids": ["t1"], "volume": 70, "pan": 40}).project
+    back = midi_bytes_to_project(project_to_midi_bytes(mixed))
+    assert [(t.volume, t.pan) for t in back.tracks] == [(70, 40), (100, 0)]
+
+
+def test_mix_endpoint(client):
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t4/mix", json={"volume": 60, "pan": -20})
+    assert r.status_code == 200
+    t4 = r.json()["project"]["tracks"][3]
+    assert (t4["volume"], t4["pan"], r.json()["project"]["version"]) == (60, -20, 2)
+    assert client.post(f"/api/v1/projects/{pid}/tracks/t4/mix", json={}).status_code == 400

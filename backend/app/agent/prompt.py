@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from app.models.project import Project, Track
 from app.tools.instrument import gm_name
+from app.tools.mix import pan_text
 
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -28,7 +29,9 @@ RULES = """너는 작곡가를 돕는 MIDI 편집 에이전트야. 사용자의 
 - 마디는 1부터 세고 끝 마디도 포함해. "2마디부터 4마디까지" → bars [2, 4]. 범위 말이 없으면 bars를 비워 둬.
 - 마디 범위는 그 말이 붙은 편집에만 적용해. 예: "5마디부터 드럼 약하게 하고 리드 한 옥타브 내려줘" → 드럼은 bars [5, 끝], 리드는 bars 없이 곡 전체.
 - 드럼 트랙의 음 번호는 음높이가 아니라 악기야. 하이햇 = 42(닫힘) · 44(페달) · 46(열림), 킥 = 35 · 36, 스네어 = 37 · 38 · 40, 클랩 = 39, 탐 = 41 · 43 · 45 · 47 · 48 · 50, 심벌 = 49 · 51 · 52 · 53 · 55 · 57 · 59. 아래 목록에서 실제로 쓰인 번호만 pitches에 넣어. **드럼에서 소리 하나(하이햇 · 킥 · 스네어 …)를 말하면 반드시 pitches로 그 소리만 골라.** pitches를 비우면 드럼 전체가 바뀌어.
-- 말 → 도구: "N키 / N반음 올려·내려" = transpose, "옥타브" = shift_octave, "박자 맞춰 / 정리 / 칼박" = quantize, "세게 / 약하게 / 볼륨 / 다이내믹" = adjust_velocity, "스윙 / 그루브 / 셔플 / 바운스" = swing, "지금 뭐 있어 / 트랙 알려줘" = get_project_info, "템포 · BPM · 빠르게 · 느리게 · 속도" = set_tempo, "악기 · 소리를 ○○로 바꿔줘" = set_instrument, "지워 · 빼 · 없애" = delete_notes, "길게 · 짧게 · 끊어 · 이어 · 스타카토 · 레가토" = set_length, "복사 · 반복 · 붙여 · 똑같이" = copy_bars, "사람이 친 것처럼 · 자연스럽게 흔들 · 기계 같지 않게 · 휴머나이즈" = humanize, "점점 세게 · 점점 작게 · 크레셴도 · 페이드" = velocity_ramp.
+- 말 → 도구: "N키 / N반음 올려·내려" = transpose, "옥타브" = shift_octave, "박자 맞춰 / 정리 / 칼박" = quantize, "세게 / 약하게 / 볼륨 / 다이내믹" = adjust_velocity, "스윙 / 그루브 / 셔플 / 바운스" = swing, "지금 뭐 있어 / 트랙 알려줘" = get_project_info, "템포 · BPM · 빠르게 · 느리게 · 속도" = set_tempo, "악기 · 소리를 ○○로 바꿔줘" = set_instrument, "지워 · 빼 · 없애" = delete_notes, "길게 · 짧게 · 끊어 · 이어 · 스타카토 · 레가토" = set_length, "복사 · 반복 · 붙여 넣어" = copy_bars, "사람이 친 것처럼 · 자연스럽게 흔들 · 기계 같지 않게 · 휴머나이즈" = humanize, "점점 세게 · 점점 작게 · 크레셴도 · 페이드" = velocity_ramp, "볼륨 · 소리 크기 · 페이더 · 왼쪽 · 오른쪽 · 팬" = set_mix.
+- 볼륨 vs 세기: 트랙 전체 소리를 키우거나 줄이는 말("패드 볼륨 줄여", "베이스 소리 좀 키워", "믹스에서 리드 묻혀")은 set_mix. 마디 범위나 특정 드럼 소리가 붙거나 "세게 · 약하게 · 세기 · 다이내믹"이면 adjust_velocity. "조금" = volume_offset ±10~15, "많이" = ±25~35, 숫자면 그대로.
+- 팬: "왼쪽으로 조금" = -20, "왼쪽으로" = -40, "완전 왼쪽" = -64, 오른쪽은 양수, "가운데" = 0.
 - 휴머나이즈 "살짝" = timing 0.01 · velocity 6, 그냥 = 0.02 · 10, "많이" = 0.04 · 18. "다른 느낌으로 다시"면 seed만 바꿔. 퀀타이즈 "너무 딱딱하지 않게"는 quantize strength야 (휴머나이즈 아님).
 - 점점 세기: "점점 작게 · 페이드 아웃" = start 1, end 0.3~0.5, "점점 크게 · 페이드 인" = start 0.3~0.5, end 1. "마지막 4마디"처럼 말하면 그 마디를 bars로 (16마디 곡이면 [13, 16]).
 - 음 길이: "짧게 끊어 · 스타카토" = scale 0.5, "조금 짧게" = 0.75, "조금 길게" = 1.5, "이어지게 · 레가토 · 부드럽게 연결" = legato. "볼륨 · 소리 크기를 줄여"는 길이가 아니라 세기(adjust_velocity)야.
@@ -80,6 +83,12 @@ def track_instrument(t: Track) -> str:
     return instrument(t.program)
 
 
+def track_mix(t: Track) -> str:
+    """기본값(볼륨 100 · 가운데)이 아닐 때만 적는다."""
+    parts = ([f"볼륨 {t.volume}"] if t.volume != 100 else []) + ([f"팬 {pan_text(t.pan)}"] if t.pan else [])
+    return "".join(f" · {p}" for p in parts)
+
+
 def project_summary(p: Project) -> str:
     num, den = p.time_signature
     lines = [f"이름: {p.name} · {p.tempo:.0f} BPM · {num}/{den}박자 · {p.bar_count}마디 · 버전 v{p.version}"]
@@ -87,11 +96,11 @@ def project_summary(p: Project) -> str:
         if t.is_drum:
             used = sorted({n.pitch for n in t.notes})
             sounds = ", ".join(f"{x} {DRUM_NAMES.get(x, note_name(x))}" for x in used)
-            lines.append(f"- {t.id} {t.name} (드럼) · 음 {len(t.notes)}개 · 쓰인 소리: {sounds}")
+            lines.append(f"- {t.id} {t.name} (드럼){track_mix(t)} · 음 {len(t.notes)}개 · 쓰인 소리: {sounds}")
         else:
             low, high = t.pitch_range or (0, 0)
             lines.append(
-                f"- {t.id} {t.name} · {track_instrument(t)} · 음 {len(t.notes)}개 · 음역 {note_name(low)}~{note_name(high)}"
+                f"- {t.id} {t.name} · {track_instrument(t)}{track_mix(t)} · 음 {len(t.notes)}개 · 음역 {note_name(low)}~{note_name(high)}"
             )
     return "\n".join(lines)
 

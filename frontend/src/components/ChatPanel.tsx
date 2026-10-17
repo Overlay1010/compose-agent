@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useChat } from '../store/chat'
 import { gmProgramOf } from '../audio/instruments'
 import { useProject } from '../store/project'
+import { panLabel, sameMix } from '../diff'
 import { programName } from '../theme'
 
 const SUGGESTIONS = [
@@ -125,6 +126,19 @@ export function ChatPanel() {
                 <strong>{programName(gmProgramOf(t))}</strong>
               </p>
             ))}
+          {preview.tracks.map((t) => {
+            const before = project.tracks.find((o) => o.id === t.id)
+            if (!before || sameMix(before, t)) return null
+            const parts = [
+              before.volume !== t.volume && `볼륨 ${before.volume} → ${t.volume}`,
+              before.pan !== t.pan && `팬 ${panLabel(before.pan)} → ${panLabel(t.pan)}`,
+            ].filter(Boolean)
+            return (
+              <p className="tempo-change" key={`mix-${t.id}`}>
+                {t.name} <strong>{parts.join(' · ')}</strong>
+              </p>
+            )
+          })}
           {preview.tempo !== project.tempo && (
             <p className="tempo-change">
               템포 {project.tempo.toFixed(0)} → <strong>{preview.tempo.toFixed(0)} BPM</strong>
