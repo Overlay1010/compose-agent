@@ -269,7 +269,7 @@ def test_project_info(lofi):
 def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
-        "delete_notes", "set_length", "copy_bars",
+        "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp",
     }
     specs = tool_specs()
     for spec in specs:
@@ -478,3 +478,33 @@ def test_copy_bars_in_three_four():
     p = song(track("t1", (60, 0, 1, 80), (62, 2, 1, 80)), ts=(3, 4))
     r = run_tool(p, "copy_bars", {"bars": [1, 1], "to_bar": 2})
     assert [n.start for n in by_track(r.project, "t1")] == [0, 2, 3, 5]
+
+
+# ---------- humanize ----------
+
+def test_humanize_is_small_and_repeatable():
+    p = song(track("t1", *[(60, i * 0.5, 0.5, 80) for i in range(32)]))
+    a = run_tool(p, "humanize", {"timing": 0.02, "velocity": 10})
+    b = run_tool(p, "humanize", {"timing": 0.02, "velocity": 10})
+    assert a.project == b.project  # 같은 seed면 같은 결과
+    moved = list(zip(by_track(p, "t1"), by_track(a.project, "t1")))
+    assert all(abs(x.start - y.start) <= 0.02 + 1e-9 and abs(x.velocity - y.velocity) <= 10 for x, y in moved)
+    assert a.changed_notes > 20
+    other = run_tool(p, "humanize", {"timing": 0.02, "velocity": 10, "seed": 7})
+    assert other.project != a.project
+    assert run_tool(p, "humanize", {"timing": 0, "velocity": 0}).changed_notes == 0
+    first = run_tool(song(track("t1", (60, 0, 1, 80))), "humanize", {"timing": 0.08, "seed": 3})
+    assert by_track(first.project, "t1")[0].start >= 0  # 곡 앞으로 나가지 않음
+
+
+# ---------- velocity_ramp ----------
+
+def test_velocity_ramp_over_bars():
+    p = song(track("t1", *[(60, b * 4, 1, 100) for b in range(4)]))  # 1~4마디 첫 박
+    r = run_tool(p, "velocity_ramp", {"bars": [1, 4], "start": 1, "end": 0.5})
+    # 범위는 0~16박: 0 → 100%, 4 → 87.5%, 8 → 75%, 12 → 62.5%
+    assert [n.velocity for n in by_track(r.project, "t1")] == [100, 88, 75, 63]
+    assert "점점 여리게" in r.summary
+    up = run_tool(p, "velocity_ramp", {"start": 0.5, "end": 1})  # bars 없으면 첫 음 ~ 마지막 음
+    assert [n.velocity for n in by_track(up.project, "t1")] == [50, 67, 83, 100]
+    assert run_tool(p, "velocity_ramp", {"bars": [9, 9], "start": 1, "end": 0.5}).changed_notes == 0
