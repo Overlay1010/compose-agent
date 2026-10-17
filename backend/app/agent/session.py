@@ -7,12 +7,14 @@ API(app/api/chat.py)와 평가(eval/)가 같은 코드를 쓰게 하려고 따�
 from __future__ import annotations
 
 from app.agent.llm import LLM
-from app.agent.loop import AgentResult, run_agent
+from app.agent.loop import AgentResult, OnEvent, run_agent
 from app.models.project import Project
 from app.store.memory import Preview, ProjectStore
 
 
-def chat_turn(store: ProjectStore, project_id: str, message: str, llm: LLM) -> tuple[AgentResult, Preview | None]:
+def chat_turn(
+    store: ProjectStore, project_id: str, message: str, llm: LLM, on_event: OnEvent | None = None
+) -> tuple[AgentResult, Preview | None]:
     """명령 하나를 처리하고 (에이전트 결과, 지금 쌓여 있는 미리보기)를 돌려준다."""
     pending = store.preview(project_id)
     result = run_agent(
@@ -22,6 +24,7 @@ def chat_turn(store: ProjectStore, project_id: str, message: str, llm: LLM) -> t
         history=store.chat_history(project_id),
         pending=pending.labels if pending else None,
         base=store.current(project_id),
+        on_event=on_event,
     )
     if result.started_over_at is not None:
         # "아니 내려줘"처럼 미리보기를 고친 경우: 쌓인 미리보기를 버리고 이번 결과만 새 미리보기로

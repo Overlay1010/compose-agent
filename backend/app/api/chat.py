@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import threading
+from collections.abc import Iterator
+from queue import Queue
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.agent import LLM, ToolStep, get_llm, session
+from app.agent import LLM, LLMError, ToolStep, get_llm, session
 from app.models.project import Project
-from app.store.memory import NoPreview, PreviewConflict, ProjectNotFound, store
+from app.agent.loop import AgentResult
+from app.store.memory import NoPreview, PreviewConflict, Preview, ProjectNotFound, store
 
 router = APIRouter(prefix="/projects", tags=["chat"])
 
@@ -38,10 +45,7 @@ def _check(project_id: str) -> None:
         raise _error(404, "project_not_found", "프로젝트를 찾을 수 없습니다.")
 
 
-@router.post("/{project_id}/chat", response_model=ChatResponse)
-def chat(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm)) -> ChatResponse:
-    _check(project_id)
-    result, pending = session.chat_turn(store, project_id, body.message, llm)
+def _response(project_id: str, result: AgentResult, pending: Preview | None) -> ChatResponse:
     return ChatResponse(
         reply=result.reply,
         steps=result.steps,
@@ -52,6 +56,43 @@ def chat(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm)) -> Cha
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
     )
+
+
+@router.post("/{project_id}/chat", response_model=ChatResponse)
+def chat(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm)) -> ChatResponse:
+    _check(project_id)
+    result, pending = session.chat_turn(store, project_id, body.message, llm)
+    return _response(project_id, result, pending)
+
+
+@router.post("/{project_id}/chat/stream")
+def chat_stream(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm)) -> StreamingResponse:
+    """/chat과 같지만 진행 상황을 Server-Sent Events로 흘려보낸다.
+
+    event: thinking | tool_start | tool_done | done(ChatResponse) | error({code, message})
+    """
+    _check(project_id)
+    events: Queue[tuple[str, dict] | None] = Queue()
+
+    def work() -> None:
+        try:
+            result, pending = session.chat_turn(store, project_id, body.message, llm, on_event=lambda k, d: events.put((k, d)))
+            events.put(("done", _response(project_id, result, pending).model_dump(mode="json")))
+        except LLMError as e:
+            events.put(("error", {"code": "llm_error", "message": str(e)}))
+        except Exception as e:  # 스트림 중간에는 HTTP 오류 코드를 바꿀 수 없어 이벤트로 알린다
+            events.put(("error", {"code": "internal_error", "message": f"처리 중 오류가 났어요: {e}"}))
+        finally:
+            events.put(None)
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def stream() -> Iterator[str]:
+        while (item := events.get()) is not None:
+            kind, data = item
+            yield f"event: {kind}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
 
 @router.post("/{project_id}/preview/apply", response_model=Project)

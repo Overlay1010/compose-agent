@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,12 @@ START_OVER_SPEC = {
     ),
     "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
 }
+
+# 진행 상황 알림: (종류, 내용). 화면에 실시간으로 보여 주려고 쓴다 (app/api/chat.py의 스트리밍).
+#   "thinking"   LLM에게 묻는 중          {"round": 1}
+#   "tool_start" 도구를 부르기 시작       {"name": ..., "args": {...}}
+#   "tool_done"  도구가 끝남              ToolStep
+OnEvent = Callable[[str, dict[str, Any]], None]
 
 TOO_MANY_STEPS = "한 번에 처리하기엔 단계가 너무 많아서 멈췄어요. 지금까지 바뀐 부분은 미리보기로 보여 드릴게요. 나눠서 다시 말씀해 주세요."
 
@@ -97,6 +103,7 @@ def run_agent(
     pending: list[str] | None = None,
     max_steps: int | None = None,
     base: Project | None = None,
+    on_event: OnEvent | None = None,
 ) -> AgentResult:
     """project(현재 버전 또는 미리보기)에 message를 적용해 본다. project 자체는 바꾸지 않는다.
 
@@ -111,8 +118,10 @@ def run_agent(
     tools = tool_specs() + ([START_OVER_SPEC] if base is not None else [])
     draft = project
     out = AgentResult(reply="", model=llm.model)
+    emit = on_event or (lambda kind, data: None)
 
-    for _ in range(max_steps):
+    for round_no in range(1, max_steps + 1):
+        emit("thinking", {"round": round_no})
         reply = llm.complete(messages, tools)
         out.llm_calls += 1
         out.input_tokens += reply.input_tokens
@@ -133,6 +142,11 @@ def run_agent(
             }
         )
         for call in reply.tool_calls:
+            try:
+                shown_args = json.loads(call.arguments or "{}")
+            except ValueError:
+                shown_args = {}
+            emit("tool_start", {"name": call.name, "args": shown_args if isinstance(shown_args, dict) else {}})
             if call.name == START_OVER and base is not None:
                 draft = base
                 out.started_over_at = len(out.steps)
@@ -141,6 +155,7 @@ def run_agent(
             else:
                 draft, step, content = _run_call(draft, call.name, call.arguments)
             out.steps.append(step)
+            emit("tool_done", step.model_dump())
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(content, ensure_ascii=False)})
     else:
         out.reply = TOO_MANY_STEPS

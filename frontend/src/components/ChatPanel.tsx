@@ -76,9 +76,9 @@ export function ChatPanel() {
               {m.steps && m.steps.length > 0 && (
                 <ol className="steps" aria-label="실행한 도구">
                   {m.steps.map((s, i) => (
-                    <li key={i} className={s.ok ? 'step' : 'step failed'} title={JSON.stringify(s.args)}>
+                    <li key={i} className={s.running ? 'step running' : s.ok ? 'step' : 'step failed'} title={JSON.stringify(s.args)}>
                       <span className="mark" aria-hidden="true">
-                        {s.ok ? '✓' : '!'}
+                        {s.running ? <span className="spinner small" /> : s.ok ? '✓' : '!'}
                       </span>
                       <span className="tool">{s.name}</span>
                       <span className="summary">{s.summary}</span>
@@ -86,20 +86,24 @@ export function ChatPanel() {
                   ))}
                 </ol>
               )}
-              <p className="msg agent">{m.text}</p>
-              <span className="meta">
-                {m.madePreview && <strong>미리보기 만들어짐 · </strong>}
-                {m.meta}
-              </span>
+              {m.live ? (
+                <p className="msg agent thinking" aria-live="polite">
+                  <span className="spinner small" aria-hidden="true" />
+                  {m.status}
+                </p>
+              ) : (
+                <>
+                  <p className="msg agent">{m.text}</p>
+                  <span className="meta">
+                    {m.madePreview && <strong>미리보기 만들어짐 · </strong>}
+                    {m.meta}
+                  </span>
+                </>
+              )}
             </div>
           ),
         )}
 
-        {sending && (
-          <p className="msg agent thinking" aria-live="polite">
-            생각하는 중…
-          </p>
-        )}
       </div>
 
       {preview && (
