@@ -266,9 +266,10 @@ def test_project_info(lofi):
 # ---------- 등록 · run_tool ----------
 
 
-def test_registry_has_eight_tools_with_schemas():
+def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
+        "delete_notes", "set_length", "copy_bars",
     }
     specs = tool_specs()
     for spec in specs:
@@ -418,3 +419,62 @@ def test_instrument_endpoint_makes_version_and_keeps_preview(client):
     assert applied.status_code == 200 and applied.json()["tracks"][1]["program"] == 38  # 충돌 없이 적용
 
     assert client.post(f"/api/v1/projects/{pid}/tracks/t9/instrument", json={"program": 1}).status_code == 400
+
+
+# ---------- delete_notes ----------
+
+def test_delete_notes_by_bars_and_pitches():
+    drums = track("t1", (36, 0, 0.5, 90), (42, 0, 0.5, 70), (42, 4, 0.5, 70), (38, 5, 0.5, 90), drum=True, name="Drums")
+    p = song(drums, track("t2", (40, 0, 1, 80), (40, 4, 1, 80), name="Bass"))
+    r = run_tool(p, "delete_notes", {"track_ids": ["t1"], "pitches": [42]})
+    assert [n.pitch for n in by_track(r.project, "t1")] == [36, 38] and r.changed_notes == 2
+    r = run_tool(p, "delete_notes", {"bars": [2, 2]})  # 2마디의 모든 트랙
+    assert [n.start for n in by_track(r.project, "t1")] == [0, 0] and [n.start for n in by_track(r.project, "t2")] == [0]
+    assert "2마디" in r.summary
+    nothing = run_tool(p, "delete_notes", {"bars": [9, 9]})
+    assert nothing.changed_notes == 0
+    with pytest.raises(ToolError):
+        run_tool(p, "delete_notes", {})  # 곡 전체는 막음
+
+
+# ---------- set_length ----------
+
+def test_set_length_modes():
+    p = song(track("t1", (60, 0, 1, 80), (64, 0, 1, 80), (67, 2, 0.5, 80), (72, 3, 2, 80)), track("t2", (36, 0, 0.25, 90), drum=True))
+    half = run_tool(p, "set_length", {"mode": "scale", "value": 0.5})
+    assert [n.duration for n in by_track(half.project, "t1")] == [0.5, 0.5, 0.25, 1]
+    assert by_track(half.project, "t2") == by_track(p, "t2")  # 드럼은 그대로
+    legato = run_tool(p, "set_length", {"mode": "legato", "track_ids": ["t1"]})
+    # 화음(0박) 두 음은 다음 음(2박)까지, 2박 음은 3박까지, 마지막 음은 그대로
+    assert [n.duration for n in by_track(legato.project, "t1")] == [2, 2, 1, 2]
+    fixed = run_tool(p, "set_length", {"mode": "set", "value": 0.25, "track_ids": ["t1"], "bars": [1, 1]})
+    assert {n.duration for n in by_track(fixed.project, "t1")} == {0.25}
+    with pytest.raises(ToolError):
+        run_tool(p, "set_length", {"mode": "scale"})  # value 빠짐
+    with pytest.raises(ToolError):
+        run_tool(p, "set_length", {"mode": "set", "value": 0})
+
+
+# ---------- copy_bars ----------
+
+def test_copy_bars_repeat_and_overwrite():
+    p = song(track("t1", (60, 0, 1, 80), (62, 4, 1, 80), (99, 8, 1, 80), (98, 13, 1, 80)), track("t2", (40, 0, 4, 80)))
+    r = run_tool(p, "copy_bars", {"track_ids": ["t1"], "bars": [1, 2], "to_bar": 3, "times": 2})
+    got = [(n.pitch, n.start) for n in by_track(r.project, "t1")]
+    # 3~6마디(8~23박)에 있던 음(99, 98)은 지우고 1~2마디를 두 번 붙인다
+    assert got == [(60, 0), (62, 4), (60, 8), (62, 12), (60, 16), (62, 20)]
+    assert by_track(r.project, "t2") == by_track(p, "t2") and r.project.bar_count == 6
+    merged = run_tool(p, "copy_bars", {"bars": [1, 1], "to_bar": 3, "overwrite": False})
+    assert (99, 8) in [(n.pitch, n.start) for n in by_track(merged.project, "t1")]
+    assert [n.start for n in by_track(merged.project, "t2")] == [0, 8]  # 트랙을 안 정하면 모든 트랙
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "copy_bars", {"bars": [1, 4], "to_bar": 3})
+    assert e.value.code == "overlap" and "to_bar를 5" in e.value.message
+    with pytest.raises(ToolError):
+        run_tool(p, "copy_bars", {"bars": [1, 1], "to_bar": 600})
+
+
+def test_copy_bars_in_three_four():
+    p = song(track("t1", (60, 0, 1, 80), (62, 2, 1, 80)), ts=(3, 4))
+    r = run_tool(p, "copy_bars", {"bars": [1, 1], "to_bar": 2})
+    assert [n.start for n in by_track(r.project, "t1")] == [0, 2, 3, 5]

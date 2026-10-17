@@ -86,7 +86,7 @@ const fileOf = (pitch: number) => `${FLAT_NAMES[pitch % 12]}${Math.floor(pitch /
 
 /** 트랙 음역(위아래 3반음 여유)에서 3반음마다 하나씩만 불러온다. 사이 음은 Sampler가 가까운 샘플의 음높이를 바꿔 낸다. */
 function sampleUrls(track: Track): Record<string, string> {
-  const pitches = track.notes.map((n) => n.pitch)
+  const pitches = track.notes.length ? track.notes.map((n) => n.pitch) : [60] // 음을 다 지운 트랙
   const low = Math.max(21, Math.min(...pitches) - 3)
   const high = Math.min(108, Math.max(...pitches) + 3)
   const urls: Record<string, string> = {}
