@@ -171,11 +171,17 @@ const DRUM_SAMPLES: Record<number, DrumSample> = {
 const DRUM_DEFAULT: DrumSample = ['drum_cymbal_closed', 1] // 목록에 없는 번호
 
 /** 고를 수 있는 드럼 킷 (GM 드럼 킷 번호, 백엔드 app/tools/instrument.py DRUM_KITS와 같은 목록) */
+// 8 · 32는 GM2 표준 번호, 26~28은 이 앱 전용 (DAW에서는 각 DAW 드럼 소리로 열림)
 export const DRUM_KITS: { program: number; name: string }[] = [
   { program: 0, name: '스탠다드' },
+  { program: 8, name: '룸' },
   { program: 16, name: '파워' },
   { program: 24, name: '일렉트로닉' },
   { program: 25, name: 'TR-808' },
+  { program: 26, name: '하우스 (909)' },
+  { program: 27, name: '로파이' },
+  { program: 28, name: '붐뱁' },
+  { program: 32, name: '재즈' },
 ]
 
 export const kitName = (program: number) => DRUM_KITS.find((k) => k.program === program)?.name ?? '스탠다드'
@@ -202,6 +208,33 @@ const KIT_SAMPLES: Record<number, Record<number, DrumSample>> = {
     42: ['hat_bdu', 1], 44: ['hat_bdu', 0.9], 46: ['hat_len', 1],
     ...Object.fromEntries(TOMS.map((p, i): [number, DrumSample] => [p, ['bd_pure', 1.6 + i * 0.3]])),
   },
+  // 하우스 (909): 짧고 단단한 킥 · 909식 클랩 · 밝은 하이햇
+  26: {
+    35: ['bd_haus', 0.95, 0.7], 36: ['bd_haus', 1, 0.7], 38: ['sn_generic', 1, 0.8], 40: ['sn_generic', 1.05, 0.8],
+    39: ['perc_snap2', 1, 0.7], 42: ['hat_raw', 1], 44: ['hat_raw', 0.9], 46: ['hat_gump', 1, 0.8],
+  },
+  // 로파이: 둥글고 낮은 킥 · 먹먹한 스네어 · 작은 하이햇 (필터는 KIT_FX)
+  27: {
+    35: ['bd_gas', 0.95], 36: ['bd_gas', 1], 38: ['sn_dub', 0.95, 0.7], 40: ['sn_dub', 1, 0.7],
+    42: ['hat_tap', 1, 2.5], 44: ['hat_tap', 0.9, 2.5], 46: ['hat_cats', 1, 1.5],
+  },
+  // 붐뱁: 굵은 킥 · 큰 스네어
+  28: {
+    35: ['bd_fat', 0.95, 1.6], 36: ['bd_fat', 1, 1.6], 38: ['sn_zome', 1, 0.75], 40: ['sn_zome', 1.05, 0.75],
+    42: ['hat_zild', 1], 44: ['hat_zild', 0.9],
+  },
+  // 재즈: 부드러운 킥 · 스네어, 길게 울리는 라이드 (잔향은 KIT_FX)
+  32: {
+    35: ['drum_bass_soft', 0.95], 36: ['drum_bass_soft', 1], 38: ['drum_snare_soft', 1], 40: ['drum_snare_soft', 1.05],
+    51: ['ride_via', 1, 1.5], 59: ['ride_tri', 1, 1.3], 53: ['ride_tri', 1.2, 1.3],
+  },
+}
+
+// 킷 소리 뒤에 거는 효과 (룸 · 재즈 = 방 울림, 로파이 = 고음을 깎아 먹먹하게)
+const KIT_FX: Record<number, () => Tone.ToneAudioNode[]> = {
+  8: () => [new Tone.Reverb({ decay: 1.4, wet: 0.3 })],
+  27: () => [new Tone.Filter({ frequency: 2600, type: 'lowpass', rolloff: -24 })],
+  32: () => [new Tone.Reverb({ decay: 1.8, wet: 0.18 })],
 }
 
 const drumSample = (kit: number, pitch: number): DrumSample => KIT_SAMPLES[kit]?.[pitch] ?? DRUM_SAMPLES[pitch] ?? DRUM_DEFAULT
@@ -210,6 +243,9 @@ const OPEN_HAT = 46
 
 class SampledDrumVoice implements Voice {
   output = new Tone.Gain()
+  /** 샘플이 모이는 곳. 킷 효과를 거쳐 output으로 간다 */
+  private bus = new Tone.Gain()
+  private fx: Tone.ToneAudioNode[] = []
   ready: Promise<void>
   fallback = false
   private buffers: Tone.ToneAudioBuffers | null = null
@@ -223,9 +259,14 @@ class SampledDrumVoice implements Voice {
     const pitches = [...new Set([...Object.keys(DRUM_SAMPLES), ...Object.keys(KIT_SAMPLES[this.kit] ?? {})].map(Number))]
     const files = new Set([...pitches.map((p) => drumSample(this.kit, p)), DRUM_DEFAULT].map(([f]) => f))
     const urls = Object.fromEntries([...files].map((f) => [f, `${f}.flac`]))
+    this.fx = KIT_FX[this.kit]?.() ?? []
+    this.bus.chain(...this.fx, this.output)
+    // 잔향은 울림(IR)을 만드는 데 시간이 걸려서 샘플과 함께 기다린다
+    const fxReady = Promise.all(this.fx.map((n) => (n instanceof Tone.Reverb ? n.ready : null)))
     this.ready = waitLoad((done, fail) => {
       this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: '/samples/drums/', onload: done, onerror: fail })
-    }).then((ok) => {
+    }).then(async (ok) => {
+      await fxReady
       if (ok) return
       this.buffers?.dispose()
       this.buffers = null
@@ -245,7 +286,7 @@ class SampledDrumVoice implements Voice {
       this.openHat = null
     }
     // 한 번 치고 버리는 소스라서 같은 시각에 겹쳐 울려도 문제없다
-    const src = new Tone.ToneBufferSource(this.buffers.get(file)).connect(this.output)
+    const src = new Tone.ToneBufferSource(this.buffers.get(file)).connect(this.bus)
     src.playbackRate.value = rate
     src.onended = () => {
       if (this.openHat === src) this.openHat = null
@@ -268,6 +309,8 @@ class SampledDrumVoice implements Voice {
   dispose() {
     this.buffers?.dispose()
     this.synth?.dispose()
+    for (const n of this.fx) n.dispose()
+    this.bus.dispose()
     this.output.dispose()
   }
 }
