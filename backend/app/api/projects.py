@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import re
+import zipfile
 from pathlib import Path
 from urllib.parse import quote
 
@@ -79,15 +82,55 @@ def get_summary(project_id: str) -> ProjectSummary:
     return ProjectSummary.of(_get(project_id))
 
 
-@router.get("/{project_id}/export")
-def export_midi(project_id: str) -> Response:
-    project = _get(project_id)
-    filename = f"{project.name}_v{project.version}.mid"
+def _safe(name: str) -> str:
+    """파일 이름에 못 쓰는 글자(Windows 기준)를 바꾼다."""
+    return re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name).strip(" .") or "track"
+
+
+def _download(content: bytes, filename: str, media_type: str) -> Response:
     return Response(
-        content=project_to_midi_bytes(project),
-        media_type="audio/midi",
+        content=content,
+        media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
     )
+
+
+def _only(project: Project, track_id: str) -> Project:
+    """트랙 하나만 남긴 프로젝트 (템포 · 박자 · 악기 · 볼륨 · 팬은 그대로)."""
+    return project.model_copy(update={"tracks": [t for t in project.tracks if t.id == track_id]})
+
+
+@router.get("/{project_id}/export")
+def export_midi(project_id: str, track: str | None = None) -> Response:
+    """현재 버전을 .mid로. track을 주면 그 트랙 하나만 (DAW에 트랙별로 끌어다 놓기)."""
+    project = _get(project_id)
+    if track is None:
+        return _download(project_to_midi_bytes(project), f"{_safe(project.name)}_v{project.version}.mid", "audio/midi")
+    one = next((t for t in project.tracks if t.id == track), None)
+    if one is None:
+        raise _error(404, "unknown_track", f"없는 트랙이에요: {track}")
+    return _download(
+        project_to_midi_bytes(_only(project, track)),
+        f"{_safe(project.name)}_{_safe(one.name)}_v{project.version}.mid",
+        "audio/midi",
+    )
+
+
+@router.get("/{project_id}/export/tracks")
+def export_tracks_zip(project_id: str) -> Response:
+    """트랙마다 .mid 하나씩 + 전체 곡 .mid를 .zip 하나로 (브라우저가 여러 파일 연속 받기를 막는 경우가 많아서)."""
+    project = _get(project_id)
+    buf = io.BytesIO()
+    used: set[str] = set()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(f"00 전체 곡 - {_safe(project.name)}.mid", project_to_midi_bytes(project))
+        for i, t in enumerate(project.tracks, start=1):
+            name = f"{i:02d} {_safe(t.name)}.mid"
+            while name in used:  # 이름이 같은 트랙
+                name = name.removesuffix(".mid") + "_.mid"
+            used.add(name)
+            z.writestr(name, project_to_midi_bytes(_only(project, t.id)))
+    return _download(buf.getvalue(), f"{_safe(project.name)}_v{project.version}_트랙별.zip", "application/zip")
 
 
 

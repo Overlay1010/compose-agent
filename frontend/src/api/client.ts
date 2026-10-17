@@ -194,9 +194,19 @@ export async function recentProjects(): Promise<RecentProject[]> {
   return parse<RecentProject[]>(await fetch(`${BASE}/projects`))
 }
 
-/** .mid 내려받기. 서버 오류면 오류 문구가 .txt로 저장되지 않게 먼저 확인하고 ApiError를 던진다 */
-export async function downloadMidi(projectId: string): Promise<void> {
-  const res = await fetch(exportUrl(projectId))
+/** 전체 곡 .mid (trackId를 주면 그 트랙 하나만) */
+export function downloadMidi(projectId: string, trackId?: string): Promise<void> {
+  return download(trackId ? `${exportUrl(projectId)}?track=${encodeURIComponent(trackId)}` : exportUrl(projectId))
+}
+
+/** 트랙마다 .mid 하나씩 + 전체 곡 .mid를 묶은 .zip */
+export function downloadTracksZip(projectId: string): Promise<void> {
+  return download(`${exportUrl(projectId)}/tracks`)
+}
+
+/** 파일 내려받기. 서버 오류면 오류 문구가 .txt로 저장되지 않게 먼저 확인하고 ApiError를 던진다 */
+async function download(url: string): Promise<void> {
+  const res = await fetch(url)
   if (!res.ok) {
     await parse(res) // 서버가 보낸 오류 문구로 ApiError
     return
@@ -205,12 +215,12 @@ export async function downloadMidi(projectId: string): Promise<void> {
   const header = res.headers.get('Content-Disposition') ?? ''
   const match = /filename\*=UTF-8''([^;]+)/i.exec(header)
   const name = match ? decodeURIComponent(match[1]) : 'project.mid'
-  const url = URL.createObjectURL(await res.blob())
+  const blobUrl = URL.createObjectURL(await res.blob())
   const a = document.createElement('a')
-  a.href = url
+  a.href = blobUrl
   a.download = name
   a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 }
 
 export function exportUrl(projectId: string): string {

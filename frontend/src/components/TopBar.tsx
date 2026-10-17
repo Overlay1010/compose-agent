@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { downloadMidi } from '../api/client'
+import { downloadMidi, downloadTracksZip } from '../api/client'
 import { positionBeats } from '../audio/player'
 import { useShortcutHelp } from '../shortcuts'
 import { usePlayer } from '../store/player'
@@ -18,6 +18,69 @@ function StopIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <rect x="6" y="6" width="12" height="12" rx="1.5" />
     </svg>
+  )
+}
+
+/** 내보내기 메뉴: 전체 곡 하나 · 트랙별 .zip · 트랙 하나만. 현재 버전 기준 (적용 전 미리보기는 빠짐) */
+function ExportMenu() {
+  const { project, preview } = useProject()
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+
+  // 메뉴 밖을 누르거나 Esc면 닫는다
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [open])
+
+  if (!project) return null
+  const run = (job: Promise<void>) => {
+    setOpen(false)
+    job.catch((e) => useProject.setState({ error: `내보내지 못했어요: ${e instanceof Error ? e.message : String(e)}` }))
+  }
+
+  return (
+    <div className="export" ref={box}>
+      <button className="primary" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu">
+        내보내기 ▾
+      </button>
+      {open && (
+        <div className="export-menu" role="menu">
+          <button role="menuitem" onClick={() => run(downloadMidi(project.id))}>
+            <strong>전체 곡 · 파일 하나</strong>
+            <span>모든 트랙이 든 .mid</span>
+          </button>
+          <button role="menuitem" onClick={() => run(downloadTracksZip(project.id))}>
+            <strong>트랙별로 한 번에</strong>
+            <span>트랙마다 .mid + 전체 곡 .mid를 .zip으로</span>
+          </button>
+          <p className="export-sep">트랙 하나만</p>
+          {project.tracks.map((t) => (
+            <button key={t.id} role="menuitem" className="one" onClick={() => run(downloadMidi(project.id, t.id))}>
+              {t.name}
+              <span>.mid</span>
+            </button>
+          ))}
+          <p className="export-note">
+            v{project.version} 기준{preview ? ' · 적용 전 미리보기는 들어가지 않아요' : ''} · 드럼 소리 선택은 MIDI에 안 담겨요
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -175,16 +238,7 @@ export function TopBar() {
           {loading ? '읽는 중…' : 'MIDI 열기'}
         </button>
         {project && (
-          <button
-            className="primary"
-            onClick={() =>
-              downloadMidi(project.id).catch((e) =>
-                useProject.setState({ error: `.mid로 내보내지 못했어요: ${e instanceof Error ? e.message : String(e)}` }),
-              )
-            }
-          >
-            .mid 내보내기
-          </button>
+          <ExportMenu />
         )}
       </div>
     </header>

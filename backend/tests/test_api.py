@@ -45,3 +45,30 @@ def test_unknown_project(client):
     r = client.get("/api/v1/projects/nope")
     assert r.status_code == 404
     assert r.json()["error"]["code"] == "project_not_found"
+
+
+def test_export_one_track_and_zip(client):
+    import io
+    import zipfile
+
+    from app.models.project import Note, Project, Track
+    from app.store.memory import store
+
+    p = store.create(Project(id="exp1", name="내 곡: 1/2", tempo=90, tracks=[
+        Track(id="t1", name="Drums", is_drum=True, notes=[Note(pitch=36, start=0, duration=0.5)]),
+        Track(id="t2", name="탑노트", program=73, program_set=True, volume=80, notes=[Note(pitch=72, start=4, duration=1)]),
+    ]))
+    one = client.get(f"/api/v1/projects/{p.id}/export", params={"track": "t2"})
+    assert one.status_code == 200 and one.content[:4] == b"MThd"
+    assert "%ED%83%91%EB%85%B8%ED%8A%B8" in one.headers["content-disposition"]  # 탑노트
+    back = midi_bytes_to_project(one.content)
+    assert [(t.name, t.program, t.volume, t.notes[0].start) for t in back.tracks] == [("탑노트", 73, 80, 4.0)]
+    assert round(back.tempo) == 90
+    assert client.get(f"/api/v1/projects/{p.id}/export", params={"track": "t9"}).status_code == 404
+
+    z = client.get(f"/api/v1/projects/{p.id}/export/tracks")
+    assert z.status_code == 200 and z.headers["content-type"] == "application/zip"
+    files = zipfile.ZipFile(io.BytesIO(z.content))
+    assert files.namelist() == ["00 전체 곡 - 내 곡_ 1_2.mid", "01 Drums.mid", "02 탑노트.mid"]
+    drums = midi_bytes_to_project(files.read("01 Drums.mid"))
+    assert drums.tracks[0].is_drum and len(drums.tracks) == 1
