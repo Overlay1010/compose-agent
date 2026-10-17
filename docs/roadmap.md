@@ -11,11 +11,13 @@
 뼈대 완성과 포트폴리오 첫 공개.
 
 - [x] MIDI 업로드 · 피아노롤 · 재생 (실제 악기 샘플)
-- [x] 편집 도구 8개 + 테스트: `transpose` `shift_octave` `quantize` `adjust_velocity` `swing` `set_tempo` `set_instrument` `get_project_info`
+- [x] 편집 도구 11개 + 테스트: `transpose` `shift_octave` `quantize` `adjust_velocity` `swing` `set_tempo` `set_instrument` `delete_notes` `set_length` `copy_bars` `get_project_info`
 - [x] 악기 바꾸기: 트랙마다 General MIDI 악기 128종 선택 상자(바로 새 버전) + 말로 바꾸기, 내보낸 MIDI에 악기 번호 유지
 - [x] LLM 에이전트 · 미리보기 · 적용 · 되돌리기 API
-- [ ] 채팅 화면 · 바뀐 소리/원래 소리 비교 · 버전 기록 화면
-- [ ] 평가: 정답 있는 명령 30개, 모델별 도구 선택 정확도 · 인자 정확도 · 응답 시간 · 비용
+- [x] 채팅 화면 · 바뀐 소리/원래 소리 비교 · 버전 기록 화면 · 진행 상황 실시간 표시
+- [x] 평가: 정답 있는 명령 45개 + 이어지는 대화 9개, 모델별 정확도 · 응답 시간 · 토큰 (docs/eval.md)
+- [ ] 편집 도구 더: 사람이 친 느낌(휴머나이즈) · 점점 세게/여리게 · 트랙 볼륨 · 팬 · 트랙 복제
+- [ ] 쓰기 편하게: 새로고침해도 작업 유지 · 구간 반복 재생 · 단축키 · 드럼 킷 고르기
 - [ ] README 시연 GIF
 
 ## v0.2 · 화성 분석 · 리하모니
@@ -83,7 +85,7 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 
 | 분야 | 도구 | 버전 |
 | --- | --- | --- |
-| 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument | v0.1 ✅ |
+| 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument · delete_notes · set_length · copy_bars | v0.1 ✅ |
 | 정보 | get_project_info | v0.1 ✅ |
 | 화성 | analyze_harmony · suggest_reharmonization · apply_chords | v0.2 |
 | 만들기 | generate_drums · generate_chords · generate_bassline · generate_melody | v0.3 |
@@ -93,4 +95,4 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 | 소리 · 가사 | search_samples · add_sample_track · fit_lyrics | v0.6 |
 | 프로젝트 | save_project · export_audio | v1.0 |
 
-7개 → 26개
+11개 → 29개

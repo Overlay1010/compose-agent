@@ -22,6 +22,7 @@ from app.tools.edits import (
 )
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
+from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
 
 TOOLS: dict[str, Tool] = {
@@ -75,6 +76,24 @@ TOOLS: dict[str, Tool] = {
             "트랙의 악기(General MIDI 악기 번호)를 바꾼다. 음은 그대로고 소리만 달라진다. 드럼 트랙은 건너뛴다.",
             SetInstrumentArgs,
             set_instrument,
+        ),
+        Tool(
+            "delete_notes",
+            "고른 음을 지운다 (트랙 · 마디 · 음 번호로 범위를 정함). 곡 전체를 한 번에 지울 수는 없다.",
+            DeleteNotesArgs,
+            delete_notes,
+        ),
+        Tool(
+            "set_length",
+            "고른 음의 길이를 바꾼다: 곱하기(스타카토 = 0.5), 같은 길이로 맞추기, 레가토(다음 음까지 이어지게). 드럼은 건너뛴다.",
+            SetLengthArgs,
+            set_length,
+        ),
+        Tool(
+            "copy_bars",
+            "마디 범위를 다른 마디로 복사한다. times로 여러 번 이어 붙여 반복할 수 있다. 기본은 붙일 자리의 음을 지우고 넣는다.",
+            CopyBarsArgs,
+            copy_bars,
         ),
     ]
 }

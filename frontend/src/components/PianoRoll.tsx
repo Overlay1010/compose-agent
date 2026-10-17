@@ -199,13 +199,16 @@ export function PianoRoll() {
       {showDiff && diff && (
         <p className="legend">
           <strong>미리보기 중</strong>
-          <span>
-            <i className="swatch change" aria-hidden="true" />
-            바뀔 음 {diff.added.length}개
-          </span>
+          {diff.added.length > 0 && (
+            <span>
+              <i className="swatch change" aria-hidden="true" />
+              바뀔 음 {diff.added.length}개
+            </span>
+          )}
           <span>
             <i className="swatch ghost" aria-hidden="true" />
-            원래 위치
+            {/* 지우기만 한 편집이면 점선 음은 "사라질 음"이다 */}
+            {diff.added.length > 0 ? '원래 위치' : `지울 음 ${diff.removed.length}개`}
           </span>
         </p>
       )}

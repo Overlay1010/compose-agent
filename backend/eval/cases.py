@@ -1,4 +1,4 @@
-"""정답 있는 명령 39개.
+"""정답 있는 명령 45개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -121,6 +121,18 @@ CASES: list[Case] = [
     case("I04", "악기", "lofi_groove", "패드를 스트링으로 바꾸고 템포 90으로 해줘",
          [Call("set_instrument", {"track_ids": ["t4"], "program": Range(48, 51)}), Call("set_tempo", {"mode": "set", "value": 90.0})]),
     case("I05", "악기", "lofi_groove", "드럼을 피아노 소리로 바꿔줘", note="드럼 트랙은 악기 번호를 바꿀 수 없음 → 편집하지 않고 알려 줌"),
+    case("E01", "음 · 마디", "lofi_groove", "8마디부터 드럼 빼줘",
+         [Call("delete_notes", {"track_ids": ["t1"], "bars": [8, 16]})]),
+    case("E02", "음 · 마디", "lofi_groove", "하이햇 전부 지워줘",
+         [Call("delete_notes", {"track_ids": ["t1"], "pitches": HATS, "bars": None})]),
+    case("E03", "음 · 마디", "lofi_groove", "베이스 짧게 끊어줘",
+         [Call("set_length", {"track_ids": ["t2"], "mode": "scale", "value": Range(0.3, 0.6)})]),
+    case("E04", "음 · 마디", "lofi_groove", "Rhodes 음 사이 빈틈 없이 이어지게 해줘",
+         [Call("set_length", {"track_ids": ["t3"], "mode": "legato"})]),
+    case("E05", "음 · 마디", "lofi_groove", "1~4마디 드럼을 5~8마디에 복사해줘",
+         [Call("copy_bars", {"track_ids": ["t1"], "bars": [1, 4], "to_bar": 5})]),
+    case("E06", "음 · 마디", "lofi_groove", "1~2마디를 16마디까지 계속 반복해줘",
+         [Call("copy_bars", {"track_ids": ALL, "bars": [1, 2], "to_bar": 3, "times": 7})]),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -128,4 +140,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 39 and len({c.id for c in CASES}) == 39
+assert len(CASES) == 45 and len({c.id for c in CASES}) == 45
