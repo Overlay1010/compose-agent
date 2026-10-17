@@ -130,7 +130,7 @@ def midi_bytes_to_project(data: bytes, name: str = "Untitled") -> Project:
         ]
         if not notes:
             continue
-        track_name = inst.name.strip() or f"Track {i + 1}"
+        track_name = _name_from_midi(inst.name).strip() or f"Track {i + 1}"
         # 볼륨 · 팬은 처음 나온 값만 쓴다 (곡 중간 오토메이션은 아직 지원 안 함)
         first_cc: dict[int, int] = {}
         for c in sorted(inst.control_changes, key=lambda c: c.time):
@@ -161,6 +161,19 @@ def midi_bytes_to_project(data: bytes, name: str = "Untitled") -> Project:
     )
 
 
+# MIDI 트랙 이름은 바이트 문자열이고, mido는 latin-1로만 읽고 쓴다. 한글 이름은 UTF-8 바이트로 넣고
+# (요즘 DAW는 대부분 UTF-8로 읽는다), 읽을 때 UTF-8로 풀리면 되돌린다.
+def _name_for_midi(name: str) -> str:
+    return name.encode("utf-8").decode("latin-1")
+
+
+def _name_from_midi(name: str) -> str:
+    try:
+        return name.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return name  # 원래 latin-1 이름(예: "Café")이거나 이미 풀린 이름
+
+
 def project_to_midi_bytes(project: Project) -> bytes:
     pm = pretty_midi.PrettyMIDI(initial_tempo=project.tempo, resolution=EXPORT_RESOLUTION)
     num, den = project.time_signature
@@ -168,7 +181,7 @@ def project_to_midi_bytes(project: Project) -> bytes:
 
     sec_per_beat = 60.0 / project.tempo
     for track in project.tracks:
-        inst = pretty_midi.Instrument(program=track.program, is_drum=track.is_drum, name=track.name)
+        inst = pretty_midi.Instrument(program=track.program, is_drum=track.is_drum, name=_name_for_midi(track.name))
         # 기본값이 아닐 때만 넣는다 (DAW가 자기 기본값을 쓰게)
         if track.volume != 100:
             inst.control_changes.append(pretty_midi.ControlChange(7, track.volume, 0.0))

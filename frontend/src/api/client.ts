@@ -194,6 +194,25 @@ export async function recentProjects(): Promise<RecentProject[]> {
   return parse<RecentProject[]>(await fetch(`${BASE}/projects`))
 }
 
+/** .mid 내려받기. 서버 오류면 오류 문구가 .txt로 저장되지 않게 먼저 확인하고 ApiError를 던진다 */
+export async function downloadMidi(projectId: string): Promise<void> {
+  const res = await fetch(exportUrl(projectId))
+  if (!res.ok) {
+    await parse(res) // 서버가 보낸 오류 문구로 ApiError
+    return
+  }
+  // 파일 이름은 Content-Disposition의 filename*=UTF-8''… 에서
+  const header = res.headers.get('Content-Disposition') ?? ''
+  const match = /filename\*=UTF-8''([^;]+)/i.exec(header)
+  const name = match ? decodeURIComponent(match[1]) : 'project.mid'
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export function exportUrl(projectId: string): string {
   return `${BASE}/projects/${projectId}/export`
 }
