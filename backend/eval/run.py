@@ -22,7 +22,7 @@ from statistics import mean, median
 
 from app import config
 from app.agent import session
-from app.agent.llm import LLMError, OpenAIChat
+from app.agent.llm import LLM, LLMError, make_llm
 from app.agent.loop import ToolStep, run_agent
 from app.midi_io.convert import midi_bytes_to_project
 from app.models.project import Project
@@ -38,7 +38,7 @@ import make_samples  # noqa: E402
 RESULTS = Path(__file__).resolve().parent / "results"
 
 
-def run_case(llm: OpenAIChat, case: Case) -> dict:
+def run_case(llm: LLM, case: Case) -> dict:
     project = midi_bytes_to_project(make_samples.SAMPLES[f"{case.sample}.mid"](), name=case.sample)
     melodic = {t.id for t in project.tracks if not t.is_drum}
     started = time.perf_counter()
@@ -70,7 +70,7 @@ def expected_state(base: Project, calls: tuple[tuple[str, dict], ...]) -> Projec
     return base
 
 
-def run_conversation(llm: OpenAIChat, conv: Conversation) -> dict:
+def run_conversation(llm: LLM, conv: Conversation) -> dict:
     """여러 턴을 실제 서버와 같은 흐름으로 돌리고 마지막 상태를 정답과 비교한다."""
     store = ProjectStore()
     original = store.create(midi_bytes_to_project(make_samples.SAMPLES[f"{conv.sample}.mid"](), name=conv.sample))
@@ -120,7 +120,7 @@ def run_conversation(llm: OpenAIChat, conv: Conversation) -> dict:
 
 
 def evaluate(model: str, workers: int) -> dict:
-    llm = OpenAIChat(model, config.OPENAI_API_KEY or "", config.OPENAI_BASE_URL, config.OPENAI_REASONING_EFFORT)
+    llm = make_llm(model)  # claude-… 면 Claude, 아니면 OpenAI 형식
     jobs = [lambda c=c: run_case(llm, c) for c in CASES] + [lambda c=c: run_conversation(llm, c) for c in CONVERSATIONS]
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rows = list(pool.map(lambda job: job(), jobs))
@@ -158,7 +158,8 @@ def print_report(result: dict) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--models", default=config.OPENAI_MODEL, help="쉼표로 여러 개")
+    default = config.ANTHROPIC_MODEL if config.LLM_PROVIDER == "anthropic" else config.OPENAI_MODEL
+    ap.add_argument("--models", default=default, help="쉼표로 여러 개 (claude-… 는 Claude, 나머지는 OpenAI 형식)")
     ap.add_argument("--workers", type=int, default=4, help="동시에 보낼 명령 수")
     ap.add_argument("--repeat", type=int, default=1, help="모델마다 몇 번 돌릴지 (LLM은 매번 답이 조금씩 달라서 3번 이상 권장)")
     args = ap.parse_args()

@@ -440,3 +440,73 @@ def test_old_database_without_times_still_opens(tmp_path, lofi):
     assert s.versions(lofi.id)[0].created_at == ""  # 예전 기록은 시각 없음
     s.add_version(lofi, "편집")
     assert ProjectStore(db).versions(lofi.id)[1].created_at  # 새 기록은 시각이 남는다
+
+
+# ---------- Claude (Anthropic) 형식 ----------
+
+def test_to_anthropic_converts_openai_messages():
+    from app.agent.llm import to_anthropic
+
+    messages = [
+        {"role": "system", "content": "규칙들\n\n현재 프로젝트\n- t1 Drums"},
+        {"role": "user", "content": "베이스 올려줘"},
+        {"role": "assistant", "content": "올렸어요."},
+        {"role": "system", "content": "사용자가 미리보기를 적용했어."},
+        {"role": "user", "content": "드럼 약하게"},
+        {"role": "assistant", "content": None, "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "adjust_velocity", "arguments": '{"value": 0.7}'}},
+            {"id": "c2", "type": "function", "function": {"name": "swing", "arguments": "깨진 JSON"}},
+        ]},
+        {"role": "tool", "tool_call_id": "c1", "content": '{"ok": true}'},
+        {"role": "tool", "tool_call_id": "c2", "content": '{"ok": false}'},
+    ]
+    system, msgs = to_anthropic(messages)
+    assert [b["text"] for b in system] == ["규칙들\n", "\n현재 프로젝트\n- t1 Drums"]  # 규칙만 따로 (캐시)
+    assert [m["role"] for m in msgs] == ["user", "assistant", "user", "assistant", "user"]
+    assert [b["text"] for b in msgs[2]["content"]] == ["(알림) 사용자가 미리보기를 적용했어.", "드럼 약하게"]  # 중간 system → 알림 글
+    uses = msgs[3]["content"]
+    assert [(b["type"], b["id"], b["input"]) for b in uses] == [("tool_use", "c1", {"value": 0.7}), ("tool_use", "c2", {})]
+    assert [(b["type"], b["tool_use_id"]) for b in msgs[4]["content"]] == [("tool_result", "c1"), ("tool_result", "c2")]
+
+
+def test_anthropic_chat_reply_and_cache(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.agent.llm import AnthropicChat
+
+    seen = {}
+
+    class FakeMessages:
+        def create(self, **kw):
+            seen.update(kw)
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="올렸어요."),
+                         SimpleNamespace(type="tool_use", id="tu1", name="transpose", input={"track_ids": ["t2"], "semitones": 2})],
+                usage=SimpleNamespace(input_tokens=100, cache_read_input_tokens=9000, cache_creation_input_tokens=0, output_tokens=40),
+            )
+
+    llm = AnthropicChat("claude-test", "key")
+    monkeypatch.setattr(llm, "_client", SimpleNamespace(messages=FakeMessages()))
+    tools = [{"name": "transpose", "description": "d", "input_schema": {"type": "object"}},
+             {"name": "swing", "description": "d", "input_schema": {"type": "object"}}]
+    r = llm.complete([{"role": "system", "content": "규칙\n현재 프로젝트\n요약"}, {"role": "user", "content": "올려"}], tools)
+    assert r.text == "올렸어요." and r.tool_calls[0].name == "transpose"
+    assert json.loads(r.tool_calls[0].arguments) == {"track_ids": ["t2"], "semitones": 2}
+    assert (r.input_tokens, r.cached_tokens, r.output_tokens) == (9100, 9000, 40)
+    assert seen["tools"][-1]["cache_control"] == {"type": "ephemeral"} and "cache_control" not in seen["tools"][0]
+    assert seen["system"][0]["cache_control"] == {"type": "ephemeral"} and "cache_control" not in seen["system"][1]
+    assert seen["model"] == "claude-test"
+
+
+def test_make_llm_picks_provider(monkeypatch):
+    from app import config
+    from app.agent import llm as llm_mod
+
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", None)
+    monkeypatch.setattr(config, "OPENAI_API_KEY", None)
+    with pytest.raises(llm_mod.LLMUnavailable, match="ANTHROPIC_API_KEY"):
+        llm_mod.make_llm("claude-sonnet-5-5")
+    with pytest.raises(llm_mod.LLMUnavailable, match="OPENAI_API_KEY"):
+        llm_mod.make_llm("gpt-6-luna")
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "k")
+    assert isinstance(llm_mod.make_llm("claude-haiku-5-5"), llm_mod.AnthropicChat)

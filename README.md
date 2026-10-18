@@ -42,11 +42,11 @@ cd backend
 python -m venv compose_venv
 compose_venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env    # 그다음 .env에 OPENAI_API_KEY 넣기
+copy .env.example .env    # 그다음 .env에 ANTHROPIC_API_KEY 넣기
 uvicorn app.main:app --reload --port 8100
 ```
 
-에이전트(채팅)를 쓰려면 `backend/.env`에 `OPENAI_API_KEY`가 있어야 한다. 모델은 `OPENAI_MODEL`로 바꾸고, Ollama 같은 OpenAI 호환 서버는 `OPENAI_BASE_URL`로 붙인다. 키가 없어도 나머지 기능은 동작하고, 채팅만 503 `llm_unavailable`을 돌려준다.
+에이전트(채팅)는 기본으로 Claude를 쓴다: `backend/.env`에 `ANTHROPIC_API_KEY`를 넣고, 모델은 `ANTHROPIC_MODEL`(기본 `claude-sonnet-5-5`, 빠르고 저렴한 `claude-haiku-5-5`)로 고른다. OpenAI나 Ollama · Gemini 같은 OpenAI 형식 서버를 쓰려면 `LLM_PROVIDER=openai`와 `OPENAI_API_KEY` · `OPENAI_MODEL` · `OPENAI_BASE_URL`을 쓴다. 키가 없어도 나머지 기능은 동작하고, 채팅만 503 `llm_unavailable`을 돌려준다. `.env`를 바꾸면 백엔드를 다시 켜야 한다.
 
 `http://localhost:8100/docs` 에서 API 문서를 볼 수 있다.
 
