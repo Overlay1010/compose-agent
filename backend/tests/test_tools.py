@@ -772,3 +772,26 @@ def test_notes_endpoint_replaces_track_notes(client):
     assert same.json()["note"] is None and same.json()["project"]["version"] == 2
     bad = client.post(url, json={"base_version": 2, "notes": [{"pitch": 200, "start": 0, "duration": 1, "velocity": 80}]})
     assert bad.status_code == 422
+
+
+def test_direct_edit_with_preview_on_other_track(client):
+    from app.store.memory import store
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    # 미리보기: Bass만 바꿈
+    store.set_preview(pid, run_tool(store.current(pid), "transpose", {"track_ids": ["t2"], "semitones": 2}).project, "베이스 올림")
+    lead = client.get(f"/api/v1/projects/{pid}").json()["tracks"][4]["notes"]
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t5/notes", json={"base_version": 1, "notes": lead[1:], "label": "Lead 음 1개 지움"})
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["project"]["tracks"][4]["notes"]) == len(lead) - 1
+    assert body["preview"] is not None and len(body["preview"]["tracks"][4]["notes"]) == len(lead) - 1  # 미리보기에도 들어감
+    assert body["preview"]["tracks"][1]["notes"][0]["pitch"] == body["project"]["tracks"][1]["notes"][0]["pitch"] + 2  # 미리보기 그대로
+    assert client.post(f"/api/v1/projects/{pid}/preview/apply").status_code == 200  # 충돌 없이 적용
+    # 미리보기가 바꾸는 트랙(Bass)은 잠김
+    store.set_preview(pid, run_tool(store.current(pid), "transpose", {"track_ids": ["t2"], "semitones": 1}).project, "또")
+    v = client.get(f"/api/v1/projects/{pid}").json()["version"]
+    bass = client.get(f"/api/v1/projects/{pid}").json()["tracks"][1]["notes"]
+    locked = client.post(f"/api/v1/projects/{pid}/tracks/t2/notes", json={"base_version": v, "notes": bass[1:]})
+    assert locked.status_code == 409 and locked.json()["error"]["code"] == "preview_pending"

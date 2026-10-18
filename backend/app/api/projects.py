@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_to_midi_bytes
-from app.models.project import Note, Project, ProjectSummary
+from app.models.project import Note, Project, ProjectSummary, Track
 from app.agent.prompt import DRUM_NAMES, note_name
 from app.agent.session import note
 from app.tools.instrument import display_name, kit_name
@@ -242,33 +242,56 @@ class NotesIn(BaseModel):
     label: str = Field(default="", max_length=80, description='히스토리에 남길 설명 (예: "Rhodes 음 3개 옮김")')
 
 
-def _guard_direct_edit(project_id: str, base_version: int) -> Project:
-    """화면에서 음을 직접 고칠 때: 화면이 본 버전이 지금 버전이고, 적용 전 미리보기가 없어야 한다."""
+def _guard_direct_edit(project_id: str, base_version: int, track_id: str) -> tuple[Project, Track]:
+    """화면에서 음을 직접 고칠 때: 화면이 본 버전이 지금 버전이어야 한다.
+
+    적용 전 미리보기가 있어도, 미리보기가 이 트랙의 음을 건드리지 않았으면 고칠 수 있다 (저장할 때 미리보기에도 같이 넣음).
+    미리보기가 이 트랙의 음을 바꾸고 있으면 음 순서가 어긋날 수 있어 거절한다.
+    """
     current = _get(project_id)
     if base_version != current.version:
         raise _error(409, "version_changed", "그사이 곡이 바뀌었어요. 화면을 다시 불러온 뒤 편집해 주세요.")
-    if store.preview(project_id) is not None:
-        raise _error(409, "preview_pending", "적용하지 않은 미리보기가 있어요. 적용하거나 취소한 뒤 편집해 주세요.")
-    return current
+    track = next((t for t in current.tracks if t.id == track_id), None)
+    if track is None:
+        raise _error(404, "unknown_track", f"없는 트랙이에요: {track_id}")
+    pending = store.preview(project_id)
+    if pending is not None:
+        in_preview = next((t for t in pending.project.tracks if t.id == track_id), None)
+        if in_preview is None or in_preview.notes != track.notes:
+            raise _error(409, "preview_pending", "미리보기가 이 트랙의 음을 바꾸고 있어요. 적용하거나 취소한 뒤 편집해 주세요.")
+    return current, track
+
+
+def _save_direct(project_id: str, edited: Project, track_id: str, text: str) -> TrackChangeOut:
+    """직접 편집을 새로 저장하고, 미리보기가 있으면 그 트랙 음을 미리보기에도 넣어 미리보기를 잃지 않게 한다."""
+    notes = next(t for t in edited.tracks if t.id == track_id).notes
+    new = store.add_version(edited, text)
+    pending = store.preview(project_id)
+    if pending is not None:
+        rebased = pending.project.model_copy(
+            update={"tracks": [t.model_copy(update={"notes": notes}) if t.id == track_id else t for t in pending.project.tracks]}
+        )
+        pending = store.rebase_preview(project_id, rebased)
+    store.add_log(project_id, note(text))
+    return TrackChangeOut(project=new, preview=pending.project if pending else None, note=text)
+
+
+def _unchanged(project_id: str, current: Project) -> TrackChangeOut:
+    pending = store.preview(project_id)
+    return TrackChangeOut(project=current, preview=pending.project if pending else None)
 
 
 @router.post("/{project_id}/tracks/{track_id}/notes", response_model=TrackChangeOut)
 def set_notes(project_id: str, track_id: str, body: NotesIn) -> TrackChangeOut:
     """피아노롤 직접 편집 (음 추가 · 옮기기 · 길이 · 지우기): 트랙의 음 목록을 통째로 바꿔 새로 저장한다."""
-    current = _guard_direct_edit(project_id, body.base_version)
-    track = next((t for t in current.tracks if t.id == track_id), None)
-    if track is None:
-        raise _error(404, "unknown_track", f"없는 트랙이에요: {track_id}")
+    current, track = _guard_direct_edit(project_id, body.base_version, track_id)
     notes = sorted(body.notes, key=lambda n: (n.start, n.pitch))
     if notes == sorted(track.notes, key=lambda n: (n.start, n.pitch)):
-        return TrackChangeOut(project=current, preview=None)
+        return _unchanged(project_id, current)
     edited = current.model_copy(
         update={"tracks": [t.model_copy(update={"notes": notes}) if t.id == track_id else t for t in current.tracks]}
     )
-    text = body.label.strip() or f"{track.name} 음 직접 편집"
-    store.add_version(edited, text)
-    store.add_log(project_id, note(text))
-    return TrackChangeOut(project=store.current(project_id), preview=None, note=text)
+    return _save_direct(project_id, edited, track_id, body.label.strip() or f"{track.name} 음 직접 편집")
 
 
 class VelocityChange(BaseModel):
@@ -286,16 +309,9 @@ def set_velocities(project_id: str, track_id: str, body: VelocitiesIn) -> TrackC
     """벨로시티 편집창: 음 하나하나의 세기를 직접 바꾼다. 바로 새 버전 (되돌리기 가능).
 
     음을 순서(index)로 가리키므로, 화면이 본 버전과 지금 버전이 다르면 엉뚱한 음을 고치지 않게 409로 거절한다.
-    미리보기가 있으면 음 순서가 미리보기와 어긋날 수 있어 화면에서 편집을 막는다 (여기서도 거절).
+    미리보기가 이 트랙의 음을 바꾸고 있으면 음 순서가 어긋날 수 있어 거절한다 (다른 트랙만 바꾸는 미리보기는 괜찮음).
     """
-    current = _get(project_id)
-    if body.base_version != current.version:
-        raise _error(409, "version_changed", "그사이 곡이 바뀌었어요. 화면을 다시 불러온 뒤 편집해 주세요.")
-    if store.preview(project_id) is not None:
-        raise _error(409, "preview_pending", "적용하지 않은 미리보기가 있어요. 적용하거나 취소한 뒤 세기를 편집해 주세요.")
-    track = next((t for t in current.tracks if t.id == track_id), None)
-    if track is None:
-        raise _error(404, "unknown_track", f"없는 트랙이에요: {track_id}")
+    current, track = _guard_direct_edit(project_id, body.base_version, track_id)
     if any(c.index >= len(track.notes) for c in body.changes):
         raise _error(400, "invalid_args", f"음 순서가 범위를 벗어나요 (이 트랙은 음 {len(track.notes)}개).")
 
@@ -306,14 +322,11 @@ def set_velocities(project_id: str, track_id: str, body: VelocitiesIn) -> TrackC
             notes[c.index] = notes[c.index].model_copy(update={"velocity": c.velocity})
             changed += 1
     if not changed:
-        return TrackChangeOut(project=current, preview=None)
+        return _unchanged(project_id, current)
     edited = current.model_copy(
         update={"tracks": [t.model_copy(update={"notes": notes}) if t.id == track_id else t for t in current.tracks]}
     )
-    text = f"{track.name} 음 {changed}개의 세기를 직접 바꿨어요"
-    new = store.add_version(edited, text)
-    store.add_log(project_id, note(text))
-    return TrackChangeOut(project=new, preview=None, note=text)
+    return _save_direct(project_id, edited, track_id, f"{track.name} 음 {changed}개의 세기를 직접 바꿨어요")
 
 
 class DrumSoundIn(BaseModel):

@@ -74,8 +74,17 @@ export function PianoRoll() {
   const picked = pickedState.key === editKey ? pickedState.set : NO_PICK
   const setPicked = (set: Set<number>, key = editKey) => setPickedState({ key, set })
   const [editNotes, setEditNotes] = useState<Note[] | null>(null)
-  // 미리보기가 있으면 음 순서가 미리보기와 어긋날 수 있어 직접 편집을 막는다
-  const editable = !!realTrack && !preview && !busy && !sending
+  // 미리보기가 이 트랙의 음을 바꾸고 있으면 음 순서가 어긋날 수 있어 직접 편집을 막는다.
+  // 다른 트랙만 바꾸는 미리보기라면 고칠 수 있다 (저장할 때 미리보기에도 같이 들어감)
+  const lockedByPreview = !!preview && (!previewTrack || changed)
+  const editable = !!realTrack && !lockedByPreview && !busy && !sending
+  // 잠긴 트랙에서 음을 누르면 안내를 잠깐 깜빡인다 (아무 반응이 없으면 고장처럼 보여서)
+  const [nudge, setNudge] = useState(0)
+  const poke = () => {
+    if (!lockedByPreview) return
+    setNudge(Date.now())
+    setTimeout(() => setNudge(0), 1600)
+  }
 
   /** 고친 음 목록을 저장하고, 옮긴 음들은 새 버전에서도 골라 둔다 */
   const commit = async (notes: Note[], label: string, keep: Note[]) => {
@@ -339,10 +348,10 @@ export function PianoRoll() {
           {track.is_drum ? '드럼 레인 · 진할수록 세게' : '마디 번호 기준 · 진할수록 세게'}
         </span>
       </h2>
-      <p className="roll-help">
-        {realTrack && !preview
-          ? '더블클릭 음 추가 · 음 끌기 옮기기 · 끝 끌기 길이 · 오른쪽 클릭 · Delete 지우기 · 빈 곳 끌기 고르기 (Shift 더하기)'
-          : '미리보기 중에는 음을 직접 고칠 수 없어요 (적용하거나 취소하면 돼요) · 빈 곳 끌기로 부분 고르기는 돼요'}
+      <p className={lockedByPreview ? (nudge ? 'roll-help locked nudge' : 'roll-help locked') : 'roll-help'} key={nudge}>
+        {lockedByPreview
+          ? '미리보기가 이 트랙의 음을 바꾸고 있어서 직접 고칠 수 없어요 — 채팅 아래 미리보기를 적용하거나 취소하면 돼요 · 빈 곳 끌기로 부분 고르기는 돼요'
+          : '더블클릭 음 추가 · 음 끌기 옮기기 · 끝 끌기 길이 · 오른쪽 클릭 · Delete 지우기 · 빈 곳 끌기 고르기 (Shift 더하기)'}
       </p>
       {showDiff && diff && (
         <p className="legend">
@@ -391,10 +400,12 @@ export function PianoRoll() {
               if (e.button === 2) {
                 // 오른쪽 클릭 = 그 음 지우기
                 if (hit && editable) void commit(realTrack!.notes.filter((_, i) => i !== hit.i), '음 1개 지움', [])
+                else if (hit) poke()
                 return
               }
               if (e.button !== 0) return
               e.currentTarget.setPointerCapture(e.pointerId)
+              if (hit && !editable) poke()
               if (hit && editable) {
                 const next = picked.has(hit.i) ? picked : new Set(e.shiftKey ? [...picked, hit.i] : [hit.i])
                 if (next !== picked) setPicked(next)
@@ -491,6 +502,7 @@ export function PianoRoll() {
               const r = e.currentTarget.getBoundingClientRect()
               const x = e.clientX - r.left
               const y = e.clientY - r.top
+              if (g && !editable && x >= g.L.keyPx) poke()
               if (!g || !editable || !realTrack || x < g.L.keyPx || g.hit(x, y)) return
               const notes = realTrack.notes
               const velocity = notes.length ? Math.round(notes.reduce((s, n) => s + n.velocity, 0) / notes.length) : 100
@@ -512,7 +524,12 @@ export function PianoRoll() {
         </div>
       </div>
       {realTrack && !realTrack.is_drum && realTrack.notes.length > 0 && (
-        <VelocityLane track={realTrack} beatsPerBar={(project.time_signature[0] * 4) / project.time_signature[1]} scroller={scroller} />
+        <VelocityLane
+          track={realTrack}
+          beatsPerBar={(project.time_signature[0] * 4) / project.time_signature[1]}
+          scroller={scroller}
+          locked={lockedByPreview}
+        />
       )}
       {realTrack?.is_drum && realTrack.notes.length > 0 && <DrumLanes track={realTrack} />}
     </section>
@@ -552,14 +569,23 @@ const BAR_PX = 4 // 막대 폭
  * 누르면 그 자리 음, 끌면 지나간 음들의 세기를 마우스 높이로 바꾸고, 손을 떼면 한 번만 새 버전으로 저장한다.
  * 같은 시각의 화음은 함께 바뀐다. 미리보기가 있으면 음 순서가 달라질 수 있어 편집을 막는다.
  */
-function VelocityLane({ track, beatsPerBar, scroller }: { track: Track; beatsPerBar: number; scroller: React.RefObject<HTMLDivElement | null> }) {
-  const { project, preview, busy, setVelocities } = useProject()
+function VelocityLane({
+  track,
+  beatsPerBar,
+  scroller,
+  locked,
+}: {
+  track: Track
+  beatsPerBar: number
+  scroller: React.RefObject<HTMLDivElement | null>
+  locked: boolean // 미리보기가 이 트랙의 음을 바꾸고 있을 때
+}) {
+  const { project, busy, setVelocities } = useProject()
   const { sending, note } = useChat()
   const canvas = useRef<HTMLCanvasElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<Map<number, number>>(new Map())
   const drag = useRef<{ lastX: number } | null>(null)
-  const locked = !!preview
   const lengthBeats = Math.ceil(Math.max(...track.notes.map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
   const width = KEY_PX + lengthBeats * BEAT_PX
   const barX = (n: Note) => KEY_PX + n.start * BEAT_PX + 1
@@ -649,7 +675,7 @@ function VelocityLane({ track, beatsPerBar, scroller }: { track: Track; beatsPer
       <div className="vel-head">
         <h3>벨로시티</h3>
         <span className="info">
-          {locked ? '미리보기를 적용하거나 취소한 뒤 편집할 수 있어요' : '막대를 누르거나 끌어서 음마다 세기를 바꿔요 · 손을 떼면 저장 (MIDI에도 남아요)'}
+          {locked ? '미리보기가 이 트랙을 바꾸고 있어요 — 적용하거나 취소한 뒤 편집할 수 있어요' : '막대를 누르거나 끌어서 음마다 세기를 바꿔요 · 손을 떼면 저장 (MIDI에도 남아요)'}
         </span>
       </div>
       <div className="vel-scroll" ref={box}>
