@@ -723,3 +723,31 @@ def test_duplicate_track_top_and_bottom_voice():
     assert again.project.tracks[-1].name == "Chords 탑노트 2"
     with pytest.raises(ToolError):
         run_tool(song(track("t1", (36, 0, 1, 80), drum=True)), "duplicate_track", {"track_id": "t1", "voice": "top"})
+
+
+# ---------- 고른 부분 (beats) ----------
+
+def test_selection_beats_range():
+    p = song(track("t1", (60, 0, 1, 80), (62, 5, 1, 80), (64, 6.5, 1, 80), (65, 8, 1, 80)))
+    r = run_tool(p, "transpose", {"track_ids": ["t1"], "beats": [5, 8], "semitones": 12})
+    assert [n.pitch for n in by_track(r.project, "t1")] == [60, 74, 76, 65]  # 8박은 끝이라 빠짐
+    for bad in ({"beats": [8, 5]}, {"beats": [-1, 2]}, {"beats": [0, 4], "bars": [1, 1]}):
+        with pytest.raises(ToolError):
+            run_tool(p, "transpose", {"semitones": 1, **bad})
+
+
+def test_selection_goes_into_prompt():
+    from app.agent.prompt import system_prompt
+
+    p = midi_bytes_to_project(make_samples.lofi_groove())
+    text = system_prompt(p, selection={"track_ids": ["t3"], "beats": [17.0, 24.0], "pitches": None})
+    assert "t3(Rhodes)" in text and "5마디 2박 ~ 6마디 4박 3.25박" not in text
+    assert "beats [17, 24]" in text and "'beats': [17.0, 24.0]" in text
+    whole = system_prompt(p, selection={"track_ids": None, "beats": [32.0, 48.0]})
+    assert "9~12마디" in whole and "bars [9, 12]" in whole and "모든 트랙" in whole
+
+
+def test_empty_track_ids_means_all_tracks():
+    p = song(track("t1", (60, 0, 1, 80)), track("t2", (40, 0, 1, 80)))
+    r = run_tool(p, "adjust_velocity", {"track_ids": [], "mode": "set", "value": 50})
+    assert r.changed_notes == 2  # 예전에는 0 (아무 트랙도 안 고른 것으로 처리)

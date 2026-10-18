@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { chatStream } from '../api/client'
 import type { LogEntry, ToolStep } from '../api/types'
 import { changedTrackIds } from '../diff'
+import { selectionLabel } from '../selection'
 import { useProject } from './project'
 
 export type LiveStep = ToolStep & { running?: boolean }
@@ -18,6 +19,8 @@ export interface ChatMessage {
   /** 모델 · LLM 호출 수 · 걸린 시간 (평가 때 참고) */
   meta?: string
   madePreview?: boolean
+  /** 사용자 메시지와 함께 보낸 고른 부분 ("Rhodes · 5~6마디") */
+  selection?: string
   /** 'note'에 되돌리기 버튼을 붙일지 */
   canUndo?: boolean
 }
@@ -62,11 +65,12 @@ export const useChat = create<ChatState>((set, get) => ({
 
   send: async (raw) => {
     const text = raw.trim()
-    const { project } = useProject.getState()
+    const { project, selection } = useProject.getState()
     if (!text || !project || get().sending) return
+    const picked = selection ? { ...selection, label: selectionLabel(project, selection) } : null
 
     const add = (m: Omit<ChatMessage, 'id'>) => set({ messages: [...get().messages, { id: nextId++, ...m }] })
-    add({ role: 'user', text })
+    add({ role: 'user', text, selection: picked?.label })
     // 진행 상황을 채워 갈 에이전트 메시지
     const liveId = nextId++
     set({ sending: true, messages: [...get().messages, { id: liveId, role: 'agent', text: '', steps: [], live: true, status: '생각하는 중…' }] })
@@ -75,6 +79,7 @@ export const useChat = create<ChatState>((set, get) => ({
     const trackName = (id: string) => project.tracks.find((t) => t.id === id)?.name ?? id
     const startedAt = performance.now()
     try {
+      const sent = picked && { track_ids: picked.trackIds, beats: picked.beats, pitches: picked.pitches, label: picked.label }
       const r = await chatStream(project.id, text, (e) => {
         if (e.kind === 'thinking') {
           update((m) => ({ ...m, status: e.round === 1 ? '생각하는 중…' : '결과를 보고 다음 할 일을 정하는 중…' }))
@@ -92,7 +97,7 @@ export const useChat = create<ChatState>((set, get) => ({
             return { ...m, steps }
           })
         }
-      })
+      }, sent)
       const secs = ((performance.now() - startedAt) / 1000).toFixed(1)
       update(() => ({
         id: liveId,
@@ -138,6 +143,7 @@ const fromLog = (e: LogEntry): ChatMessage => ({
   id: nextId++,
   role: e.role,
   text: e.text,
+  selection: e.selection,
   steps: e.steps,
   meta: e.meta,
   madePreview: e.made_preview,

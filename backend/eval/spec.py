@@ -73,18 +73,18 @@ class Call:
             if key == "track_ids":
                 if want == ALL:
                     # 비워 두거나(전체), 드럼 말고 모든 트랙을 고르면 "전체"로 본다
-                    if got is not None and not set(got) >= melodic:
+                    if got and not set(got) >= melodic:  # 빈 목록도 전체 (도구가 그렇게 받는다)
                         return False
                 elif got is None or set(got) != set(want):
                     return False
             elif isinstance(want, (Range, Pitches, OneOf)):
                 if not want.ok(got):
                     return False
-            elif key == "bars":
+            elif key in ("bars", "beats"):
                 if want is None:  # 범위 없이 전체여야 함
                     if got is not None:
                         return False
-                elif got is None or list(got) != list(want):
+                elif got is None or len(got) != 2 or any(abs(a - b) > 1e-6 for a, b in zip(got, want)):
                     return False
             elif isinstance(want, float) and isinstance(got, (int, float)):
                 if abs(got - want) > 1e-6:
@@ -107,6 +107,7 @@ class Case:
     expect: tuple[Call, ...] = ()
     alt: tuple[tuple[Call, ...], ...] = ()  # 다른 정답 묶음
     note: str = ""
+    selection: dict | None = None  # 화면에서 고른 부분 {track_ids, beats, pitches}
 
     @property
     def expects_no_edit(self) -> bool:

@@ -4,6 +4,7 @@ import { DRUM_NAMES, DRUM_ROLES, DRUM_SOUNDS, drumSoundOf } from '../audio/instr
 import * as player from '../audio/player'
 import { positionBeats } from '../audio/player'
 import { useChat } from '../store/chat'
+import type { Selection } from '../selection'
 import { usePlayer } from '../store/player'
 import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
@@ -22,7 +23,11 @@ const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
 
 export function PianoRoll() {
-  const { project, preview, hearPreview, selectedTrackId } = useProject()
+  const { project, preview, hearPreview, selectedTrackId, selection, setSelection } = useProject()
+  // 그린 모양 (끌어서 고를 때 좌표 → 박 · 음 번호로 바꾸는 데 씀)
+  const layout = useRef<{ keyPx: number; rowPx: number; rows: number[]; lengthBeats: number } | null>(null)
+  const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const [draft, setDraft] = useState<Selection | null>(null)
   const playing = usePlayer((s) => s.playing)
   const cursor = usePlayer((s) => s.cursor)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -37,6 +42,14 @@ export function PianoRoll() {
   const changed = !!diff && (diff.added.length > 0 || diff.removed.length > 0)
   // 미리보기에서 바뀐 트랙이고 "바뀐 소리"를 듣는 중이면 바뀔 음 · 원래 위치를 같이 그린다
   const showDiff = changed && hearPreview
+  // 드럼 레인 순서 (그리기와 같은 규칙: 쓰인 소리를 위에서부터 높은 번호 순). 고른 부분 띠를 그릴 때 쓴다
+  const drumRows = useMemo(
+    () =>
+      track?.is_drum
+        ? [...new Set([...track.notes, ...(showDiff && diff ? diff.added : [])].map((n) => n.pitch))].sort((a, b) => b - a)
+        : [],
+    [track, diff, showDiff],
+  )
 
   useEffect(() => {
     const el = canvas.current
@@ -65,6 +78,7 @@ export function PianoRoll() {
 
     const width = keyPx + lengthBeats * BEAT_PX
     const height = rows.length * rowPx + 20
+    layout.current = { keyPx, rowPx, rows, lengthBeats }
     const dpr = window.devicePixelRatio || 1
     el.width = width * dpr
     el.height = height * dpr
@@ -242,7 +256,54 @@ export function PianoRoll() {
       {!changed && track.notes.length === 0 && <p className="legend">이 트랙에는 음이 없어요.</p>}
       <div className="roll-scroll" ref={scroller}>
         <div className="roll-canvas">
-          <canvas ref={canvas} />
+          <canvas
+            ref={canvas}
+            className="roll-grid"
+            onPointerDown={(e) => {
+              const L = layout.current
+              const r = e.currentTarget.getBoundingClientRect()
+              if (e.button !== 0 || !L || e.clientX - r.left < L.keyPx) return
+              e.currentTarget.setPointerCapture(e.pointerId)
+              drag.current = { x: e.clientX - r.left, y: e.clientY - r.top, moved: false }
+            }}
+            onPointerMove={(e) => {
+              const d = drag.current
+              const L = layout.current
+              if (!d || !L || !track) return
+              const r = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - r.left
+              const y = e.clientY - r.top
+              if (!d.moved && Math.hypot(x - d.x, y - d.y) < 5) return // 살짝 움직인 건 클릭으로
+              d.moved = true
+              const toBeat = (px: number) => Math.min(L.lengthBeats, Math.max(0, (px - L.keyPx) / BEAT_PX))
+              const start = Math.floor(Math.min(toBeat(d.x), toBeat(x)) * 4) / 4 // 16분음표 단위
+              const end = Math.max(start + 0.25, Math.ceil(Math.max(toBeat(d.x), toBeat(x)) * 4) / 4)
+              let pitches: number[] | null = null
+              if (track.is_drum) {
+                // 드럼은 위아래로 끈 레인(소리)까지 고른다
+                const row = (py: number) => Math.min(L.rows.length - 1, Math.max(0, Math.floor((py - 20) / L.rowPx)))
+                const [a, b] = [row(d.y), row(y)].sort((m, n) => m - n)
+                pitches = L.rows.slice(a, b + 1).sort((m, n) => m - n)
+              }
+              setDraft({ trackIds: [track.id], beats: [start, end], pitches })
+            }}
+            onPointerUp={() => {
+              const d = drag.current
+              drag.current = null
+              if (d?.moved && draft) setSelection(draft)
+              else if (d) setSelection(null) // 그냥 누르면 고른 부분을 푼다
+              setDraft(null)
+            }}
+            onPointerCancel={() => {
+              drag.current = null
+              setDraft(null)
+            }}
+          />
+          <SelectionBox
+            selection={draft ?? selection}
+            trackId={track.id}
+            layout={{ keyPx: track.is_drum ? DRUM_KEY_PX : KEY_PX, rowPx: track.is_drum ? DRUM_ROW_PX : ROW_PX, rows: drumRows }}
+          />
           <div className="playhead" ref={head} />
         </div>
       </div>
@@ -252,6 +313,31 @@ export function PianoRoll() {
       {realTrack?.is_drum && realTrack.notes.length > 0 && <DrumLanes track={realTrack} />}
     </section>
   )
+}
+
+/** 고른 부분을 피아노롤 위에 띠로 그린다 (이 트랙이 포함될 때만) */
+function SelectionBox({
+  selection,
+  trackId,
+  layout,
+}: {
+  selection: Selection | null
+  trackId: string
+  layout: { keyPx: number; rowPx: number; rows: number[] } | null
+}) {
+  if (!selection || !layout || (selection.trackIds && !selection.trackIds.includes(trackId))) return null
+  const left = layout.keyPx + selection.beats[0] * BEAT_PX
+  const width = (selection.beats[1] - selection.beats[0]) * BEAT_PX
+  let top = 20
+  let height: number | undefined
+  if (selection.pitches?.length) {
+    const idx = selection.pitches.map((p) => layout.rows.indexOf(p)).filter((i) => i >= 0)
+    if (idx.length) {
+      top = 20 + Math.min(...idx) * layout.rowPx
+      height = (Math.max(...idx) - Math.min(...idx) + 1) * layout.rowPx
+    }
+  }
+  return <div className="roll-selection" style={{ left, width, top, height, bottom: height === undefined ? 0 : undefined }} aria-hidden="true" />
 }
 
 const VEL_PX = 72 // 벨로시티 편집창 높이 (세기 127 = 맨 위)

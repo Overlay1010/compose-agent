@@ -43,7 +43,7 @@ def run_case(llm: OpenAIChat, case: Case) -> dict:
     melodic = {t.id for t in project.tracks if not t.is_drum}
     started = time.perf_counter()
     try:
-        r = run_agent(project, case.command, llm, base=project)  # 서버와 같게 start_over를 준다
+        r = run_agent(project, case.command, llm, base=project, selection=case.selection)  # 서버와 같게 start_over를 준다
     except LLMError as e:
         return {"id": case.id, "category": case.category, "command": case.command, "passed": False,
                 "tools_ok": False, "reason": f"LLM 오류: {e}", "seconds": time.perf_counter() - started}

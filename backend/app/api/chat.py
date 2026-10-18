@@ -19,8 +19,18 @@ from app.store.memory import NoPreview, PreviewConflict, Preview, ProjectNotFoun
 router = APIRouter(prefix="/projects", tags=["chat"])
 
 
+class SelectionIn(BaseModel):
+    """화면에서 고른 부분 (피아노롤 · 전체 구성에서 드래그)."""
+
+    track_ids: list[str] | None = Field(default=None, description="없으면 모든 트랙")
+    beats: tuple[float, float] = Field(description="박 범위 [시작, 끝)")
+    pitches: list[int] | None = Field(default=None, description="드럼 레인(소리)을 골랐을 때만")
+    label: str = Field(default="", max_length=80, description='화면에 보인 설명 (예: "Rhodes · 5~6마디")')
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
+    selection: SelectionIn | None = None
 
 
 class ChatResponse(BaseModel):
@@ -61,7 +71,8 @@ def _response(project_id: str, result: AgentResult, pending: Preview | None) -> 
 @router.post("/{project_id}/chat", response_model=ChatResponse)
 def chat(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm)) -> ChatResponse:
     _check(project_id)
-    result, pending = session.chat_turn(store, project_id, body.message, llm)
+    selection = body.selection.model_dump() if body.selection else None
+    result, pending = session.chat_turn(store, project_id, body.message, llm, selection=selection)
     return _response(project_id, result, pending)
 
 
@@ -76,7 +87,10 @@ def chat_stream(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm))
 
     def work() -> None:
         try:
-            result, pending = session.chat_turn(store, project_id, body.message, llm, on_event=lambda k, d: events.put((k, d)))
+            selection = body.selection.model_dump() if body.selection else None
+            result, pending = session.chat_turn(
+                store, project_id, body.message, llm, on_event=lambda k, d: events.put((k, d)), selection=selection
+            )
             events.put(("done", _response(project_id, result, pending).model_dump(mode="json")))
         except LLMError as e:
             events.put(("error", {"code": "llm_error", "message": str(e)}))

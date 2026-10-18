@@ -11,7 +11,7 @@ const LABEL = 72
 
 /** 곡 전체를 트랙마다 한 줄로 작게 보여 준다. 누르면 그 위치로 옮기고, 끌면 그 마디들을 반복 구간으로 고른다. */
 export function Overview() {
-  const { project, preview, hearPreview, selectedTrackId, selectTrack } = useProject()
+  const { project, preview, hearPreview, selectedTrackId, selectTrack, setSelection } = useProject()
   const { playing, cursor, seek, muted, solo, loop, looping, setLoop } = usePlayer()
   // 끄는 중인 구간 (손을 떼면 반복 구간이 된다)
   const drag = useRef<{ x: number; beats: number; moved: boolean } | null>(null)
@@ -114,7 +114,7 @@ export function Overview() {
     <section className="overview" aria-label="전체 구성">
       <div className="overview-head">
         <h2>전체 구성</h2>
-        <span className="hint">누르면 그 위치로 · 끌면 구간 반복 · {bars}마디</span>
+        <span className="hint">누르면 그 위치로 · 끌면 그 구간을 고르고 반복 · {bars}마디</span>
       </div>
       <div className="overview-grid" style={{ gridTemplateColumns: `${LABEL}px minmax(0, 1fr)` }}>
         <div className="overview-labels">
@@ -163,6 +163,8 @@ export function Overview() {
             drag.current = null
             if (d?.moved && dragging) {
               setLoop(dragging)
+              // 그 마디들을 모든 트랙에서 고른 부분으로도 쓴다 ("이 부분 점점 작게")
+              setSelection({ trackIds: null, beats: [dragging.start, dragging.end], pitches: null })
             } else if (d) {
               const r = e.currentTarget.getBoundingClientRect()
               seek(Math.round(((e.clientX - r.left) / r.width) * lengthBeats * 4) / 4) // 16분음표 단위로

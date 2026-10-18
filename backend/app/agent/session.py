@@ -15,8 +15,14 @@ from app.store.memory import Preview, ProjectStore
 
 
 def chat_turn(
-    store: ProjectStore, project_id: str, message: str, llm: LLM, on_event: OnEvent | None = None
+    store: ProjectStore,
+    project_id: str,
+    message: str,
+    llm: LLM,
+    on_event: OnEvent | None = None,
+    selection: dict | None = None,
 ) -> tuple[AgentResult, Preview | None]:
+    """selection: 화면에서 고른 부분 {track_ids, beats, pitches, label} ("여기 한 옥타브 올려줘")."""
     """명령 하나를 처리하고 (에이전트 결과, 지금 쌓여 있는 미리보기)를 돌려준다."""
     pending = store.preview(project_id)
     started = time.perf_counter()
@@ -28,6 +34,7 @@ def chat_turn(
         pending=pending.labels if pending else None,
         base=store.current(project_id),
         on_event=on_event,
+        selection=selection,
     )
     if result.started_over_at is not None:
         # "아니 내려줘"처럼 미리보기를 고친 경우: 쌓인 미리보기를 버리고 이번 결과만 새 미리보기로
@@ -46,7 +53,7 @@ def chat_turn(
     # 새로고침해도 화면에 다시 그릴 수 있게 (실행 단계까지)
     store.add_log(
         project_id,
-        {"role": "user", "text": message},
+        {"role": "user", "text": message, **({"selection": selection["label"]} if selection and selection.get("label") else {})},
         {
             "role": "agent",
             "text": result.reply,

@@ -104,6 +104,7 @@ def run_agent(
     max_steps: int | None = None,
     base: Project | None = None,
     on_event: OnEvent | None = None,
+    selection: dict | None = None,
 ) -> AgentResult:
     """project(현재 버전 또는 미리보기)에 message를 적용해 본다. project 자체는 바꾸지 않는다.
 
@@ -111,7 +112,7 @@ def run_agent(
     """
     max_steps = max_steps or config.AGENT_MAX_STEPS
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt(project, pending)},
+        {"role": "system", "content": system_prompt(project, pending, selection)},
         *(history or []),
         {"role": "user", "content": message},
     ]

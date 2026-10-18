@@ -1,4 +1,4 @@
-"""정답 있는 명령 65개.
+"""정답 있는 명령 70개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -37,11 +37,11 @@ def octave(track: str, n: int, **extra) -> Answer:
     return main, alt
 
 
-def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), note="") -> Case:
+def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), note="", selection=None) -> Case:
     """spec은 정답 호출 목록(list)이나, velocity() · octave()가 만든 (정답, 다른 정답들) 묶음(tuple)."""
     if isinstance(spec, tuple) and spec:
         spec, alt = spec
-    return Case(id, category, sample, command, tuple(spec), tuple(alt), note)
+    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection)
 
 
 V_HATS = velocity("t1", SOFTER, SOFTER_OFFSET, pitches=HATS)
@@ -181,6 +181,26 @@ CASES: list[Case] = [
          [Call("duplicate_track", {"track_id": "t3", "voice": "bottom", "octaves": Range(-2, -1)})]),
     case("C06", "되묻기 · 정보", "lofi_groove", "새로운 멜로디 하나 만들어줘", note="새 음 작곡은 아직 못 함 → 흉내 내지 말고 안내"),
     case("C07", "되묻기 · 정보", "lofi_groove", "드럼 패턴 새로 짜줘", note="새 패턴 작곡은 아직 못 함"),
+    # 화면에서 고른 부분 + "여기 · 이 부분 · 이거"
+    case("G01", "고른 부분", "lofi_groove", "여기 한 옥타브 올려줘",
+         [Call("shift_octave", {"track_ids": ["t3"], "octaves": 1, "beats": [16, 32]})],
+         alt=[(Call("transpose", {"track_ids": ["t3"], "semitones": 12, "beats": [16, 32]}),),
+              (Call("shift_octave", {"track_ids": ["t3"], "octaves": 1, "bars": [5, 8]}),),
+              (Call("transpose", {"track_ids": ["t3"], "semitones": 12, "bars": [5, 8]}),)],
+         selection={"track_ids": ["t3"], "beats": [16, 32]}),
+    case("G02", "고른 부분", "lofi_groove", "이 부분 점점 작게 해줘",
+         [Call("velocity_ramp", {"track_ids": ALL, "beats": [32, 48], "start": Range(0.9, 1.0), "end": Range(0.2, 0.6)})],
+         alt=[(Call("velocity_ramp", {"track_ids": ALL, "bars": [9, 12], "start": Range(0.9, 1.0), "end": Range(0.2, 0.6)}),)],
+         selection={"track_ids": None, "beats": [32, 48]}),
+    case("G03", "고른 부분", "lofi_groove", "이거 좀 약하게",
+         velocity("t1", SOFTER, SOFTER_OFFSET, pitches=Pitches(frozenset({42}), frozenset({42}))),
+         selection={"track_ids": ["t1"], "beats": [0, 64], "pitches": [42]}),
+    case("G04", "고른 부분", "fl_style_loose", "여기 박자 정리해줘",
+         [Call("quantize", {"track_ids": ["t2"], "beats": [5, 12], "strength": FULL})],
+         selection={"track_ids": ["t2"], "beats": [5, 12]}, note="마디 중간(2마디 2박)부터 고른 부분"),
+    case("G05", "고른 부분", "lofi_groove", "베이스 2키 올려줘",
+         [Call("transpose", {"track_ids": ["t2"], "semitones": 2, "bars": None, "beats": None})],
+         selection={"track_ids": ["t3"], "beats": [17, 24]}, note="다른 트랙을 말하면 고른 부분은 무시"),
     case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
@@ -188,4 +208,4 @@ CASES: list[Case] = [
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 65 and len({c.id for c in CASES}) == 65
+assert len(CASES) == 70 and len({c.id for c in CASES}) == 70

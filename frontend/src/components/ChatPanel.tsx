@@ -4,6 +4,7 @@ import { useChat } from '../store/chat'
 import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/instruments'
 import { useProject } from '../store/project'
 import { panLabel, sameDrumSounds, sameMix } from '../diff'
+import { selectionLabel } from '../selection'
 import { soundName } from '../theme'
 
 const SUGGESTIONS = [
@@ -15,7 +16,7 @@ const SUGGESTIONS = [
 ]
 
 export function ChatPanel() {
-  const { project, preview, hearPreview, setHearPreview, busy } = useProject()
+  const { project, preview, hearPreview, setHearPreview, busy, selection, setSelection } = useProject()
   const { messages, sending, send } = useChat()
   const [input, setInput] = useState('')
   const list = useRef<HTMLDivElement>(null)
@@ -49,9 +50,10 @@ export function ChatPanel() {
 
         {messages.map((m) =>
           m.role === 'user' ? (
-            <p key={m.id} className="msg user">
-              {m.text}
-            </p>
+            <div key={m.id} className="msg-user">
+              {m.selection && <span className="sel-chip small">고른 부분 · {m.selection}</span>}
+              <p className="msg user">{m.text}</p>
+            </div>
           ) : m.role === 'note' ? (
             <p key={m.id} className="msg note">
               <span aria-hidden="true">✓ </span>
@@ -181,6 +183,16 @@ export function ChatPanel() {
         </div>
       )}
 
+      {selection && (
+        <div className="sel-chip" role="status">
+          <span>
+            <strong>고른 부분</strong> · {selectionLabel(project, selection)}
+          </span>
+          <button type="button" aria-label="고른 부분 풀기" title="풀기 (Esc)" onClick={() => setSelection(null)}>
+            ✕
+          </button>
+        </div>
+      )}
       <form
         className="composer"
         onSubmit={(e) => {
@@ -196,7 +208,11 @@ export function ChatPanel() {
           rows={2}
           value={input}
           maxLength={1000}
-          placeholder="무엇을 바꿀까요? 예: 2마디부터 4마디까지 베이스 한 옥타브 내려줘"
+          placeholder={
+            selection
+              ? '고른 부분을 어떻게 바꿀까요? 예: 여기 한 옥타브 올려줘 · 이 부분 점점 작게'
+              : '무엇을 바꿀까요? 예: 2마디부터 4마디까지 베이스 한 옥타브 내려줘 (피아노롤을 끌어 부분을 고를 수도 있어요)'
+          }
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             // 한글 조합 중 Enter는 글자 확정이라 보내지 않는다

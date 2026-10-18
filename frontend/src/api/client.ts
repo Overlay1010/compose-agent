@@ -46,11 +46,12 @@ export async function chatStream(
   projectId: string,
   message: string,
   onEvent: (e: StreamEvent) => void,
+  selection?: { track_ids: string[] | null; beats: [number, number]; pitches: number[] | null; label: string } | null,
 ): Promise<ChatResponse> {
   const res = await fetch(`${BASE}/projects/${projectId}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, selection: selection ?? null }),
   })
   if (!res.ok || !res.body) return parse<ChatResponse>(res)
 

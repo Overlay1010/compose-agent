@@ -66,6 +66,7 @@ export interface VersionInfo {
 export interface LogEntry {
   role: 'user' | 'agent' | 'note'
   text: string
+  selection?: string // 사용자 메시지와 함께 보낸 고른 부분 설명
   steps?: ToolStep[]
   meta?: string
   made_preview?: boolean

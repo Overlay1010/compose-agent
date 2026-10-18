@@ -39,7 +39,7 @@ RULES = """너는 작곡가를 돕는 MIDI 편집 에이전트야. 사용자의 
 - 볼륨 vs 세기: 트랙 전체 소리를 키우거나 줄이는 말("패드 볼륨 줄여", "베이스 소리 좀 키워", "믹스에서 리드 묻혀")은 set_mix. 마디 범위나 특정 드럼 소리가 붙거나 "세게 · 약하게 · 세기 · 다이내믹"이면 adjust_velocity. 예: "9마디부터 패드 약하게" = adjust_velocity(bars [9, 끝]) — 볼륨은 마디 범위를 못 정해. "조금" = volume_offset ±10~15, "많이" = ±25~35, 숫자면 그대로.
 - 팬: "왼쪽으로 조금" = -20, "왼쪽으로" = -40, "완전 왼쪽" = -64, 오른쪽은 양수, "가운데" = 0.
 - 휴머나이즈 "살짝" = timing 0.01 · velocity 6, 그냥 = 0.02 · 10, "많이" = 0.04 · 18. "다른 느낌으로 다시"면 seed만 바꿔. 퀀타이즈 "너무 딱딱하지 않게"는 quantize strength야 (휴머나이즈 아님).
-- 점점 세기: "점점 작게 · 페이드 아웃" = start 1, end 0.3~0.5, "점점 크게 · 페이드 인" = start 0.3~0.5, end 1. "마지막 4마디"처럼 말하면 그 마디를 bars로 (16마디 곡이면 [13, 16]).
+- 점점 세기(한 번에 줄이는 adjust_velocity가 아니라 velocity_ramp): "점점 작게 · 페이드 아웃" = start 1, end 0.3~0.5, "점점 크게 · 페이드 인" = start 0.3~0.5, end 1. "마지막 4마디"처럼 말하면 그 마디를 bars로 (16마디 곡이면 [13, 16]).
 - 음 길이: "짧게 끊어 · 스타카토" = scale 0.5, "조금 짧게" = 0.75, "조금 길게" = 1.5, "이어지게 · 레가토 · 부드럽게 연결" = legato. "볼륨 · 소리 크기를 줄여"는 길이가 아니라 세기(adjust_velocity)야.
 - 마디 복사: "1~4마디를 5마디부터 복사" = bars [1, 4], to_bar 5. "1~2마디를 3번 더 반복" = bars [1, 2], to_bar 3, times 3. "8마디까지 반복"처럼 끝을 말하면 횟수를 계산해. 트랙을 말하지 않으면 track_ids를 비워 모든 트랙을 복사해.
 - 악기 번호(General MIDI): 0 그랜드 피아노, 4 전자 피아노(Rhodes), 5 FM 피아노, 6 하프시코드, 11 비브라폰, 12 마림바, 16 오르간, 19 파이프 오르간, 21 아코디언, 24 나일론 기타, 25 어쿠스틱 기타, 27 클린 일렉 기타, 29 오버드라이브 기타, 30 디스토션 기타, 32 어쿠스틱(콘트라) 베이스, 33 핑거 베이스, 34 피크 베이스, 35 프렛리스 베이스, 36 슬랩 베이스, 38 · 39 신스 베이스, 40 바이올린, 42 첼로, 45 피치카토, 46 하프, 48 스트링 앙상블, 50 신스 스트링, 52 합창, 56 트럼펫, 57 트롬본, 60 호른, 61 브라스 섹션, 62 신스 브라스, 65 알토 색소폰, 66 테너 색소폰, 68 오보에, 71 클라리넷, 73 플룻, 75 팬플룻, 80 사각파 리드, 81 톱니파 리드, 88 뉴에이지 패드, 89 따뜻한 패드, 90 폴리신스 패드, 91 콰이어 패드, 95 스윕 패드, 104 시타르, 108 칼림바, 114 스틸 드럼. "신스로" 처럼 종류만 말하면 그 트랙 역할에 맞게 골라 (베이스 → 38, 멜로디 → 81, 화음 → 89).
@@ -115,8 +115,49 @@ def project_summary(p: Project) -> str:
     return "\n".join(lines)
 
 
-def system_prompt(project: Project, pending: list[str] | None = None) -> str:
+def beat_text(beat: float, beats_per_bar: float) -> str:
+    """박 위치 → "5마디 3박" (0박 = 1마디 1박)."""
+    bar = int(beat // beats_per_bar) + 1
+    rest = beat - (bar - 1) * beats_per_bar
+    return f"{bar}마디" if abs(rest) < 1e-6 else f"{bar}마디 {rest + 1:g}박"
+
+
+def selection_text(project: Project, selection: dict) -> str:
+    """화면에서 고른 부분을 LLM이 그대로 도구 인자로 옮길 수 있게 적는다."""
+    bpb = project.beats_per_bar
+    start, end = selection["beats"]
+    ids = selection.get("track_ids")
+    names = {t.id: t.name for t in project.tracks}
+    who = "모든 트랙" if not ids else ", ".join(f"{i}({names.get(i, '?')})" for i in ids)
+    # 끝은 포함하지 않으므로 "6마디 끝" / "7마디 2박 전"으로 읽는다
+    end_text = f"{int(end // bpb)}마디 끝" if abs(end % bpb) < 1e-6 else f"{beat_text(end, bpb)} 전"
+    span = f"{beat_text(start, bpb)} ~ {end_text}"
+    if abs(start % bpb) < 1e-6 and abs(end % bpb) < 1e-6:
+        span = f"{int(start // bpb) + 1}~{int(end // bpb)}마디"
+    lines = [
+        f"- 트랙: {who}",
+        f"- 범위: {span} → beats [{start:g}, {end:g}]" + (
+            f" (마디로는 bars [{int(start // bpb) + 1}, {int(end // bpb)}])" if abs(start % bpb) < 1e-6 and abs(end % bpb) < 1e-6 else ""
+        ),
+    ]
+    if selection.get("pitches"):
+        lines.append(f"- 소리(음 번호): {selection['pitches']}")
+    args = {"track_ids": ids, "beats": [start, end], **({"pitches": selection["pitches"]} if selection.get("pitches") else {})}
+    return "\n".join(lines) + f"\n- 도구 인자로: {args} (track_ids가 None이면 비워 둬)"
+
+
+def system_prompt(project: Project, pending: list[str] | None = None, selection: dict | None = None) -> str:
     parts = [RULES, "", "현재 프로젝트", project_summary(project)]
+    if selection:
+        parts += [
+            "",
+            "사용자가 화면에서 고른 부분",
+            selection_text(project, selection),
+            "사용자가 \"여기 · 이 부분 · 이거 · 고른 · 선택한 · 이 음들\"처럼 가리키거나 트랙 · 범위를 따로 말하지 않으면 이 부분에만 적용해. "
+            "트랙이나 범위를 따로 말하면(\"베이스 2키 올려줘\", \"9마디부터\") 그 말을 따라 (고른 부분은 무시). "
+            "마디 범위만 받는 도구(copy_bars)는 bars로, 나머지는 위 도구 인자를 그대로 써. "
+            "고른 부분이 있어도 도구는 말뜻대로 골라: \"이 부분 점점 작게\" = velocity_ramp(위 인자, start 1, end 0.4), \"여기 좀 약하게\" = adjust_velocity.",
+        ]
     if pending:
         parts += [
             "",

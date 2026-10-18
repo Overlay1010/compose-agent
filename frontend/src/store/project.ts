@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import * as api from '../api/client'
 import type { LogEntry, Project, VersionInfo } from '../api/types'
+import type { Selection } from '../selection'
 
 interface ProjectState {
   project: Project | null
@@ -12,6 +13,9 @@ interface ProjectState {
   versions: VersionInfo[]
   historyOpen: boolean
   selectedTrackId: string | null
+  /** 화면에서 고른 부분 ("여기 한 옥타브 올려줘"에 쓰임) */
+  selection: Selection | null
+  setSelection: (selection: Selection | null) => void
   loading: boolean
   /** 적용 · 취소 · 되돌리기 요청 중 */
   busy: boolean
@@ -98,6 +102,7 @@ export const useProject = create<ProjectState>((set, get) => {
     versions: [],
     historyOpen: false,
     selectedTrackId: null,
+    selection: null,
     loading: false,
     busy: false,
     error: null,
@@ -148,6 +153,7 @@ export const useProject = create<ProjectState>((set, get) => {
       set({ project: null, preview: null, baseVersion: null, versions: [], historyOpen: false, selectedTrackId: null, error: null }),
 
     selectTrack: (id) => set({ selectedTrackId: id }),
+    setSelection: (selection) => set({ selection }),
     setPreview: (preview, baseVersion) => set({ preview, baseVersion, hearPreview: true }),
     setHearPreview: (on) => set({ hearPreview: on }),
 
@@ -199,4 +205,9 @@ useProject.subscribe((state, prev) => {
   if (state.project?.id === prev.project?.id) return
   const hash = state.project ? `#${state.project.id}` : ''
   if (location.hash !== hash) history.replaceState(null, '', hash || location.pathname)
+})
+
+// 다른 프로젝트를 열면 고른 부분을 푼다
+useProject.subscribe((state, prev) => {
+  if (state.project?.id !== prev.project?.id && state.selection) useProject.setState({ selection: null })
 })

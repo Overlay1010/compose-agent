@@ -10,7 +10,7 @@ import math
 from dataclasses import dataclass
 from typing import Annotated, Any, Callable
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.project import Note, Project, Track
 
@@ -44,11 +44,26 @@ class Selection(BaseModel):
     pitches: list[Pitch] | None = Field(
         default=None, description="이 음 번호만 (예: 하이햇 [42, 44, 46]). 없으면 모든 음"
     )
+    beats: tuple[float, float] | None = Field(
+        default=None,
+        description="박 범위 [시작, 끝) — 화면에서 고른 부분처럼 마디 중간부터일 때. 0부터 세고 끝은 포함 안 함. bars와 함께 쓰지 마",
+    )
+
+    @field_validator("track_ids")
+    @classmethod
+    def _empty_means_all(cls, v: list[str] | None) -> list[str] | None:
+        # LLM이 "모든 트랙"을 빈 목록으로 보내는 경우가 있다 (빈 목록 = 아무 트랙도 아님으로 받으면 아무것도 안 바뀜)
+        return v or None
 
     @model_validator(mode="after")
     def _check_bars(self) -> "Selection":
         if self.bars and self.bars[0] > self.bars[1]:
             raise ValueError("bars는 [시작, 끝] 순서여야 해요 (시작 <= 끝).")
+        if self.beats is not None:
+            if self.beats[0] < 0 or self.beats[0] >= self.beats[1]:
+                raise ValueError("beats는 [시작, 끝) 순서여야 해요 (0 <= 시작 < 끝).")
+            if self.bars is not None:
+                raise ValueError("bars와 beats는 함께 쓸 수 없어요. 하나만 써요.")
         return self
 
     def tracks(self, project: Project) -> list[Track]:
@@ -66,6 +81,8 @@ class Selection(BaseModel):
 
     def has(self, note: Note, beats_per_bar: float) -> bool:
         if self.pitches is not None and note.pitch not in self.pitches:
+            return False
+        if self.beats is not None and not (self.beats[0] - 1e-6 <= note.start < self.beats[1] - 1e-6):
             return False
         if self.bars is not None:
             bar = math.floor(note.start / beats_per_bar + 1e-9) + 1
