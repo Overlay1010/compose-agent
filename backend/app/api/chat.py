@@ -118,8 +118,7 @@ class SessionOut(BaseModel):
 
 
 class KeyOut(BaseModel):
-    name: str
-    name_ko: str
+    name: str  # "C major" / "A minor"
     tonic: int
     mode: str
     confidence: float
@@ -150,7 +149,7 @@ def get_harmony(project_id: str, preview: bool = False) -> HarmonyOut:
         return HarmonyOut(key=None, chords=[])
     k = a.key
     return HarmonyOut(
-        key=KeyOut(name=k.name, name_ko=k.name_ko, tonic=k.tonic, mode=k.mode, confidence=k.confidence, alternatives=k.alternatives),
+        key=KeyOut(name=k.name, tonic=k.tonic, mode=k.mode, confidence=k.confidence, alternatives=k.alternatives),
         chords=[ChordOut(start=c.start, end=c.end, name=c.name, roman=c.roman, function=c.function) for c in a.chords],
     )
 

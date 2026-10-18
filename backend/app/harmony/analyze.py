@@ -1,7 +1,7 @@
 """조성 · 코드 분석.
 
 - 조성: Krumhansl–Kessler 장 · 단조 기준 분포와 곡의 음 길이 분포(12음)의 상관을 24개 조에 대해 비교한다.
-  나란한 장 · 단조(C 장조 ↔ A 단조)가 비슷하면 마지막 코드의 근음으로 정한다.
+  나란한 장 · 단조(C major ↔ A minor)가 비슷하면 마지막 코드의 근음으로 정한다.
 - 코드: 구간(기본 한 마디)마다 12개 근음 후보에 "근음 · 3도 · 5도 · 7도가 얼마나 울리나 + 베이스가 그 음인가" 점수를
   매겨 근음을 고르고, 실제로 울린 음정으로 이름을 붙인다 (maj9 · m7b5 · sus4 · 13 · 슬래시 코드 …).
   근음을 빼고 치는 건반 보이싱(Fmaj9 = 건반 A C E G + 베이스 F)도 베이스를 함께 봐서 읽는다.
@@ -44,8 +44,7 @@ KK_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.
 class KeyInfo:
     tonic: int  # 0 = C
     mode: str  # "major" | "minor"
-    name: str  # "C major" / "A minor"
-    name_ko: str  # "C 장조" / "A 단조"
+    name: str  # "C major" / "A minor" (화면 · 에이전트 모두 이 표기)
     confidence: float  # 1등과 2등 상관의 차 (0~)
     alternatives: list[str] = field(default_factory=list)  # 다음 후보 (예: ["A minor", "G major"])
 
@@ -61,10 +60,9 @@ def _corr(a: list[float], b: list[float]) -> float:
     return num / den if den else 0.0
 
 
-def _key_name(tonic: int, mode: str) -> tuple[str, str]:
+def _key_name(tonic: int, mode: str) -> str:
     flats = tonic in (FLAT_MAJOR if mode == "major" else FLAT_MINOR)
-    n = pc_name(tonic, flats)
-    return f"{n} {mode}", f"{n} {'장조' if mode == 'major' else '단조'}"
+    return f"{pc_name(tonic, flats)} {mode}"
 
 
 def find_key(hist: list[float]) -> KeyInfo:
@@ -76,9 +74,9 @@ def find_key(hist: list[float]) -> KeyInfo:
         scores.append((_corr(rotated, KK_MINOR), tonic, "minor"))
     scores.sort(reverse=True)
     best, second = scores[0], scores[1]
-    name, name_ko = _key_name(best[1], best[2])
-    alts = [_key_name(t, m)[0] for _, t, m in scores[1:4] if (t, m) != (best[1], best[2])][:2]
-    return KeyInfo(best[1], best[2], name, name_ko, round(best[0] - second[0], 3), alts)
+    name = _key_name(best[1], best[2])
+    alts = [_key_name(t, m) for _, t, m in scores[1:4] if (t, m) != (best[1], best[2])][:2]
+    return KeyInfo(best[1], best[2], name, round(best[0] - second[0], 3), alts)
 
 
 # ---------- 코드 ----------
@@ -315,9 +313,9 @@ def decide_key(hist: list[float], spans: list["ChordSpan"]) -> KeyInfo:
     cands.sort(reverse=True)
     ranked = sorted(((kk + 0.6 * chord_fit(spans, t, m), t, m) for kk, t, m in cands[:6]), reverse=True)
     best, second = ranked[0], ranked[1]
-    name, name_ko = _key_name(best[1], best[2])
-    alts = [_key_name(t, m)[0] for _, t, m in ranked[1:3]]
-    return KeyInfo(best[1], best[2], name, name_ko, round(best[0] - second[0], 3), alts)
+    name = _key_name(best[1], best[2])
+    alts = [_key_name(t, m) for _, t, m in ranked[1:3]]
+    return KeyInfo(best[1], best[2], name, round(best[0] - second[0], 3), alts)
 
 
 # ---------- 분석 ----------
@@ -336,7 +334,7 @@ class HarmonyAnalysis:
             where = f"{bar}마디" if abs(c.start % self.beats_per_bar) < 1e-6 else f"{bar}마디 {c.start % self.beats_per_bar + 1:g}박"
             bars.append(f"{where} {c.name}" + (f"({c.roman})" if c.roman else ""))
         alt = f" (다음 후보: {', '.join(self.key.alternatives)})" if self.key.alternatives else ""
-        return f"조성: {self.key.name_ko} [확실도 {self.key.confidence}]{alt}\n코드: " + " · ".join(bars)
+        return f"조성: {self.key.name} [확실도 {self.key.confidence}]{alt}\n코드: " + " · ".join(bars)
 
 
 def _is_melody(track: Track, lowest: str | None) -> bool:

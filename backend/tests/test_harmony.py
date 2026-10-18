@@ -119,9 +119,9 @@ def test_harmony_endpoint(client):
 
     pid = upload_lofi(client)
     r = client.get(f"/api/v1/projects/{pid}/harmony").json()
-    assert r["key"]["name"] == "C major" and r["key"]["name_ko"] == "C 장조"
+    assert r["key"]["name"] == "C major" and "name_ko" not in r["key"]
     assert r["chords"][0] == {"start": 0.0, "end": 4.0, "name": "Fmaj9", "roman": "IVmaj7", "function": "S"}
-    # 미리보기(모든 트랙 2반음 위)를 분석하면 D 장조
+    # 미리보기(모든 트랙 2반음 위)를 분석하면 D major
     store.set_preview(pid, run_tool(store.current(pid), "transpose", {"semitones": 2}).project, "올림")
     assert client.get(f"/api/v1/projects/{pid}/harmony", params={"preview": True}).json()["key"]["name"] == "D major"
     assert client.get(f"/api/v1/projects/{pid}/harmony").json()["key"]["name"] == "C major"
