@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.agent import LLM, LLMError, ToolStep, get_llm, session
 from app.models.project import Project
 from app.agent.loop import AgentResult
+from app.harmony import analyze
 from app.store.memory import NoPreview, PreviewConflict, Preview, ProjectNotFound, store
 
 router = APIRouter(prefix="/projects", tags=["chat"])
@@ -114,6 +115,44 @@ class SessionOut(BaseModel):
     preview: Project | None
     base_version: int | None
     log: list[dict] = Field(description="화면에 다시 그릴 대화 기록 (role: user · agent · note)")
+
+
+class KeyOut(BaseModel):
+    name: str
+    name_ko: str
+    tonic: int
+    mode: str
+    confidence: float
+    alternatives: list[str]
+
+
+class ChordOut(BaseModel):
+    start: float
+    end: float
+    name: str
+    roman: str
+    function: str = Field(description="T 토닉 · S 서브도미넌트 · D 도미넌트 · 부속 · 차용 · 빈 문자열(N.C.)")
+
+
+class HarmonyOut(BaseModel):
+    key: KeyOut | None
+    chords: list[ChordOut]
+
+
+@router.get("/{project_id}/harmony", response_model=HarmonyOut)
+def get_harmony(project_id: str, preview: bool = False) -> HarmonyOut:
+    """조성 · 마디별 코드 · 로마숫자 · 기능. preview=true면 적용 전 미리보기 상태를 분석한다."""
+    _check(project_id)
+    pending = store.preview(project_id)
+    project = pending.project if preview and pending else store.current(project_id)
+    a = analyze(project)
+    if not a.chords:
+        return HarmonyOut(key=None, chords=[])
+    k = a.key
+    return HarmonyOut(
+        key=KeyOut(name=k.name, name_ko=k.name_ko, tonic=k.tonic, mode=k.mode, confidence=k.confidence, alternatives=k.alternatives),
+        chords=[ChordOut(start=c.start, end=c.end, name=c.name, roman=c.roman, function=c.function) for c in a.chords],
+    )
 
 
 @router.get("/{project_id}/session", response_model=SessionOut)
