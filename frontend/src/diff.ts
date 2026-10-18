@@ -1,5 +1,5 @@
 import type { Note, Project, Track } from './api/types'
-import { gmProgramOf } from './audio/instruments'
+import { gmProgramOf } from './audio/catalog'
 
 export interface NoteDiff {
   same: Note[] // 그대로인 음

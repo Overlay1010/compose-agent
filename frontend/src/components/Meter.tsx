@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Note } from '../api/types'
-import { positionBeats } from '../audio/player'
+import { positionBeats } from '../audio/engine'
 
 /**
  * 트랙 레벨 미터. 실제 오디오를 분석하지 않고, 지금 위치에서 울리고 있는 음의 세기를 더해 근사한다.

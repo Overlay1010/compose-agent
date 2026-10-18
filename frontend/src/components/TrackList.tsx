@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import type { Track } from '../api/types'
-import * as player from '../audio/player'
+import * as player from '../audio/engine'
 import { changedTrackIds, panLabel } from '../diff'
 import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 import { useChat } from '../store/chat'
 import { GM_GROUPS, soundName, programName, trackColor } from '../theme'
-import { DRUM_KITS, gmProgramOf } from '../audio/instruments'
+import { DRUM_KITS, gmProgramOf } from '../audio/catalog'
 import { Meter } from './Meter'
 
 export function TrackList() {

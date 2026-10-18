@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import * as player from '../audio/player'
+import * as player from '../audio/engine'
 import type { Project } from '../api/types'
 import { changedRange } from '../diff'
 import { useProject } from './project'

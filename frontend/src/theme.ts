@@ -1,5 +1,5 @@
 import type { Track } from './api/types'
-import { gmProgramOf, kitName } from './audio/instruments'
+import { gmProgramOf, kitName } from './audio/catalog'
 
 // 트랙 구분 색. 대표 색(라임)은 "바뀔 음"에만 쓰니 트랙 색에는 넣지 않는다.
 const TRACK_COLORS = ['#8ea4ff', '#4fd1b8', '#b79cff', '#6fb3e0', '#ff8fbf', '#ff9f43', '#e6e3dc', '#f2d36b']

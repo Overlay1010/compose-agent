@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyWithNote, cancelWithNote, undoWithNote } from '../actions'
 import { useChat } from '../store/chat'
-import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/instruments'
+import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/catalog'
 import { useProject } from '../store/project'
 import { panLabel, sameDrumSounds, sameMix } from '../diff'
 import { selectionLabel } from '../selection'

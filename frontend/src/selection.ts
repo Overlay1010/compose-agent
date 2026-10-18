@@ -1,5 +1,5 @@
 import type { Project } from './api/types'
-import { DRUM_NAMES } from './audio/instruments'
+import { DRUM_NAMES } from './audio/catalog'
 
 /**
  * 화면에서 고른 부분 (피아노롤 · 전체 구성에서 드래그). 채팅 메시지와 함께 보내 "여기 한 옥타브 올려줘"를 그 부분에만 적용한다.

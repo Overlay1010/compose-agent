@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Project } from '../api/types'
-import { positionBeats } from '../audio/player'
+import { positionBeats } from '../audio/engine'
 import { diffNotes } from '../diff'
 import { silenced, usePlayer, type LoopRegion } from '../store/player'
 import { useProject } from '../store/project'

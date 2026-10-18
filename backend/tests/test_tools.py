@@ -692,7 +692,7 @@ def test_drum_sound_list_matches_frontend():
     import re
     from app.tools.drums import DRUM_SOUNDS
 
-    ts = (Path(__file__).resolve().parents[2] / "frontend/src/audio/instruments.ts").read_text(encoding="utf-8")
+    ts = (Path(__file__).resolve().parents[2] / "frontend/src/audio/catalog.ts").read_text(encoding="utf-8")
     block = ts[ts.index("export const DRUM_SOUNDS") : ts.index("\n}", ts.index("export const DRUM_SOUNDS"))]
     assert set(re.findall(r"^  (\w+): ", block, re.M)) == set(DRUM_SOUNDS)
 

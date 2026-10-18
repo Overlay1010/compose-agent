@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { audioFormats, convertAudio, downloadMidi, downloadTracksZip, saveBlob } from '../api/client'
-import { peakOf, renderMix, toWav } from '../audio/render'
-import { positionBeats } from '../audio/player'
+import { positionBeats } from '../audio/engine'
 import { useShortcutHelp } from '../shortcuts'
 import { silenced, usePlayer } from '../store/player'
 import { timeAgo } from '../time'
@@ -47,6 +46,7 @@ function ExportMenu() {
     usePlayer.getState().stop() // 녹음하는 동안은 Tone.js 전역 오디오가 녹음용으로 바뀌어서 재생을 멈춘다
     try {
       const { muted, solo } = usePlayer.getState()
+      const { peakOf, renderMix, toWav } = await import('../audio/render') // 누를 때 Tone.js를 불러온다
       const buffer = await renderMix(project, silenced(project, muted, solo))
       const wav = toWav(buffer)
       const name = `${project.name}_v${project.version}`
