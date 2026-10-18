@@ -22,7 +22,7 @@ from statistics import mean, median
 
 from app import config
 from app.agent import session
-from app.agent.llm import LLM, LLMError, make_llm
+from app.agent.llm import LLM, LLMError, LLMUnavailable, make_llm
 from app.agent.loop import ToolStep, run_agent
 from app.midi_io.convert import midi_bytes_to_project
 from app.models.project import Project
@@ -55,7 +55,7 @@ def run_case(llm: LLM, case: Case) -> dict:
         "passed": s.passed, "tools_ok": s.tools_ok, "reason": s.reason,
         "steps": [st.model_dump() for st in r.steps], "reply": r.reply,
         "seconds": round(seconds, 2), "llm_calls": r.llm_calls,
-        "input_tokens": r.input_tokens, "output_tokens": r.output_tokens, "recovered": recovered,
+        "input_tokens": r.input_tokens, "cached_tokens": r.cached_tokens, "output_tokens": r.output_tokens, "recovered": recovered,
     }
 
 
@@ -78,7 +78,7 @@ def run_conversation(llm: LLM, conv: Conversation) -> dict:
     started = time.perf_counter()
     steps: list[ToolStep] = []
     replies: list[str] = []
-    calls = tokens_in = tokens_out = 0
+    calls = tokens_in = tokens_cached = tokens_out = 0
     before_last = original
     try:
         for i, turn in enumerate(conv.turns):
@@ -95,6 +95,7 @@ def run_conversation(llm: LLM, conv: Conversation) -> dict:
             replies.append(result.reply)
             calls += result.llm_calls
             tokens_in += result.input_tokens
+            tokens_cached += result.cached_tokens
             tokens_out += result.output_tokens
     except (LLMError, NoPreview, PreviewConflict) as e:
         return {"id": conv.id, "category": conv.category, "command": conv.command, "passed": False,
@@ -114,7 +115,8 @@ def run_conversation(llm: LLM, conv: Conversation) -> dict:
         "passed": passed, "tools_ok": passed, "reason": reason,
         "steps": [st.model_dump() for st in steps], "reply": " / ".join(replies),
         "seconds": round(time.perf_counter() - started, 2), "llm_calls": calls,
-        "input_tokens": round(tokens_in / max(1, len(replies))), "output_tokens": round(tokens_out / max(1, len(replies))),
+        "input_tokens": round(tokens_in / max(1, len(replies))), "cached_tokens": round(tokens_cached / max(1, len(replies))),
+        "output_tokens": round(tokens_out / max(1, len(replies))),
         "recovered": any(not a.ok and b.ok for a, b in zip(steps, steps[1:])),
     }
 
@@ -137,6 +139,7 @@ def evaluate(model: str, workers: int) -> dict:
         "median_seconds": round(median(r["seconds"] for r in rows), 2),
         "mean_llm_calls": round(mean(r["llm_calls"] for r in ok_rows), 2) if ok_rows else None,
         "mean_input_tokens": round(mean(r["input_tokens"] for r in ok_rows)) if ok_rows else None,
+        "mean_cached_tokens": round(mean(r.get("cached_tokens", 0) for r in ok_rows)) if ok_rows else None,
         "mean_output_tokens": round(mean(r["output_tokens"] for r in ok_rows)) if ok_rows else None,
         "recovered": sum(r.get("recovered", False) for r in rows),
         "by_category": {k: f"{sum(r['passed'] for r in v)}/{len(v)}" for k, v in by_cat.items()},
@@ -148,7 +151,7 @@ def print_report(result: dict) -> None:
     s = result["summary"]
     print(f"\n## {s['model']} · {s['passed']}/{s['cases']} 정답")
     print(f"도구 선택 {s['tool_choice_ok']}/{s['cases']} · 응답 시간 중앙값 {s['median_seconds']}초 · "
-          f"LLM 호출 평균 {s['mean_llm_calls']}회 · 토큰 평균 {s['mean_input_tokens']}+{s['mean_output_tokens']} · "
+          f"LLM 호출 평균 {s['mean_llm_calls']}회 · 토큰 평균 {s['mean_input_tokens']}(캐시 {s.get('mean_cached_tokens') or 0})+{s['mean_output_tokens']} · "
           f"오류 보고 스스로 고침 {s['recovered']}건")
     print("분야별: " + " · ".join(f"{k} {v}" for k, v in s["by_category"].items()))
     for r in result["rows"]:
@@ -163,12 +166,16 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=4, help="동시에 보낼 명령 수")
     ap.add_argument("--repeat", type=int, default=1, help="모델마다 몇 번 돌릴지 (LLM은 매번 답이 조금씩 달라서 3번 이상 권장)")
     args = ap.parse_args()
-    if not config.OPENAI_API_KEY:
-        sys.exit("OPENAI_API_KEY가 없어요. backend/.env를 확인해 주세요.")
+    models = [m.strip() for m in args.models.split(",") if m.strip()]
+    for model in models:  # 돌리기 전에 모델마다 키가 있는지 확인 (claude-… = ANTHROPIC_API_KEY, 나머지 = OPENAI_API_KEY)
+        try:
+            make_llm(model)
+        except LLMUnavailable as e:
+            sys.exit(str(e))
 
     RESULTS.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
-    for model in [m.strip() for m in args.models.split(",") if m.strip()]:
+    for model in models:
         runs = []
         for i in range(args.repeat):
             result = evaluate(model, args.workers)

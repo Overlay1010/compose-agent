@@ -56,6 +56,7 @@ class AgentResult(BaseModel):
     model: str = ""
     llm_calls: int = 0
     input_tokens: int = 0
+    cached_tokens: int = 0  # 입력 중 캐시에서 읽은 것 (Claude 프롬프트 캐시)
     output_tokens: int = 0
     started_over_at: int | None = Field(default=None, description="start_over를 부른 단계 번호 (미리보기를 버림)")
 
@@ -126,6 +127,7 @@ def run_agent(
         reply = llm.complete(messages, tools)
         out.llm_calls += 1
         out.input_tokens += reply.input_tokens
+        out.cached_tokens += reply.cached_tokens
         out.output_tokens += reply.output_tokens
 
         if not reply.tool_calls:

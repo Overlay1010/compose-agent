@@ -12,7 +12,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 # 어떤 LLM을 쓸지: anthropic(Claude) | openai(OpenAI · Ollama · Gemini 등 같은 형식)
 LLM_PROVIDER = (os.getenv("LLM_PROVIDER") or "anthropic").strip().lower()
 ANTHROPIC_API_KEY = (os.getenv("ANTHROPIC_API_KEY") or "").strip() or None
-ANTHROPIC_MODEL = (os.getenv("ANTHROPIC_MODEL") or "claude-sonnet-5-5").strip()
+ANTHROPIC_MODEL = (os.getenv("ANTHROPIC_MODEL") or "claude-haiku-5-5").strip()  # 평가 79/79 · 빠르고 저렴 (docs/eval.md)
 
 OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY") or "").strip() or None
 OPENAI_MODEL = (os.getenv("OPENAI_MODEL") or "gpt-5.4-mini").strip()
