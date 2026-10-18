@@ -205,6 +205,10 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 
 /* ---------- 고른 부분 ---------- */
 .roll-grid { cursor: crosshair; touch-action: none; }
+.roll-tools { display: flex; align-items: center; gap: 8px; margin: -2px 0 6px; font-size: 12px; color: var(--text-2); }
+.roll-tools label { display: flex; align-items: center; gap: 6px; }
+.roll-tools select { min-height: 28px; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--border); background: #17191d; color: var(--text); font: inherit; }
+.roll-tools button { min-height: 28px; padding: 2px 10px; font-size: 12px; }
 .roll-help { margin: -4px 0 8px; font-size: 11px; color: var(--text-quiet); }
 .roll-help.locked { color: #f2e2a8; }
 .roll-help.nudge { animation: nudge 0.5s ease-in-out 3; }

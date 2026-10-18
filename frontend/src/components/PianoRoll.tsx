@@ -24,7 +24,22 @@ const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
 const NO_PICK = new Set<number>()
 const keyOf = (n: Note) => `${n.pitch}|${n.start}|${n.duration}|${n.velocity}`
-const snap = (beat: number) => Math.round(beat * 4) / 4 // 16분음표
+const round4 = (beat: number) => Math.round(beat * 10000) / 10000
+
+// 편집 격자 (박). 0 = 끔 (자유롭게). 셋잇단은 1/3 · 1/6박
+const GRIDS: { value: number; label: string }[] = [
+  { value: 1, label: '1/4' },
+  { value: 0.5, label: '1/8' },
+  { value: 0.25, label: '1/16' },
+  { value: 0.125, label: '1/32' },
+  { value: 1 / 3, label: '1/8 셋잇단' },
+  { value: 1 / 6, label: '1/16 셋잇단' },
+  { value: 0, label: '끔' },
+]
+const gridName = (g: number) => GRIDS.find((x) => Math.abs(x.value - g) < 1e-6)?.label ?? `${g}박`
+/** 가장 가까운 격자선으로 (격자 끔이면 그대로) */
+const toGrid = (beat: number, grid: number) => (grid > 0 ? round4(Math.round(beat / grid) * grid) : round4(beat))
+const MIN_LENGTH = 0.0625
 
 type Drag = {
   x: number
@@ -33,6 +48,7 @@ type Drag = {
   // range = 빈 곳 끌기(구간 · 음 고르기), move = 음 옮기기, resize = 음 길이
   mode: 'range' | 'move' | 'resize'
   picked?: Set<number>
+  anchor?: number // 잡은 음 (이 음이 격자선에 붙고, 나머지 고른 음은 같은 만큼 따라간다)
   lastY?: number
 }
 
@@ -43,6 +59,23 @@ export function PianoRoll() {
   const layout = useRef<{ keyPx: number; rowPx: number; rows: number[]; lengthBeats: number } | null>(null)
   const drag = useRef<Drag | null>(null)
   const lastLength = useRef(1) // 더블클릭으로 넣을 음 길이 (마지막으로 바꾼 길이)
+  // 편집 격자 (옮기기 · 길이 · 추가 · 정박에 맞추기). 브라우저에 기억 (없어도 16분음표로 동작)
+  const [grid, setGridState] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem('roll-grid'))
+      return GRIDS.some((g) => Math.abs(g.value - v) < 1e-6) && localStorage.getItem('roll-grid') !== null ? v : 0.25
+    } catch {
+      return 0.25
+    }
+  })
+  const setGrid = (v: number) => {
+    setGridState(v)
+    try {
+      localStorage.setItem('roll-grid', String(v))
+    } catch {
+      /* 저장 못 해도 이번 화면에서는 쓴다 */
+    }
+  }
   const [draft, setDraft] = useState<Selection | null>(null)
   const playing = usePlayer((s) => s.playing)
   const cursor = usePlayer((s) => s.cursor)
@@ -102,6 +135,20 @@ export function PianoRoll() {
     setPicked(again, `${realTrack.id}:${changed.project.version}`)
   }
 
+  /** 정박에 맞추기: 고른 음(없으면 트랙 전체)의 시작을 격자선에 붙인다 (길이는 그대로) */
+  const quantizeNow = () => {
+    if (!realTrack || !editable) return
+    const g = grid > 0 ? grid : 0.25 // 격자를 꺼 두었으면 16분음표로
+    const targets = picked.size ? picked : new Set(realTrack.notes.map((_, i) => i))
+    const fixed = realTrack.notes.map((n, i) => (targets.has(i) ? { ...n, start: Math.max(0, toGrid(n.start, g)) } : n))
+    const moved = fixed.filter((n, i) => n.start !== realTrack.notes[i].start).length
+    if (!moved) {
+      note(`${realTrack.name}: 이미 ${gridName(g)} 격자에 맞아 있어요`)
+      return
+    }
+    void commit(fixed, `음 ${moved}개 정박에 맞춤 (${gridName(g)})`, picked.size ? fixed.filter((_, i) => targets.has(i)) : [])
+  }
+
   /** 마우스 위치 계산: 어떤 음 위인지(끝 부분이면 길이 바꾸기), 몇 박 · 어떤 음 번호 줄인지 */
   const geom = () => {
     const L = layout.current
@@ -135,6 +182,10 @@ export function PianoRoll() {
       }
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') {
         setPicked(new Set(realTrack.notes.map((_, i) => i)))
+        return true
+      }
+      if (e.code === 'KeyQ' && !e.ctrlKey && !e.metaKey && !e.altKey && editable) {
+        quantizeNow()
         return true
       }
       if (!picked.size || !editable) return false
@@ -348,6 +399,25 @@ export function PianoRoll() {
           {track.is_drum ? '드럼 레인 · 진할수록 세게' : '마디 번호 기준 · 진할수록 세게'}
         </span>
       </h2>
+      <div className="roll-tools">
+        <label>
+          격자
+          <select value={grid} onChange={(e) => setGrid(Number(e.target.value))} aria-label="편집 격자">
+            {GRIDS.map((g) => (
+              <option key={g.label} value={g.value}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          onClick={quantizeNow}
+          disabled={!editable || !realTrack?.notes.length}
+          title="고른 음(없으면 트랙 전체)의 시작을 격자에 맞춰요 (Q)"
+        >
+          정박에 맞추기 {picked.size ? `· 고른 음 ${picked.size}개` : '· 트랙 전체'}
+        </button>
+      </div>
       <p className={lockedByPreview ? (nudge ? 'roll-help locked nudge' : 'roll-help locked') : 'roll-help'} key={nudge}>
         {lockedByPreview
           ? '미리보기가 이 트랙의 음을 바꾸고 있어서 직접 고칠 수 없어요 — 채팅 아래 미리보기를 적용하거나 취소하면 돼요 · 빈 곳 끌기로 부분 고르기는 돼요'
@@ -409,7 +479,7 @@ export function PianoRoll() {
               if (hit && editable) {
                 const next = picked.has(hit.i) ? picked : new Set(e.shiftKey ? [...picked, hit.i] : [hit.i])
                 if (next !== picked) setPicked(next)
-                drag.current = { x, y, moved: false, mode: hit.edge ? 'resize' : 'move', picked: next }
+                drag.current = { x, y, moved: false, mode: hit.edge ? 'resize' : 'move', picked: next, anchor: hit.i }
               } else {
                 drag.current = { x, y, moved: false, mode: 'range' }
               }
@@ -432,16 +502,24 @@ export function PianoRoll() {
               d.moved = true
               if (d.mode !== 'range') {
                 const notes = realTrack!.notes
-                const db = snap((x - d.x) / BEAT_PX)
+                const a = notes[d.anchor ?? 0]
+                const raw = (x - d.x) / BEAT_PX
+                const minLen = grid > 0 ? grid : MIN_LENGTH
                 if (d.mode === 'resize') {
-                  setEditNotes(notes.map((n, i) => (d.picked!.has(i) ? { ...n, duration: Math.max(0.25, snap(n.duration + db)) } : n)))
+                  // 잡은 음의 끝을 격자선에 붙이고, 나머지 고른 음도 같은 만큼 늘이거나 줄인다
+                  const delta = Math.max(minLen, toGrid(a.start + a.duration + raw, grid) - a.start) - a.duration
+                  setEditNotes(
+                    notes.map((n, i) => (d.picked!.has(i) ? { ...n, duration: Math.max(minLen, round4(n.duration + delta)) } : n)),
+                  )
                 } else {
+                  // 잡은 음의 시작을 격자선에 붙이고, 나머지 고른 음은 같은 만큼 따라간다
+                  const delta = Math.max(0, toGrid(a.start + raw, grid)) - a.start
                   const dr = Math.round((y - d.y) / L.rowPx)
                   setEditNotes(
                     notes.map((n, i) => {
                       if (!d.picked!.has(i)) return n
                       const row = Math.min(L.rows.length - 1, Math.max(0, (g.rowIndex.get(n.pitch) ?? 0) + dr))
-                      return { ...n, start: Math.max(0, Math.round((n.start + db) * 10000) / 10000), pitch: L.rows[row] }
+                      return { ...n, start: Math.max(0, round4(n.start + delta)), pitch: L.rows[row] }
                     }),
                   )
                 }
@@ -508,7 +586,7 @@ export function PianoRoll() {
               const velocity = notes.length ? Math.round(notes.reduce((s, n) => s + n.velocity, 0) / notes.length) : 100
               const added: Note = {
                 pitch: g.L.rows[g.rowAt(y)],
-                start: Math.floor(g.beatAt(x) * 4) / 4,
+                start: grid > 0 ? round4(Math.floor(g.beatAt(x) / grid + 1e-9) * grid) : round4(g.beatAt(x)),
                 duration: realTrack.is_drum ? 0.25 : lastLength.current,
                 velocity,
               }
