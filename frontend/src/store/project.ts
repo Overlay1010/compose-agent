@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import * as api from '../api/client'
-import type { LogEntry, Project, VersionInfo } from '../api/types'
+import type { LogEntry, Note, Project, VersionInfo } from '../api/types'
 import type { Selection } from '../selection'
 
 interface ProjectState {
@@ -40,6 +40,8 @@ interface ProjectState {
   setLane: (trackId: string, pitch: number, scale: number) => Promise<api.TrackChange | null>
   /** 드럼 레인 하나의 소리 고르기 */
   setDrumSound: (trackId: string, pitch: number, sound: string) => Promise<api.TrackChange | null>
+  /** 피아노롤 직접 편집: 트랙의 음 목록을 바꿔 저장 */
+  setNotes: (trackId: string, notes: Note[], label: string) => Promise<api.TrackChange | null>
   /** 벨로시티 편집창: 음 하나하나의 세기 */
   setVelocities: (trackId: string, changes: { index: number; velocity: number }[]) => Promise<api.TrackChange | null>
   loadVersions: () => Promise<void>
@@ -165,6 +167,8 @@ export const useProject = create<ProjectState>((set, get) => {
     setMix: (trackId, mix) => changeTrack((id) => api.setMix(id, trackId, mix)),
     setLane: (trackId, pitch, scale) => changeTrack((id) => api.setLane(id, trackId, pitch, scale)),
     setDrumSound: (trackId, pitch, sound) => changeTrack((id) => api.setDrumSound(id, trackId, pitch, sound)),
+    setNotes: (trackId, notes, label) =>
+      changeTrack((id) => api.setNotes(id, trackId, get().project!.version, notes, label)),
     setVelocities: (trackId, changes) =>
       changeTrack((id) => api.setVelocities(id, trackId, get().project!.version, changes)),
 

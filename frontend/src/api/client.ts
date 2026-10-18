@@ -1,4 +1,4 @@
-import type { ChatResponse, Project, RecentProject, SessionData, ToolStep, VersionInfo } from './types'
+import type { ChatResponse, Note, Project, RecentProject, SessionData, ToolStep, VersionInfo } from './types'
 
 const BASE = '/api/v1'
 
@@ -139,6 +139,23 @@ export async function setMix(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(mix),
+    }),
+  )
+}
+
+/** 피아노롤 직접 편집: 트랙의 음 목록을 통째로 바꾼다. baseVersion이 지금 버전과 다르면 409 */
+export async function setNotes(
+  projectId: string,
+  trackId: string,
+  baseVersion: number,
+  notes: Note[],
+  label: string,
+): Promise<TrackChange> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_version: baseVersion, notes, label }),
     }),
   )
 }

@@ -3,6 +3,7 @@ import type { Note, Track } from '../api/types'
 import { DRUM_NAMES, DRUM_ROLES, DRUM_SOUNDS, drumSoundOf } from '../audio/instruments'
 import * as player from '../audio/player'
 import { positionBeats } from '../audio/player'
+import { setNoteKeys } from '../shortcuts'
 import { useChat } from '../store/chat'
 import type { Selection } from '../selection'
 import { usePlayer } from '../store/player'
@@ -21,12 +22,27 @@ const DRUM_KEY_PX = 92
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
+const NO_PICK = new Set<number>()
+const keyOf = (n: Note) => `${n.pitch}|${n.start}|${n.duration}|${n.velocity}`
+const snap = (beat: number) => Math.round(beat * 4) / 4 // 16분음표
+
+type Drag = {
+  x: number
+  y: number
+  moved: boolean
+  // range = 빈 곳 끌기(구간 · 음 고르기), move = 음 옮기기, resize = 음 길이
+  mode: 'range' | 'move' | 'resize'
+  picked?: Set<number>
+  lastY?: number
+}
 
 export function PianoRoll() {
-  const { project, preview, hearPreview, selectedTrackId, selection, setSelection } = useProject()
-  // 그린 모양 (끌어서 고를 때 좌표 → 박 · 음 번호로 바꾸는 데 씀)
+  const { project, preview, hearPreview, selectedTrackId, selection, setSelection, busy, setNotes } = useProject()
+  const { sending, note } = useChat()
+  // 그린 모양 (마우스 좌표 → 박 · 음 번호로 바꾸는 데 씀)
   const layout = useRef<{ keyPx: number; rowPx: number; rows: number[]; lengthBeats: number } | null>(null)
-  const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const drag = useRef<Drag | null>(null)
+  const lastLength = useRef(1) // 더블클릭으로 넣을 음 길이 (마지막으로 바꾼 길이)
   const [draft, setDraft] = useState<Selection | null>(null)
   const playing = usePlayer((s) => s.playing)
   const cursor = usePlayer((s) => s.cursor)
@@ -51,6 +67,85 @@ export function PianoRoll() {
     [track, diff, showDiff],
   )
 
+  // 음 직접 편집: 고른 음(지금 버전 트랙의 음 순서)과 끄는 동안 보여 줄 임시 음 목록.
+  // 고른 음은 버전이 바뀌면 자동으로 풀린다 (저장 직후에는 옮긴 음을 새 버전에서 다시 찾아 고른다)
+  const editKey = `${realTrack?.id}:${project?.version}`
+  const [pickedState, setPickedState] = useState<{ key: string; set: Set<number> }>({ key: '', set: NO_PICK })
+  const picked = pickedState.key === editKey ? pickedState.set : NO_PICK
+  const setPicked = (set: Set<number>, key = editKey) => setPickedState({ key, set })
+  const [editNotes, setEditNotes] = useState<Note[] | null>(null)
+  // 미리보기가 있으면 음 순서가 미리보기와 어긋날 수 있어 직접 편집을 막는다
+  const editable = !!realTrack && !preview && !busy && !sending
+
+  /** 고친 음 목록을 저장하고, 옮긴 음들은 새 버전에서도 골라 둔다 */
+  const commit = async (notes: Note[], label: string, keep: Note[]) => {
+    if (!realTrack) return
+    const changed = await setNotes(realTrack.id, notes, `${realTrack.name} ${label}`)
+    setEditNotes(null)
+    if (!changed?.note) return
+    note(changed.note, true)
+    const fresh = changed.project.tracks.find((t) => t.id === realTrack.id)
+    const again = new Set<number>()
+    for (const k of keep.map(keyOf)) {
+      const i = fresh?.notes.findIndex((n, j) => !again.has(j) && keyOf(n) === k) ?? -1
+      if (i >= 0) again.add(i)
+    }
+    setPicked(again, `${realTrack.id}:${changed.project.version}`)
+  }
+
+  /** 마우스 위치 계산: 어떤 음 위인지(끝 부분이면 길이 바꾸기), 몇 박 · 어떤 음 번호 줄인지 */
+  const geom = () => {
+    const L = layout.current
+    if (!L || !realTrack) return null
+    const rowIndex = new Map(L.rows.map((p, i) => [p, i]))
+    const box = (n: Note) => {
+      const w = realTrack.is_drum ? 6 : Math.max(n.duration * BEAT_PX - 2, 2)
+      return { x: L.keyPx + n.start * BEAT_PX + 1, y: 20 + (rowIndex.get(n.pitch) ?? -99) * L.rowPx, w, h: L.rowPx }
+    }
+    const hit = (x: number, y: number) => {
+      const notes = realTrack.notes
+      for (let i = notes.length - 1; i >= 0; i--) {
+        const b = box(notes[i])
+        if (x >= b.x - 2 && x <= b.x + Math.max(b.w, 8) + 2 && y >= b.y && y < b.y + b.h) {
+          return { i, edge: !realTrack.is_drum && b.w > 12 && x > b.x + b.w - 6 }
+        }
+      }
+      return null
+    }
+    const rowAt = (y: number) => Math.min(L.rows.length - 1, Math.max(0, Math.floor((y - 20) / L.rowPx)))
+    return { L, rowIndex, hit, rowAt, beatAt: (x: number) => Math.max(0, (x - L.keyPx) / BEAT_PX) }
+  }
+
+  // 음을 골랐을 때의 키 (Delete · ↑↓ · Ctrl+A · Esc). 단축키보다 먼저 받는다 (shortcuts.ts)
+  useEffect(() => {
+    if (!realTrack) return
+    setNoteKeys((e) => {
+      if (e.key === 'Escape' && picked.size) {
+        setPicked(NO_PICK)
+        return true
+      }
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') {
+        setPicked(new Set(realTrack.notes.map((_, i) => i)))
+        return true
+      }
+      if (!picked.size || !editable) return false
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        void commit(realTrack.notes.filter((_, i) => !picked.has(i)), `음 ${picked.size}개 지움`, [])
+        return true
+      }
+      if (!realTrack.is_drum && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1)
+        const moved = realTrack.notes.map((n, i) => (picked.has(i) ? { ...n, pitch: n.pitch + d } : n))
+        if (moved.some((n) => n.pitch < 0 || n.pitch > 127)) return true // MIDI 음 범위 밖으로는 안 옮김
+        const how = `${Math.abs(d) === 12 ? '한 옥타브' : '반음'} ${d > 0 ? '올림' : '내림'}`
+        void commit(moved, `음 ${picked.size}개 ${how}`, moved.filter((_, i) => picked.has(i)))
+        return true
+      }
+      return false
+    })
+    return () => setNoteKeys(null)
+  })
+
   useEffect(() => {
     const el = canvas.current
     if (!el || !project || !track) return
@@ -58,7 +153,15 @@ export function PianoRoll() {
     const beatsPerBar = (project.time_signature[0] * 4) / project.time_signature[1]
     // 줄과 길이는 원래 음 + 바뀐 음을 모두 담게 잡는다 (조옮김으로 음역이 넓어질 수 있음)
     const all: Note[] = showDiff && diff ? [...track.notes, ...diff.added] : track.notes
-    if (all.length === 0) {
+    // 끄는 동안은 임시 음 목록을 그린다 (줄 배치는 원래 음 기준으로 고정해 화면이 출렁이지 않게)
+    const shown = !showDiff && editNotes ? editNotes : track.notes
+    // 음을 다 지운 멜로디 트랙도 더블클릭으로 음을 넣을 수 있게 C3~C5 · 4마디 빈 칸을 보여 준다
+    const basis: Note[] = all.length
+      ? all
+      : track.is_drum || showDiff
+        ? []
+        : [{ pitch: 48, start: 0, duration: beatsPerBar * 4, velocity: 1 }, { pitch: 72, start: 0, duration: 1, velocity: 1 }]
+    if (basis.length === 0) {
       // 음이 하나도 없는 트랙 (다 지웠거나, 원래 소리로 보는 새 트랙)
       el.width = 0
       el.height = 0
@@ -66,7 +169,7 @@ export function PianoRoll() {
       el.style.height = '0px'
       return
     }
-    const pitches = all.map((n) => n.pitch)
+    const pitches = basis.map((n) => n.pitch)
     // 위에서부터 그릴 줄(음 번호) 목록. 멜로디는 음역 전체(위아래 2칸 여유), 드럼은 쓰인 음만.
     const rows = track.is_drum
       ? [...new Set(pitches)].sort((a, b) => b - a)
@@ -74,7 +177,7 @@ export function PianoRoll() {
     const rowPx = track.is_drum ? DRUM_ROW_PX : ROW_PX
     const keyPx = track.is_drum ? DRUM_KEY_PX : KEY_PX
     const rowIndex = new Map(rows.map((p, i) => [p, i]))
-    const lengthBeats = Math.ceil(Math.max(...all.map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
+    const lengthBeats = Math.ceil(Math.max(...[...basis, ...shown].map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
 
     const width = keyPx + lengthBeats * BEAT_PX
     const height = rows.length * rowPx + 20
@@ -152,14 +255,27 @@ export function PianoRoll() {
       const inset = track.is_drum ? 3 : 1
       return [keyPx + n.start * BEAT_PX + 1, y(n.pitch) + inset, w, rowPx - inset * 2] as const
     }
-    const plain = showDiff && diff ? diff.same : track.notes
+    const plain = showDiff && diff ? diff.same : shown
     const noteColor = trackColor(project, track.id)
     for (const n of plain) {
+      if (!rowIndex.has(n.pitch)) continue
       ctx.globalAlpha = 0.45 + (n.velocity / 127) * 0.55
       ctx.fillStyle = noteColor
       ctx.fillRect(...box(n))
     }
     ctx.globalAlpha = 1
+    // 고른 음: 밝은 테두리
+    if (!showDiff) {
+      ctx.strokeStyle = color('--text')
+      ctx.lineWidth = 1.5
+      for (const i of picked) {
+        const n = shown[i]
+        if (!n || !rowIndex.has(n.pitch)) continue
+        const [x, by, w, h] = box(n)
+        ctx.strokeRect(x + 0.5, by + 0.5, w - 1, h - 1)
+      }
+      ctx.lineWidth = 1
+    }
     if (showDiff && diff) {
       // 원래 위치: 점선 테두리
       ctx.setLineDash([3, 2])
@@ -181,7 +297,7 @@ export function PianoRoll() {
         ctx.strokeRect(x + 0.5, by + 0.5, w - 1, h - 1)
       }
     }
-  }, [project, track, diff, showDiff])
+  }, [project, track, diff, showDiff, editNotes, picked])
 
   // 재생선: 매 프레임 지금 들리는 위치로 옮기고, 화면 밖으로 나가면 따라가며 스크롤한다.
   useEffect(() => {
@@ -223,6 +339,11 @@ export function PianoRoll() {
           {track.is_drum ? '드럼 레인 · 진할수록 세게' : '마디 번호 기준 · 진할수록 세게'}
         </span>
       </h2>
+      <p className="roll-help">
+        {realTrack && !preview
+          ? '더블클릭 음 추가 · 음 끌기 옮기기 · 끝 끌기 길이 · 오른쪽 클릭 · Delete 지우기 · 빈 곳 끌기 고르기 (Shift 더하기)'
+          : '미리보기 중에는 음을 직접 고칠 수 없어요 (적용하거나 취소하면 돼요) · 빈 곳 끌기로 부분 고르기는 돼요'}
+      </p>
       {showDiff && diff && (
         <p className="legend">
           <strong>미리보기 중</strong>
@@ -259,22 +380,63 @@ export function PianoRoll() {
           <canvas
             ref={canvas}
             className="roll-grid"
+            onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
-              const L = layout.current
-              const r = e.currentTarget.getBoundingClientRect()
-              if (e.button !== 0 || !L || e.clientX - r.left < L.keyPx) return
-              e.currentTarget.setPointerCapture(e.pointerId)
-              drag.current = { x: e.clientX - r.left, y: e.clientY - r.top, moved: false }
-            }}
-            onPointerMove={(e) => {
-              const d = drag.current
-              const L = layout.current
-              if (!d || !L || !track) return
+              const g = geom()
               const r = e.currentTarget.getBoundingClientRect()
               const x = e.clientX - r.left
               const y = e.clientY - r.top
-              if (!d.moved && Math.hypot(x - d.x, y - d.y) < 5) return // 살짝 움직인 건 클릭으로
+              if (!g || x < g.L.keyPx) return
+              const hit = g.hit(x, y)
+              if (e.button === 2) {
+                // 오른쪽 클릭 = 그 음 지우기
+                if (hit && editable) void commit(realTrack!.notes.filter((_, i) => i !== hit.i), '음 1개 지움', [])
+                return
+              }
+              if (e.button !== 0) return
+              e.currentTarget.setPointerCapture(e.pointerId)
+              if (hit && editable) {
+                const next = picked.has(hit.i) ? picked : new Set(e.shiftKey ? [...picked, hit.i] : [hit.i])
+                if (next !== picked) setPicked(next)
+                drag.current = { x, y, moved: false, mode: hit.edge ? 'resize' : 'move', picked: next }
+              } else {
+                drag.current = { x, y, moved: false, mode: 'range' }
+              }
+            }}
+            onPointerMove={(e) => {
+              const d = drag.current
+              const g = geom()
+              const r = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - r.left
+              const y = e.clientY - r.top
+              if (!d) {
+                // 마우스만 올렸을 때: 음 위면 잡기 · 끝이면 길이 커서
+                const hit = g && editable ? g.hit(x, y) : null
+                e.currentTarget.style.cursor = hit ? (hit.edge ? 'ew-resize' : 'grab') : ''
+                return
+              }
+              const L = layout.current
+              if (!g || !L || !track) return
+              if (!d.moved && Math.hypot(x - d.x, y - d.y) < 4) return // 살짝 움직인 건 클릭으로
               d.moved = true
+              if (d.mode !== 'range') {
+                const notes = realTrack!.notes
+                const db = snap((x - d.x) / BEAT_PX)
+                if (d.mode === 'resize') {
+                  setEditNotes(notes.map((n, i) => (d.picked!.has(i) ? { ...n, duration: Math.max(0.25, snap(n.duration + db)) } : n)))
+                } else {
+                  const dr = Math.round((y - d.y) / L.rowPx)
+                  setEditNotes(
+                    notes.map((n, i) => {
+                      if (!d.picked!.has(i)) return n
+                      const row = Math.min(L.rows.length - 1, Math.max(0, (g.rowIndex.get(n.pitch) ?? 0) + dr))
+                      return { ...n, start: Math.max(0, Math.round((n.start + db) * 10000) / 10000), pitch: L.rows[row] }
+                    }),
+                  )
+                }
+                return
+              }
+              d.lastY = y
               const toBeat = (px: number) => Math.min(L.lengthBeats, Math.max(0, (px - L.keyPx) / BEAT_PX))
               const start = Math.floor(Math.min(toBeat(d.x), toBeat(x)) * 4) / 4 // 16분음표 단위
               const end = Math.max(start + 0.25, Math.ceil(Math.max(toBeat(d.x), toBeat(x)) * 4) / 4)
@@ -290,13 +452,55 @@ export function PianoRoll() {
             onPointerUp={() => {
               const d = drag.current
               drag.current = null
-              if (d?.moved && draft) setSelection(draft)
-              else if (d) setSelection(null) // 그냥 누르면 고른 부분을 푼다
-              setDraft(null)
+              if (!d) return
+              if (d.mode === 'range') {
+                const L = layout.current
+                if (d.moved && draft && L && realTrack) {
+                  setSelection(draft)
+                  // 끈 사각형 안의 음도 고른다 (직접 옮기기 · 지우기용)
+                  const [a, b] = [d.y, d.lastY ?? d.y].map((v) => Math.min(L.rows.length - 1, Math.max(0, Math.floor((v - 20) / L.rowPx))))
+                  const inRows = new Set(L.rows.slice(Math.min(a, b), Math.max(a, b) + 1))
+                  const inside = realTrack.notes.flatMap((n, i) =>
+                    n.start >= draft.beats[0] - 1e-6 && n.start < draft.beats[1] - 1e-6 && inRows.has(n.pitch) ? [i] : [],
+                  )
+                  setPicked(new Set(inside))
+                } else {
+                  // 그냥 누르면 고른 부분 · 고른 음을 푼다
+                  setSelection(null)
+                  setPicked(NO_PICK)
+                }
+                setDraft(null)
+                return
+              }
+              if (!d.moved || !editNotes) {
+                setEditNotes(null)
+                return
+              }
+              const label = d.mode === 'resize' ? `음 ${d.picked!.size}개 길이 바꿈` : `음 ${d.picked!.size}개 옮김`
+              if (d.mode === 'resize') lastLength.current = editNotes[[...d.picked!][0]]?.duration ?? lastLength.current
+              void commit(editNotes, label, editNotes.filter((_, i) => d.picked!.has(i)))
             }}
             onPointerCancel={() => {
               drag.current = null
               setDraft(null)
+              setEditNotes(null)
+            }}
+            onDoubleClick={(e) => {
+              // 빈 곳 더블클릭 = 그 자리에 음 추가 (16분음표 격자, 길이는 마지막으로 바꾼 길이)
+              const g = geom()
+              const r = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - r.left
+              const y = e.clientY - r.top
+              if (!g || !editable || !realTrack || x < g.L.keyPx || g.hit(x, y)) return
+              const notes = realTrack.notes
+              const velocity = notes.length ? Math.round(notes.reduce((s, n) => s + n.velocity, 0) / notes.length) : 100
+              const added: Note = {
+                pitch: g.L.rows[g.rowAt(y)],
+                start: Math.floor(g.beatAt(x) * 4) / 4,
+                duration: realTrack.is_drum ? 0.25 : lastLength.current,
+                velocity,
+              }
+              void commit([...notes, added], '음 1개 추가', [added])
             }}
           />
           <SelectionBox

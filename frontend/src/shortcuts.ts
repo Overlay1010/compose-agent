@@ -14,9 +14,12 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['←', '→'], label: '한 마디 앞 · 뒤로' },
   { keys: ['Home'], label: '처음으로' },
   { keys: ['L'], label: '구간 반복 켜기 · 끄기' },
-  { keys: ['↑', '↓'], label: '위 · 아래 트랙 고르기' },
+  { keys: ['↑', '↓'], label: '위 · 아래 트랙 고르기 (음을 고르지 않았을 때)' },
   { keys: ['M'], label: '고른 트랙 음소거' },
   { keys: ['S'], label: '고른 트랙 솔로' },
+  { keys: ['Delete'], label: '고른 음 지우기 (피아노롤)' },
+  { keys: ['↑', '↓'], label: '고른 음 반음 올리기 · 내리기 (Shift = 옥타브)' },
+  { keys: ['Ctrl', 'A'], label: '그 트랙 음 모두 고르기' },
   { keys: ['/'], label: '채팅 입력칸으로' },
   { keys: ['?'], label: '단축키 목록' },
 ]
@@ -26,6 +29,12 @@ export const useShortcutHelp = create<{ open: boolean; setOpen: (open: boolean) 
   setOpen: (open) => set({ open }),
 }))
 
+// 피아노롤에서 음을 골랐을 때 Delete · ↑↓ · Ctrl+A 같은 키를 먼저 받는 곳 (components/PianoRoll.tsx가 등록)
+let noteKeys: ((e: KeyboardEvent) => boolean) | null = null
+export function setNoteKeys(handler: ((e: KeyboardEvent) => boolean) | null) {
+  noteKeys = handler
+}
+
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && !!target.closest('input, textarea, select, [contenteditable]')
 
@@ -33,6 +42,7 @@ const typing = (target: EventTarget | null) =>
 export function handleShortcut(e: KeyboardEvent): boolean {
   if (e.repeat && e.code !== 'ArrowLeft' && e.code !== 'ArrowRight') return false
   if (typing(e.target)) return false
+  if (noteKeys?.(e)) return true
 
   const help = useShortcutHelp.getState()
   const project = useProject.getState()

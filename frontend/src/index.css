@@ -205,6 +205,7 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 
 /* ---------- 고른 부분 ---------- */
 .roll-grid { cursor: crosshair; touch-action: none; }
+.roll-help { margin: -4px 0 8px; font-size: 11px; color: var(--text-quiet); }
 .roll-selection { position: absolute; pointer-events: none; background: rgba(169, 193, 255, 0.14); border: 1px solid rgba(169, 193, 255, 0.7); border-radius: 3px; }
 .sel-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; padding: 6px 6px 6px 12px; border-radius: 10px; border: 1px solid rgba(169, 193, 255, 0.5); background: rgba(169, 193, 255, 0.1); font-size: 12px; color: var(--text); }
 .sel-chip button { min-height: 0; width: 26px; height: 26px; padding: 0; border: 0; background: transparent; color: var(--text-2); }

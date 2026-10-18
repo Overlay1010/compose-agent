@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_to_midi_bytes
-from app.models.project import Project, ProjectSummary
+from app.models.project import Note, Project, ProjectSummary
 from app.agent.prompt import DRUM_NAMES, note_name
 from app.agent.session import note
 from app.tools.instrument import display_name, kit_name
@@ -234,6 +234,41 @@ def set_track_mix(project_id: str, track_id: str, body: MixIn) -> TrackChangeOut
     if body.volume is None and body.pan is None:
         raise _error(400, "invalid_args", "volume이나 pan 중 하나는 있어야 해요.")
     return _change_track(project_id, "set_mix", {"track_ids": [track_id], **body.model_dump(exclude_none=True)})
+
+
+class NotesIn(BaseModel):
+    base_version: int = Field(description="화면이 보고 있던 버전. 그사이 바뀌었으면 고치지 않는다")
+    notes: list[Note] = Field(max_length=20000, description="이 트랙의 음 전체 (편집한 뒤)")
+    label: str = Field(default="", max_length=80, description='히스토리에 남길 설명 (예: "Rhodes 음 3개 옮김")')
+
+
+def _guard_direct_edit(project_id: str, base_version: int) -> Project:
+    """화면에서 음을 직접 고칠 때: 화면이 본 버전이 지금 버전이고, 적용 전 미리보기가 없어야 한다."""
+    current = _get(project_id)
+    if base_version != current.version:
+        raise _error(409, "version_changed", "그사이 곡이 바뀌었어요. 화면을 다시 불러온 뒤 편집해 주세요.")
+    if store.preview(project_id) is not None:
+        raise _error(409, "preview_pending", "적용하지 않은 미리보기가 있어요. 적용하거나 취소한 뒤 편집해 주세요.")
+    return current
+
+
+@router.post("/{project_id}/tracks/{track_id}/notes", response_model=TrackChangeOut)
+def set_notes(project_id: str, track_id: str, body: NotesIn) -> TrackChangeOut:
+    """피아노롤 직접 편집 (음 추가 · 옮기기 · 길이 · 지우기): 트랙의 음 목록을 통째로 바꿔 새로 저장한다."""
+    current = _guard_direct_edit(project_id, body.base_version)
+    track = next((t for t in current.tracks if t.id == track_id), None)
+    if track is None:
+        raise _error(404, "unknown_track", f"없는 트랙이에요: {track_id}")
+    notes = sorted(body.notes, key=lambda n: (n.start, n.pitch))
+    if notes == sorted(track.notes, key=lambda n: (n.start, n.pitch)):
+        return TrackChangeOut(project=current, preview=None)
+    edited = current.model_copy(
+        update={"tracks": [t.model_copy(update={"notes": notes}) if t.id == track_id else t for t in current.tracks]}
+    )
+    text = body.label.strip() or f"{track.name} 음 직접 편집"
+    store.add_version(edited, text)
+    store.add_log(project_id, note(text))
+    return TrackChangeOut(project=store.current(project_id), preview=None, note=text)
 
 
 class VelocityChange(BaseModel):

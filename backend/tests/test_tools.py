@@ -751,3 +751,24 @@ def test_empty_track_ids_means_all_tracks():
     p = song(track("t1", (60, 0, 1, 80)), track("t2", (40, 0, 1, 80)))
     r = run_tool(p, "adjust_velocity", {"track_ids": [], "mode": "set", "value": 50})
     assert r.changed_notes == 2  # 예전에는 0 (아무 트랙도 안 고른 것으로 처리)
+
+
+def test_notes_endpoint_replaces_track_notes(client):
+    from tests.test_agent import upload_lofi
+
+    pid = upload_lofi(client)
+    before = client.get(f"/api/v1/projects/{pid}").json()["tracks"][4]["notes"]
+    edited = [dict(n) for n in before[1:]]  # 첫 음 지우고
+    edited[0]["pitch"] += 12  # 하나 옮기고
+    edited.append({"pitch": 90, "start": 0.5, "duration": 0.25, "velocity": 100})  # 하나 더하기
+    url = f"/api/v1/projects/{pid}/tracks/t5/notes"
+    r = client.post(url, json={"base_version": 1, "notes": edited, "label": "Lead 음 직접 편집 테스트"})
+    assert r.status_code == 200
+    got = r.json()["project"]["tracks"][4]["notes"]
+    assert len(got) == len(before) and got[0]["pitch"] == 90  # 시작 순으로 정렬해 저장
+    assert r.json()["note"] == "Lead 음 직접 편집 테스트" and r.json()["project"]["version"] == 2
+    assert client.post(url, json={"base_version": 1, "notes": edited}).status_code == 409  # 옛 버전 기준
+    same = client.post(url, json={"base_version": 2, "notes": got})
+    assert same.json()["note"] is None and same.json()["project"]["version"] == 2
+    bad = client.post(url, json={"base_version": 2, "notes": [{"pitch": 200, "start": 0, "duration": 1, "velocity": 80}]})
+    assert bad.status_code == 422
