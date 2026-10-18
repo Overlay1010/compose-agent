@@ -92,7 +92,7 @@ export function TrackList() {
                 disabled={busy || sending}
                 onChange={(e) => void changeInstrument(t.id, Number(e.target.value))}
                 aria-label={`${t.name} 드럼 킷`}
-                title="드럼 킷 바꾸기 (바로 새 버전으로 저장, 되돌리기 가능)"
+                title="드럼 킷 바꾸기 (바로 저장돼요 · 히스토리에서 되돌리기 가능)"
               >
                 {DRUM_KITS.map((k) => (
                   <option key={k.program} value={k.program}>
@@ -107,7 +107,7 @@ export function TrackList() {
                 disabled={busy || sending}
                 onChange={(e) => void changeInstrument(t.id, Number(e.target.value))}
                 aria-label={`${t.name} 악기`}
-                title="악기 바꾸기 (바로 새 버전으로 저장, 되돌리기 가능)"
+                title="악기 바꾸기 (바로 저장돼요 · 히스토리에서 되돌리기 가능)"
               >
                 {GM_GROUPS.map((g) => (
                   <optgroup key={g.family} label={g.family}>
@@ -155,7 +155,7 @@ function MixControls({ track }: { track: Track }) {
 
   return (
     <div className="mix">
-      <label title="트랙 볼륨 (0~127, 기본 100). 손을 떼면 새 버전으로 저장">
+      <label title="트랙 볼륨 (0~127, 기본 100). 손을 떼면 저장돼요">
         <span>볼륨</span>
         <input
           type="range"

@@ -704,7 +704,7 @@ def test_drum_sound_endpoint(client):
     r = client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sound", json={"pitch": 45, "sound": "tom_808"})
     assert r.status_code == 200
     assert r.json()["project"]["tracks"][0]["drum_sounds"] == {"45": "tom_808"}
-    assert r.json()["note"] == "Drums Low Tom 소리를 808 탐(으)로 바꿨어요 (v2로 저장)"
+    assert r.json()["note"] == "Drums Low Tom 소리를 808 탐(으)로 바꿨어요"
     assert client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sound", json={"pitch": 36, "sound": "hat_808"}).status_code == 400
 
 

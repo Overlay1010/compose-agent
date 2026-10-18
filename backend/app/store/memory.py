@@ -58,6 +58,17 @@ class PreviewConflict(RuntimeError):
 class VersionInfo:
     version: int
     label: str
+    created_at: str = ""  # ISO 시각 (화면의 "3분 전")
+
+
+def now() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def short(label: str, size: int = 24) -> str:
+    """히스토리 · 알림에 넣을 짧은 설명."""
+    label = label.strip().rstrip(".")
+    return label if len(label) <= size else label[: size - 1] + "…"
 
 
 @dataclass
@@ -79,6 +90,7 @@ class ProjectStore:
     def __init__(self, db_path: str | Path | None = None) -> None:
         self._versions: dict[str, list[Project]] = {}
         self._labels: dict[str, list[str]] = {}
+        self._times: dict[str, list[str]] = {}
         self._previews: dict[str, Preview] = {}
         self._chat: dict[str, list[dict[str, Any]]] = {}
         self._log: dict[str, list[dict[str, Any]]] = {}
@@ -89,6 +101,11 @@ class ProjectStore:
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
             self._db = sqlite3.connect(db_path, check_same_thread=False)
             self._db.executescript(SCHEMA)
+            # 시각 칸이 없던 예전 저장 파일에 칸을 더한다
+            columns = {row[1] for row in self._db.execute("PRAGMA table_info(versions)")}
+            if "created_at" not in columns:
+                with self._db:
+                    self._db.execute("ALTER TABLE versions ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
 
     # ---------- 파일에 쓰기 · 읽기 ----------
 
@@ -106,10 +123,10 @@ class ProjectStore:
             project_id, name, datetime.now().isoformat(timespec="seconds"),
         )
 
-    def _save_version(self, project: Project, label: str) -> None:
+    def _save_version(self, project: Project, label: str, created_at: str) -> None:
         self._write(
-            "INSERT OR REPLACE INTO versions VALUES (?, ?, ?, ?)",
-            project.id, project.version, label, project.model_dump_json(),
+            "INSERT OR REPLACE INTO versions (project_id, version, label, data, created_at) VALUES (?, ?, ?, ?, ?)",
+            project.id, project.version, label, project.model_dump_json(), created_at,
         )
         self._write(
             "DELETE FROM versions WHERE project_id = ? AND version <= ?",
@@ -142,7 +159,7 @@ class ProjectStore:
             return False
         with self._lock:
             rows = self._db.execute(
-                "SELECT label, data FROM versions WHERE project_id = ? ORDER BY version", (project_id,)
+                "SELECT label, data, created_at FROM versions WHERE project_id = ? ORDER BY version", (project_id,)
             ).fetchall()
             if not rows:
                 return False
@@ -150,8 +167,9 @@ class ProjectStore:
                 "SELECT base_version, labels, data FROM previews WHERE project_id = ?", (project_id,)
             ).fetchone()
             chat = self._db.execute("SELECT messages, log FROM chats WHERE project_id = ?", (project_id,)).fetchone()
-        self._versions[project_id] = [Project.model_validate_json(data) for _, data in rows]
-        self._labels[project_id] = [label for label, _ in rows]
+        self._versions[project_id] = [Project.model_validate_json(data) for _, data, _ in rows]
+        self._labels[project_id] = [label for label, _, _ in rows]
+        self._times[project_id] = [at for _, _, at in rows]
         if preview:
             base, labels, data = preview
             self._previews[project_id] = Preview(base, Project.model_validate_json(data), json.loads(labels))
@@ -177,9 +195,10 @@ class ProjectStore:
     def create(self, project: Project) -> Project:
         self._versions[project.id] = [project]
         self._labels[project.id] = ["원본 업로드"]
+        self._times[project.id] = [now()]
         self._chat[project.id] = []
         self._log[project.id] = []
-        self._save_version(project, "원본 업로드")
+        self._save_version(project, "원본 업로드", self._times[project.id][0])
         self._save_chat(project.id)
         return project
 
@@ -194,26 +213,33 @@ class ProjectStore:
     def add_version(self, project: Project, label: str = "") -> Project:
         history = self._history(project.id)
         labels = self._labels[project.id]
+        times = self._times[project.id]
         new = project.model_copy(update={"version": history[-1].version + 1})
         history.append(new)
         labels.append(label)
+        times.append(now())
         del history[:-MAX_VERSIONS]
         del labels[:-MAX_VERSIONS]
-        self._save_version(new, label)
+        del times[:-MAX_VERSIONS]
+        self._save_version(new, label, times[-1])
         return new
 
     def versions(self, project_id: str) -> list[VersionInfo]:
         history = self._history(project_id)
-        return [VersionInfo(p.version, label) for p, label in zip(history, self._labels[project_id])]
+        return [
+            VersionInfo(p.version, label, at)
+            for p, label, at in zip(history, self._labels[project_id], self._times[project_id])
+        ]
 
     def restore(self, project_id: str, version: int) -> Project:
         """예전 버전을 새 버전으로 다시 올린다. 지우지 않으니 되돌린 것도 되돌릴 수 있다."""
-        target = next((p for p in self._history(project_id) if p.version == version), None)
-        if target is None:
+        history = self._history(project_id)
+        i = next((i for i, p in enumerate(history) if p.version == version), None)
+        if i is None:
             raise KeyError(version)
         self._previews.pop(project_id, None)
         self._save_preview(project_id)
-        return self.add_version(target, f"v{version}(으)로 되돌림")
+        return self.add_version(history[i], f"\"{short(self._labels[project_id][i])}\" 상태로 되돌림")
 
     def undo(self, project_id: str) -> Project:
         """바로 전 버전으로 되돌린다 (새 버전으로 남음). 버전이 하나뿐이면 그대로."""

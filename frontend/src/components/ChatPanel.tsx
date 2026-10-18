@@ -15,7 +15,7 @@ const SUGGESTIONS = [
 ]
 
 export function ChatPanel() {
-  const { project, preview, baseVersion, hearPreview, setHearPreview, busy } = useProject()
+  const { project, preview, hearPreview, setHearPreview, busy } = useProject()
   const { messages, sending, send } = useChat()
   const [input, setInput] = useState('')
   const list = useRef<HTMLDivElement>(null)
@@ -104,7 +104,7 @@ export function ChatPanel() {
       {preview && (
         <div className="preview-card">
           <p>
-            <strong>미리보기</strong> · v{baseVersion} 기준 · 다음 명령도 이 위에 이어서 쌓여요
+            <strong>미리보기</strong> · 다음 명령도 이 위에 이어서 쌓여요
           </p>
           {preview.tracks
             .filter((t) => {

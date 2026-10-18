@@ -150,7 +150,7 @@ def run_agent(
             if call.name == START_OVER and base is not None:
                 draft = base
                 out.started_over_at = len(out.steps)
-                step = ToolStep(name=START_OVER, ok=True, summary=f"미리보기를 버리고 v{base.version}에서 다시 시작해요.")
+                step = ToolStep(name=START_OVER, ok=True, summary="미리보기를 버리고 마지막으로 저장한 상태에서 다시 시작해요.")
                 content = {"ok": True, "summary": step.summary}
             else:
                 draft, step, content = _run_call(draft, call.name, call.arguments)

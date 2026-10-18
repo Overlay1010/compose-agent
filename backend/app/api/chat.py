@@ -123,7 +123,7 @@ def apply_preview(project_id: str) -> Project:
     except NoPreview:
         raise _error(409, "no_preview", "적용할 미리보기가 없어요.")
     except PreviewConflict:
-        raise _error(409, "preview_conflict", "미리보기를 만든 뒤 버전이 바뀌어서 적용하지 않았어요. 다시 명령해 주세요.")
+        raise _error(409, "preview_conflict", "미리보기를 만든 뒤 곡이 바뀌어서 적용하지 않았어요. 다시 명령해 주세요.")
 
 
 @router.post("/{project_id}/preview/cancel", status_code=204)

@@ -4,6 +4,7 @@ import { peakOf, renderMix, toWav } from '../audio/render'
 import { positionBeats } from '../audio/player'
 import { useShortcutHelp } from '../shortcuts'
 import { silenced, usePlayer } from '../store/player'
+import { timeAgo } from '../time'
 import { useProject } from '../store/project'
 
 function PlayIcon() {
@@ -128,7 +129,7 @@ function ExportMenu() {
             </button>
           ))}
           <p className="export-note">
-            v{project.version} 기준{preview ? ' · 적용 전 미리보기는 들어가지 않아요' : ''} · 드럼 소리 선택은 MIDI에는 안 담기고 음원에는 담겨요
+            지금 저장된 상태 기준{preview ? ' · 적용 전 미리보기는 들어가지 않아요' : ''} · 드럼 소리 선택은 MIDI에는 안 담기고 음원에는 담겨요
           </p>
         </div>
       )}
@@ -188,6 +189,13 @@ function TransportDisplay({ bpm, beatsPerBar }: { bpm: number; beatsPerBar: numb
 
 export function TopBar() {
   const { project, preview, hearPreview, loading, upload, setHistoryOpen } = useProject()
+  // 지금 상태가 저장된 시각 ("저장됨 · 3분 전"). 시간이 흐르게 30초마다 다시 그린다
+  const savedAt = useProject((s) => s.versions.find((v) => v.current)?.created_at ?? '')
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
   const { playing, loadingSounds, toggle, restart, loop, looping, toggleLoop } = usePlayer()
   const input = useRef<HTMLInputElement>(null)
   const heard = preview && hearPreview ? preview : project
@@ -218,7 +226,7 @@ export function TopBar() {
         <>
           <div className="project">
             <strong>{project.name}</strong>
-            <span className="sub">{preview ? `적용 전 미리보기 있음 · v${project.version}` : `저장됨 · v${project.version}`}</span>
+            <span className="sub">{preview ? '적용 전 미리보기 있음' : `저장됨${savedAt ? ` · ${timeAgo(savedAt)}` : ''}`}</span>
           </div>
 
           <div className="transport">
@@ -271,8 +279,8 @@ export function TopBar() {
           ?
         </button>
         {project && (
-          <button className="version" onClick={() => setHistoryOpen(true)} title="버전 기록 보기">
-            버전 기록 <span className="pill">v{project.version}</span>
+          <button className="version" onClick={() => setHistoryOpen(true)} title="지금까지 저장된 상태 · 예전으로 되돌리기">
+            히스토리
           </button>
         )}
         <input

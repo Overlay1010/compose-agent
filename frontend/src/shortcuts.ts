@@ -10,7 +10,7 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['B'], label: '바뀐 소리 ↔ 원래 소리' },
   { keys: ['Enter'], label: '미리보기 적용' },
   { keys: ['Esc'], label: '미리보기 취소 (창이 열려 있으면 닫기)' },
-  { keys: ['Ctrl', 'Z'], label: '바로 전 버전으로 되돌리기' },
+  { keys: ['Ctrl', 'Z'], label: '바로 전 상태로 되돌리기' },
   { keys: ['←', '→'], label: '한 마디 앞 · 뒤로' },
   { keys: ['Home'], label: '처음으로' },
   { keys: ['L'], label: '구간 반복 켜기 · 끄기' },

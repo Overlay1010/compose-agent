@@ -58,6 +58,7 @@ export interface VersionInfo {
   version: number
   label: string // 무엇을 바꿨는지 한 줄
   current: boolean
+  created_at: string // ISO 시각 (예전 기록은 빈 문자열)
 }
 
 // 백엔드 app/api/chat.py SessionOut · app/agent/session.py 화면 기록

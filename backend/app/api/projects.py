@@ -17,7 +17,7 @@ from app.agent.session import note
 from app.tools.instrument import display_name, kit_name
 from app.tools.drums import ROLE_NAMES, ROLES, sound_name
 from app.tools.mix import pan_text
-from app.store.memory import ProjectNotFound, store
+from app.store.memory import ProjectNotFound, short, store
 from app.tools.base import ToolError
 from app.tools.registry import run_tool
 
@@ -138,22 +138,27 @@ class VersionOut(BaseModel):
     version: int
     label: str
     current: bool
+    created_at: str = Field(description="ISO 시각 (화면의 \"3분 전\")")
 
 
 @router.get("/{project_id}/versions", response_model=list[VersionOut])
 def list_versions(project_id: str) -> list[VersionOut]:
     current = _get(project_id).version
-    return [VersionOut(version=v.version, label=v.label, current=v.version == current) for v in store.versions(project_id)]
+    return [
+        VersionOut(version=v.version, label=v.label, current=v.version == current, created_at=v.created_at)
+        for v in store.versions(project_id)
+    ]
 
 
 @router.post("/{project_id}/versions/{version}/restore", response_model=Project)
 def restore_version(project_id: str, version: int) -> Project:
     _get(project_id)
+    target = next((v for v in store.versions(project_id) if v.version == version), None)
     try:
         restored = store.restore(project_id, version)
     except KeyError:
-        raise _error(404, "version_not_found", f"v{version}을(를) 찾을 수 없어요. 오래된 버전은 최근 50개만 남아요.")
-    store.add_log(project_id, note(f"v{version} 상태로 되돌렸어요 (v{restored.version}로 저장)"))
+        raise _error(404, "version_not_found", "그 기록을 찾을 수 없어요. 히스토리는 최근 50개만 남아요.")
+    store.add_log(project_id, note(f"\"{short(target.label if target else '')}\" 상태로 되돌렸어요"))
     return restored
 
 
@@ -211,8 +216,8 @@ def _change_track(project_id: str, tool: str, args: dict) -> TrackChangeOut:
     pending = store.preview(project_id)
     if not (result.changed_settings or result.changed_notes) or result.project is None:
         return TrackChangeOut(project=current, preview=pending.project if pending else None)
-    text = f"{_change_text(current, result.project, _track_of(args))} (v{current.version + 1}로 저장)"
-    new = store.add_version(result.project, result.summary)
+    text = _change_text(current, result.project, _track_of(args))
+    new = store.add_version(result.project, text)  # 히스토리에도 화면 알림과 같은 쉬운 문장으로
     store.add_log(project_id, note(text))
     if pending is not None:
         pending = store.rebase_preview(project_id, run_tool(pending.project, tool, args).project or pending.project)
@@ -250,7 +255,7 @@ def set_velocities(project_id: str, track_id: str, body: VelocitiesIn) -> TrackC
     """
     current = _get(project_id)
     if body.base_version != current.version:
-        raise _error(409, "version_changed", "그사이 버전이 바뀌었어요. 화면을 다시 불러온 뒤 편집해 주세요.")
+        raise _error(409, "version_changed", "그사이 곡이 바뀌었어요. 화면을 다시 불러온 뒤 편집해 주세요.")
     if store.preview(project_id) is not None:
         raise _error(409, "preview_pending", "적용하지 않은 미리보기가 있어요. 적용하거나 취소한 뒤 세기를 편집해 주세요.")
     track = next((t for t in current.tracks if t.id == track_id), None)
@@ -272,7 +277,6 @@ def set_velocities(project_id: str, track_id: str, body: VelocitiesIn) -> TrackC
     )
     text = f"{track.name} 음 {changed}개의 세기를 직접 바꿨어요"
     new = store.add_version(edited, text)
-    text += f" (v{new.version}로 저장)"
     store.add_log(project_id, note(text))
     return TrackChangeOut(project=new, preview=None, note=text)
 
@@ -310,5 +314,5 @@ def undo(project_id: str) -> Project:
     history = store.versions(project_id)
     restored = store.undo(project_id)
     if len(history) >= 2:  # 버전이 하나뿐이면 되돌릴 게 없음
-        store.add_log(project_id, note(f"v{history[-2].version} 상태로 되돌렸어요 (v{restored.version}로 저장)"))
+        store.add_log(project_id, note("바로 전 상태로 되돌렸어요"))
     return restored

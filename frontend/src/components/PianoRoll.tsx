@@ -312,7 +312,7 @@ function VelocityLane({ track, beatsPerBar, scroller }: { track: Track; beatsPer
     ctx.fillStyle = color('--text-quiet')
     ctx.font = '10px system-ui'
     ctx.fillText('세기', 8, 14)
-    ctx.fillText('127', 8, VEL_PX - 22)
+    ctx.fillText('127', 8, 27) // 막대 맨 위 = 127
     ctx.fillText('1', 8, VEL_PX - 6)
 
     const noteColor = trackColor(project, track.id)

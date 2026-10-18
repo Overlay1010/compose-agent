@@ -206,10 +206,12 @@ def test_undo_and_restore_keep_history(client, use_llm):
     assert undone["version"] == 3  # 지우지 않고 v1 내용을 v3으로
     redo = client.post(f"/api/v1/projects/{pid}/versions/2/restore").json()
     assert redo["version"] == 4
-    assert [v["label"] for v in client.get(f"/api/v1/projects/{pid}/versions").json()][2:] == [
-        "v1(으)로 되돌림",
-        "v2(으)로 되돌림",
-    ]
+    from app.store.memory import short
+
+    labels = [v["label"] for v in client.get(f"/api/v1/projects/{pid}/versions").json()]
+    assert labels[2:] == ['"원본 업로드" 상태로 되돌림', f'"{short(labels[1])}" 상태로 되돌림']
+    versions = client.get(f"/api/v1/projects/{pid}/versions").json()
+    assert all(v["created_at"] for v in versions)  # 화면의 "3분 전"
     assert client.post(f"/api/v1/projects/{pid}/versions/99/restore").status_code == 404
 
 
@@ -406,7 +408,7 @@ def test_session_endpoint_restores_log(client, use_llm):
     client.post(f"/api/v1/projects/{pid}/preview/apply")
     client.post(f"/api/v1/projects/{pid}/undo")
     notes = [e["text"] for e in client.get(f"/api/v1/projects/{pid}/session").json()["log"][2:]]
-    assert notes == ["v2로 적용했어요", "v1 상태로 되돌렸어요 (v3로 저장)"]
+    assert notes == ["적용했어요", "바로 전 상태로 되돌렸어요"]
     assert client.get("/api/v1/projects/nope/session").status_code == 404
 
 
@@ -421,3 +423,20 @@ def test_recent_projects(tmp_path, lofi):
     s.add_version(lofi, "편집")  # lofi가 더 최근에 바뀜 (같은 초면 순서는 보장 안 되므로 이름 · 버전만 확인)
     rows = {r.id: (r.name, r.version) for r in ProjectStore(db).recent()}
     assert rows == {lofi.id: (lofi.name, 2), "other": ("두 번째", 1)}
+
+
+def test_old_database_without_times_still_opens(tmp_path, lofi):
+    import sqlite3
+
+    from app.store.memory import ProjectStore
+
+    db = tmp_path / "old.db"
+    old = sqlite3.connect(db)  # 시각 칸이 없던 예전 형식
+    old.execute("CREATE TABLE versions (project_id TEXT NOT NULL, version INTEGER NOT NULL, label TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (project_id, version))")
+    old.execute("INSERT INTO versions VALUES (?, 1, '원본 업로드', ?)", (lofi.id, lofi.model_dump_json()))
+    old.commit()
+    old.close()
+    s = ProjectStore(db)
+    assert s.versions(lofi.id)[0].created_at == ""  # 예전 기록은 시각 없음
+    s.add_version(lofi, "편집")
+    assert ProjectStore(db).versions(lofi.id)[1].created_at  # 새 기록은 시각이 남는다

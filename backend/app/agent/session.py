@@ -62,7 +62,7 @@ def apply_preview(store: ProjectStore, project_id: str) -> Project:
     """미리보기를 새 버전으로 저장. NoPreview · PreviewConflict는 그대로 올려 보낸다."""
     project = store.apply_preview(project_id)
     store.add_chat(project_id, {"role": "system", "content": f"사용자가 미리보기를 적용했어. 지금은 v{project.version}이야."})
-    store.add_log(project_id, note(f"v{project.version}로 적용했어요"))
+    store.add_log(project_id, note("적용했어요"))
     return project
 
 
