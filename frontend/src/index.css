@@ -211,7 +211,7 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 .composer button.primary { min-height: 44px; }
 
 /* ---------- 고른 부분 ---------- */
-.roll-grid { cursor: crosshair; touch-action: none; }
+.roll-grid { cursor: default; touch-action: none; }
 .roll-tools { display: flex; align-items: center; gap: 8px; margin: -2px 0 6px; font-size: 12px; color: var(--text-2); }
 .roll-tools label { display: flex; align-items: center; gap: 6px; }
 .roll-tools select { min-height: 28px; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--border); background: #17191d; color: var(--text); font: inherit; }
@@ -231,7 +231,7 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 .vel-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .vel-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
 .vel-scroll { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.vel-scroll canvas { display: block; cursor: ns-resize; touch-action: none; }
+.vel-scroll canvas { display: block; cursor: default; touch-action: none; }
 .vel-scroll canvas.locked { cursor: not-allowed; }
 
 /* ---------- 드럼 소리별 크기 ---------- */

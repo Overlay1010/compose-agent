@@ -516,9 +516,9 @@ export function PianoRoll() {
               const x = e.clientX - r.left
               const y = e.clientY - r.top
               if (!d) {
-                // 마우스만 올렸을 때: 음 위면 잡기 · 끝이면 길이 커서
+                // 마우스만 올렸을 때는 보통 화살표. 음 끝(길이 바꾸기)에서만 좌우 화살표
                 const hit = g && editable ? g.hit(x, y) : null
-                e.currentTarget.style.cursor = hit ? (hit.edge ? 'ew-resize' : 'grab') : ''
+                e.currentTarget.style.cursor = hit?.edge ? 'ew-resize' : ''
                 return
               }
               const L = layout.current
