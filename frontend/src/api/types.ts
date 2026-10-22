@@ -86,3 +86,27 @@ export interface RecentProject {
   version: number
   updated_at: string // ISO 시각, 메모리 저장소면 빈 문자열
 }
+
+// 백엔드 app/api/chat.py HarmonyOut (화성 분석)
+
+/** T 토닉 · S 서브도미넌트 · D 도미넌트 · 부속(부속 딸림화음) · 차용(다른 조에서 빌린 화음) · ''(N.C.) */
+export type ChordFunction = 'T' | 'S' | 'D' | '부속' | '차용' | ''
+
+export interface ChordSpan {
+  start: number // 박
+  end: number
+  name: string // "Fmaj9", "C/E", "N.C."
+  roman: string // "IVmaj7", "V7/ii"
+  function: ChordFunction
+}
+
+export interface Harmony {
+  key: {
+    name: string // "C major" / "A minor"
+    tonic: number // 0 = C
+    mode: 'major' | 'minor'
+    confidence: number // 1등과 2등 점수 차 (클수록 확실)
+    alternatives: string[] // 다음 후보
+  } | null // 음이 없거나 드럼뿐이면 null
+  chords: ChordSpan[]
+}

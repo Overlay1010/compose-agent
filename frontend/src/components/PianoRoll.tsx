@@ -5,11 +5,13 @@ import * as player from '../audio/engine'
 import { positionBeats } from '../audio/engine'
 import { setNoteKeys } from '../shortcuts'
 import { useChat } from '../store/chat'
+import { useHarmony } from '../store/harmony'
 import type { Selection } from '../selection'
 import { usePlayer } from '../store/player'
 import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
 import { trackColor } from '../theme'
+import { ChordStrip, KeyBadge } from './ChordStrip'
 import { EmptyState } from './EmptyState'
 import { Overview } from './Overview'
 
@@ -77,6 +79,11 @@ export function PianoRoll() {
     }
   }
   const [draft, setDraft] = useState<Selection | null>(null)
+  // 코드 띠: 미리보기를 듣는 중이면 미리보기의 코드 (원래와 달라진 코드 표시)
+  const harmony = useHarmony()
+  const shownHarmony = hearPreview && harmony.preview ? harmony.preview : harmony.current
+  const baseHarmony = shownHarmony === harmony.preview ? harmony.current : null
+  const [rollBeats, setRollBeats] = useState(0) // 그린 피아노롤 길이 (코드 띠도 같은 길이로)
   const playing = usePlayer((s) => s.playing)
   const cursor = usePlayer((s) => s.cursor)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -227,6 +234,7 @@ export function PianoRoll() {
       el.height = 0
       el.style.width = '0px'
       el.style.height = '0px'
+      setRollBeats(0)
       return
     }
     const pitches = basis.map((n) => n.pitch)
@@ -242,6 +250,7 @@ export function PianoRoll() {
     const width = keyPx + lengthBeats * BEAT_PX
     const height = rows.length * rowPx + 20
     layout.current = { keyPx, rowPx, rows, lengthBeats }
+    setRollBeats(lengthBeats)
     const dpr = window.devicePixelRatio || 1
     el.width = width * dpr
     el.height = height * dpr
@@ -417,6 +426,7 @@ export function PianoRoll() {
         >
           정박에 맞추기 {picked.size ? `· 고른 음 ${picked.size}개` : '· 트랙 전체'}
         </button>
+        <KeyBadge current={harmony.current} preview={harmony.preview} hearPreview={hearPreview} />
       </div>
       <p className={lockedByPreview ? (nudge ? 'roll-help locked nudge' : 'roll-help locked') : 'roll-help'} key={nudge}>
         {lockedByPreview
@@ -455,6 +465,21 @@ export function PianoRoll() {
       )}
       {!changed && track.notes.length === 0 && <p className="legend">이 트랙에는 음이 없어요.</p>}
       <div className="roll-scroll" ref={scroller}>
+        {shownHarmony && shownHarmony.chords.length > 0 && rollBeats > 0 && (
+          <ChordStrip
+            harmony={shownHarmony}
+            base={baseHarmony}
+            keyPx={track.is_drum ? DRUM_KEY_PX : KEY_PX}
+            beatPx={BEAT_PX}
+            lengthBeats={rollBeats}
+            onPick={(c) => {
+              // 그 코드 구간을 모든 트랙에서 고르고 재생 위치도 옮긴다
+              setSelection({ trackIds: null, beats: [c.start, c.end], pitches: null })
+              setPicked(NO_PICK)
+              usePlayer.getState().seek(c.start)
+            }}
+          />
+        )}
         <div className="roll-canvas">
           <canvas
             ref={canvas}

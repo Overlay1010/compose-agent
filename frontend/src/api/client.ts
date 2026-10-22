@@ -1,4 +1,4 @@
-import type { ChatResponse, Note, Project, RecentProject, SessionData, ToolStep, VersionInfo } from './types'
+import type { ChatResponse, Harmony, Note, Project, RecentProject, SessionData, ToolStep, VersionInfo } from './types'
 
 const BASE = '/api/v1'
 
@@ -205,6 +205,11 @@ export async function undo(projectId: string): Promise<Project> {
 /** 저장된 프로젝트 다시 열기: 현재 버전 · 미리보기 · 대화 기록 */
 export async function getSession(projectId: string): Promise<SessionData> {
   return parse<SessionData>(await fetch(`${BASE}/projects/${projectId}/session`))
+}
+
+/** 화성 분석 (조성 · 코드 · 로마숫자 · 기능). preview=true면 적용 전 미리보기를 분석한다 */
+export async function getHarmony(projectId: string, preview = false): Promise<Harmony> {
+  return parse<Harmony>(await fetch(`${BASE}/projects/${projectId}/harmony${preview ? '?preview=true' : ''}`))
 }
 
 /** 최근 프로젝트 (처음 화면의 이어서 하기) */
