@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Callable
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,23 @@ from app.agent.llm import LLM
 from app.agent.prompt import system_prompt
 from app.models.project import Project
 from app.tools import ToolError, run_tool, tool_specs
+
+
+_KO_KEY_NOTE = re.compile(r"(\b[A-G][#b]? (?:major|minor))\s*\([^()]*[장단]조[^()]*\)")  # "C major(다장조)"
+_KO_KEY = re.compile(r"\b([A-G][#b]?) ?(장조|단조)")  # "C 장조", "A단조"
+
+
+def plain(text: str) -> str:
+    """채팅 화면은 글자를 그대로 보여 주므로, 모델이 가끔 쓰는 마크다운 굵게(**) · 제목(#)을 지운다.
+
+    조성은 화면 · 분석과 같게 "C major"로만 쓴다 (프롬프트로 일러도 모델이 가끔 "C major(다장조)"처럼 덧붙인다).
+    """
+    text = text.replace("**", "").replace("__", "")
+    text = _KO_KEY_NOTE.sub(r"\1", text)
+    text = _KO_KEY.sub(lambda m: f"{m[1]} {'major' if m[2] == '장조' else 'minor'}", text)
+    return re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE).strip()
+
+
 
 START_OVER = "start_over"
 START_OVER_SPEC = {
@@ -131,7 +149,7 @@ def run_agent(
         out.output_tokens += reply.output_tokens
 
         if not reply.tool_calls:
-            out.reply = reply.text.strip() or "알겠어요."
+            out.reply = plain(reply.text) or "알겠어요."
             break
 
         messages.append(

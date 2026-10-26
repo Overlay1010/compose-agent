@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 from app.harmony import analyze
 from app.harmony.analyze import name_chord
 from app.midi_io.convert import midi_bytes_to_project
@@ -126,3 +128,45 @@ def test_harmony_endpoint(client):
     assert client.get(f"/api/v1/projects/{pid}/harmony", params={"preview": True}).json()["key"]["name"] == "D major"
     assert client.get(f"/api/v1/projects/{pid}/harmony").json()["key"]["name"] == "C major"
     assert client.get("/api/v1/projects/nope/harmony").status_code == 404
+
+
+# ---------- analyze_harmony 도구 ----------
+
+def test_analyze_harmony_tool():
+    from app.tools import ToolError, run_tool
+
+    lofi = midi_bytes_to_project(make_samples.SAMPLES["lofi_groove.mid"]())
+    r = run_tool(lofi, "analyze_harmony")
+    assert r.project is None and r.changed_notes == 0  # 읽기만
+    assert r.summary == "조성 C major · 곡 전체 코드 15개"
+    assert r.data["key"] == "C major" and r.data["other_keys"]
+    assert r.data["chords"][0] == "1마디 Fmaj9 (IVmaj7, 서브도미넌트)"
+    assert r.data["chords"][11] == "12마디 A7 (V7/ii, 부속 딸림화음)"
+
+    # 마디 범위: 9~12마디 코드만 (조성은 곡 전체로)
+    part = run_tool(lofi, "analyze_harmony", {"bars": [9, 12]})
+    assert part.data["progression"] == "Dm9 → G13 → Cmaj9 → A7" and part.data["key"] == "C major"
+    assert part.summary == "조성 C major · 9~12마디 코드 4개"
+    # 박 범위 (화면에서 고른 부분): 마지막 Cmaj9는 15~16마디 하나로 합쳐 있어 16마디만 골라도 나온다
+    assert run_tool(lofi, "analyze_harmony", {"beats": [60, 64]}).data["progression"] == "Cmaj9"
+
+    with pytest.raises(ToolError, match="16마디"):
+        run_tool(lofi, "analyze_harmony", {"bars": [20, 24]})
+    with pytest.raises(ToolError):
+        run_tool(lofi, "analyze_harmony", {"bars": [1, 2], "beats": [0, 4]})
+    with pytest.raises(ToolError):  # 화성은 모든 트랙을 함께 보므로 트랙을 고르지 않는다
+        run_tool(lofi, "analyze_harmony", {"track_ids": ["t2"]})
+
+    drums = Project(id="p", tracks=[Track(id="t1", name="Drums", is_drum=True, notes=[Note(pitch=36, start=0, duration=1)])])
+    assert run_tool(drums, "analyze_harmony").data == {"key": None, "chords": []}
+
+
+def test_agent_answers_from_analysis():
+    from app.agent.loop import run_agent
+    from tests.test_agent import FakeLLM, calls, say
+
+    lofi = midi_bytes_to_project(make_samples.SAMPLES["lofi_groove.mid"]())
+    llm = FakeLLM(calls(("analyze_harmony", {})), say("C major예요."))
+    r = run_agent(lofi, "무슨 키야?", llm)
+    assert r.draft is None and r.steps[0].ok  # 미리보기를 만들지 않는다
+    assert r.steps[0].summary.startswith("조성 C major")

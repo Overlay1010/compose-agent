@@ -37,11 +37,13 @@
 
 음악 전공자로서의 차별점. 다음 단계(말로 만들기)가 코드 진행을 기준으로 음을 만들기 때문에 먼저 한다.
 
-- 조성 · 코드 자동 분석 (music21), 로마숫자 · 화성 기능(토닉 / 서브도미넌트 / 도미넌트) 표시
-- 대리코드 · 리하모니 제안. 제안마다 그 마디 멜로디 음과 부딪히는지 코드로 검사
-- 제안한 코드로 건반 · 패드 보이싱 바꾸기
-- 도구: `analyze_harmony` `suggest_reharmonization` `apply_chords`
-- 평가: Cymatics 37곡 조성 정답(파일 이름) 비교, 직접 단 코드 진행 50개로 코드 정확도. **LLM 단독 vs LLM + music21**
+- [x] 조성 · 코드 자동 분석 엔진 (music21 대신 직접 구현 — 가볍고 판단 이유를 테스트하기 쉬움), 로마숫자 · 화성 기능(토닉 / 서브도미넌트 / 도미넌트 · 부속 딸림화음)
+- [x] 피아노롤 위 코드 띠(코드 이름 · 로마숫자 · 기능 색) · 조성 표시, 미리보기에서 바뀐 조성 · 코드 표시
+- [x] `analyze_harmony` 도구: "무슨 키야? · 9~12마디 코드 뭐야? · 여기 코드 뭐야?"에 분석 결과로 답함 (평가 6개)
+- [ ] 평가: Cymatics 37곡 조성 정답(파일 이름) 비교, 직접 단 코드 진행으로 코드 정확도. **LLM 단독 vs LLM + 분석 엔진**
+- [ ] 입력 토큰 줄이기: 도구 설명을 분야별로 나눠 필요한 것만 보내기
+- [ ] 대리코드 · 리하모니 제안 `suggest_reharmonization`. 제안마다 그 마디 멜로디 음과 부딪히는지 코드로 검사
+- [ ] 제안한 코드로 건반 · 패드 보이싱 바꾸기 `apply_chords` (미리보기로)
 
 ## v0.3 · 말로 만들기
 
@@ -99,8 +101,8 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 | 분야 | 도구 | 버전 |
 | --- | --- | --- |
 | 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument · delete_notes · set_length · copy_bars · humanize · velocity_ramp · set_mix · duplicate_track · set_drum_sound | v0.1 ✅ |
-| 정보 | get_project_info | v0.1 ✅ |
-| 화성 | analyze_harmony · suggest_reharmonization · apply_chords | v0.2 |
+| 정보 | get_project_info · analyze_harmony | v0.1 ✅ · v0.2 ✅ |
+| 화성 | suggest_reharmonization · apply_chords | v0.2 |
 | 만들기 | generate_drums · generate_chords · generate_bassline · generate_melody | v0.3 |
 | 트랙 | add_track | v0.3 |
 | 편곡 | harmonize_melody · arrange | v0.4 |

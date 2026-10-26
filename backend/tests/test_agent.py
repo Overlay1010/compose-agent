@@ -510,3 +510,15 @@ def test_make_llm_picks_provider(monkeypatch):
         llm_mod.make_llm("gpt-6-luna")
     monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "k")
     assert isinstance(llm_mod.make_llm("claude-haiku-5-5"), llm_mod.AnthropicChat)
+
+
+def test_reply_markdown_is_stripped():
+    from app.agent.loop import plain
+
+    assert plain("고른 부분 코드는 **A7**이에요.") == "고른 부분 코드는 A7이에요."
+    assert plain("## 결과\n- 1마디 C\n- 2마디 G") == "결과\n- 1마디 C\n- 2마디 G"  # 목록 기호는 글자로 읽혀서 둔다
+    assert plain("Cmaj7 · V7/ii · 2-5-1") == "Cmaj7 · V7/ii · 2-5-1"
+    # 조성은 "C major"로만 (화면 · 분석과 같은 표기)
+    assert plain("이 곡은 C major(다장조)예요. 다음 후보는 A minor(가단조)") == "이 곡은 C major예요. 다음 후보는 A minor"
+    assert plain("G 장조이고 E단조와 헷갈려요. Bb 장조도") == "G major이고 E minor와 헷갈려요. Bb major도"
+    assert plain("장조 느낌이 밝아요") == "장조 느낌이 밝아요"  # 조성 이름이 아니면 그대로

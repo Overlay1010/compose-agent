@@ -48,7 +48,7 @@ def run_case(llm: LLM, case: Case) -> dict:
         return {"id": case.id, "category": case.category, "command": case.command, "passed": False,
                 "tools_ok": False, "reason": f"LLM 오류: {e}", "seconds": time.perf_counter() - started}
     seconds = time.perf_counter() - started
-    s = score(case, r.steps, melodic)
+    s = score(case, r.steps, melodic, r.reply)
     recovered = any(not a.ok and b.ok for a, b in zip(r.steps, r.steps[1:]))
     return {
         "id": case.id, "category": case.category, "command": case.command,

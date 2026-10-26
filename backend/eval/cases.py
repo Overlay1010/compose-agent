@@ -1,4 +1,4 @@
-"""정답 있는 명령 70개.
+"""정답 있는 명령 76개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -37,13 +37,15 @@ def octave(track: str, n: int, **extra) -> Answer:
     return main, alt
 
 
-def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), note="", selection=None) -> Case:
+def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), note="", selection=None, reads=(), reply_has=(),
+         reply_lacks=()) -> Case:
     """spec은 정답 호출 목록(list)이나, velocity() · octave()가 만든 (정답, 다른 정답들) 묶음(tuple)."""
     if isinstance(spec, tuple) and spec:
         spec, alt = spec
-    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection)
+    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection, tuple(reads), tuple(reply_has), tuple(reply_lacks))
 
 
+NO_KO_KEY = ("장조", "단조")
 V_HATS = velocity("t1", SOFTER, SOFTER_OFFSET, pitches=HATS)
 O_LEAD_DOWN = octave("t5", -1)
 
@@ -206,6 +208,18 @@ CASES: list[Case] = [
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
     case("C04", "되묻기 · 정보", "lofi_groove", "드럼 2키 올려줘", note="드럼은 조옮김 대상이 아님 → 바뀐 음 0개"),
     case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
+    # ---------- 화성 분석 (묻기만 함: 편집 없이 analyze_harmony 결과로 답) ----------
+    # 조성은 "C major"처럼 영어 이름으로만 (사용자가 "C 장조 · 다장조" 표기를 원하지 않음)
+    case("A01", "화성 분석", "lofi_groove", "이 곡 무슨 키야?", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["C major"]),
+    case("A02", "화성 분석", "fl_style_loose", "코드 진행 알려줘", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["Am", "F", "G"],
+         note="C G Am F 두 번"),
+    case("A03", "화성 분석", "lofi_groove", "9마디부터 12마디까지 코드 뭐야?", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY,
+         reply_has=["Dm9", "G13", "Cmaj9", "A7"]),
+    case("A04", "화성 분석", "waltz_3_4", "이 곡 화성 분석해줘", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["G major", "D7", "Em"]),
+    case("A05", "화성 분석", "lofi_groove", "여기 코드 뭐야?", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["A7"],
+         selection={"track_ids": None, "beats": [44, 48], "pitches": None}, note="고른 부분 = 12마디 (A7 → Dm9로 가는 V7/ii)"),
+    case("A06", "화성 분석", "lofi_groove", "코드 진행을 좀 더 재즈스럽게 바꿔줘",
+         note="리하모니는 아직 못 함 → 다른 도구로 흉내 내지 않고 알려 줌"),
 ]
 
-assert len(CASES) == 70 and len({c.id for c in CASES}) == 70
+assert len(CASES) == 76 and len({c.id for c in CASES}) == 76
