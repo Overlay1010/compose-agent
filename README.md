@@ -108,6 +108,7 @@ compose_venv\Scripts\python -m eval.run           # 실제 LLM으로 79개 (API 
 compose_venv\Scripts\python -m eval.run --models claude-haiku-5-5,claude-sonnet-5-5 --repeat 3
 compose_venv\Scripts\python -m eval.harmony       # 화성 분석 엔진 (LLM 없음 · 무료)
 compose_venv\Scripts\python -m eval.harmony_llm   # LLM 단독 vs LLM + 엔진 (API 비용 발생)
+compose_venv\Scripts\python -m eval.harmony_agent # 실제 에이전트에게 샘플팩 조성 묻기 (API 비용 발생)
 ```
 
 ## 샘플 MIDI
