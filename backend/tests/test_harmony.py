@@ -170,3 +170,31 @@ def test_agent_answers_from_analysis():
     r = run_agent(lofi, "무슨 키야?", llm)
     assert r.draft is None and r.steps[0].ok  # 미리보기를 만들지 않는다
     assert r.steps[0].summary.startswith("조성 C major")
+
+
+# ---------- 펼침화음 · 자리바꿈 (eval/harmony.py에서 찾은 약점) ----------
+
+def test_arpeggio_is_harmony_not_melody():
+    # 한 줄로 8분음표만 짚는 펼침화음 G-Bb-C-E…: 멜로디로 보면 Bb · E가 빠져 C로 읽혔다
+    seq = [55, 58, 60, 64, 60, 58, 55, 58]
+    keys = [Note(pitch=p, start=i * 0.5, duration=0.5) for i, p in enumerate(seq)]
+    bass = [Note(pitch=36, start=0, duration=4)]
+    a = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=keys), Track(id="t2", name="Bass", notes=bass)]))
+    assert [c.name for c in a.chords] == ["C7"]
+
+
+def test_leaping_melody_with_varied_rhythm_stays_melody():
+    # 코드음을 따라 뛰어도 리듬이 들쭉날쭉하면 멜로디 → 지나가는 음(A = 6음)이 이름에 붙지 않는다
+    lead = [Note(pitch=p, start=s, duration=d) for p, s, d in [(72, 0, 1.5), (76, 1.5, 0.5), (69, 2, 1), (79, 3, 1)]]
+    a = analyze(Project(id="p", tracks=[
+        Track(id="t1", name="Keys", notes=[Note(pitch=p, start=0, duration=4) for p in (60, 64, 67)]),
+        Track(id="t2", name="Bass", notes=[Note(pitch=36, start=0, duration=4)]),
+        Track(id="t3", name="Lead", notes=lead),
+    ]))
+    assert [c.name for c in a.chords] == ["C"]
+
+
+def test_major_seventh_first_inversion():
+    # E-G-B-C: 베이스 E를 근음으로 보면 C가 b6 → Cmaj7/E로 읽는다 (예전에는 Em)
+    a = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=[Note(pitch=p, start=0, duration=4) for p in (52, 55, 59, 60)])]))
+    assert a.chords[0].name == "Cmaj7/E"

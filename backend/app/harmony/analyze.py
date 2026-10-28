@@ -12,13 +12,16 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 from dataclasses import dataclass, field
 
 from app.models.project import Project, Track
 
-# (음 번호, 시작, 길이, 가중치) — 멜로디 트랙은 가중치를 낮춰 지나가는 음이 코드음으로 잡히지 않게 한다
-Tone = tuple[int, float, float, float]
+# (음 번호, 시작, 길이, 가중치, 트랙 번호) — 멜로디 트랙은 가중치를 낮춰 지나가는 음이 코드음으로 잡히지 않게 한다
+Tone = tuple[int, float, float, float, int]
 MELODY_WEIGHT = 0.5
+STEPWISE = 0.5  # 한 줄 트랙에서 2도 이내로 움직인 비율이 이 이상이면 멜로디 (아래면 펼침화음). 멜로디는 보통 6~7할이 2도
+EVEN_RHYTHM = 0.8  # 뛰어 움직이는 한 줄 트랙이라도, 음 사이 간격이 이만큼 같아야 펼침화음 (아니면 멜로디)
 
 # ---------- 이름 ----------
 
@@ -82,9 +85,12 @@ def find_key(hist: list[float]) -> KeyInfo:
 # ---------- 코드 ----------
 
 # 근음에서의 음정 → 코드음으로서 얼마나 그럴듯한가 (음수 = 그 근음이면 어색한 음)
-FIT = {0: 1.0, 4: 0.8, 3: 0.8, 7: 0.55, 10: 0.45, 11: 0.45, 2: 0.25, 9: 0.25, 5: 0.05, 6: -0.25, 8: -0.3, 1: -0.6}
+FIT = {0: 1.0, 4: 0.8, 3: 0.8, 7: 0.55, 10: 0.45, 11: 0.45, 2: 0.25, 9: 0.25, 5: 0.05, 6: -0.25, 8: -0.6, 1: -0.6}
 BASS_BONUS = 0.25  # 근음 없는 보이싱(베이스가 근음)은 읽고, 자리바꿈(C/E)은 베이스를 근음으로 오해하지 않는 정도
 PRESENT = 0.12  # 구간에서 가장 많이 울린 음의 이만큼 이상이면 "울린 음"으로 본다
+# 화음 트랙(멜로디 말고) 안에서 그 트랙이 낸 소리의 이만큼 이상이면 "울린 음" — 길게 누른 베이스가 기준이 되어
+# 펼침화음에서 한 번 짚고 지나간 7음 · 9음이 빠지지 않게
+TRACK_SHARE = 0.1
 
 
 @dataclass
@@ -100,8 +106,8 @@ class ChordSpan:
     score: float  # 근음 판단 점수 (높을수록 확실)
 
 
-def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], int | None, list[float]]:
-    """구간에서 12음이 울린 길이(가중치 반영), 그리고 베이스음.
+def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], int | None, list[float], set[int]]:
+    """구간에서 12음이 울린 길이(가중치 반영), 베이스음, 화음 트랙 안에서 충분히 울린 음.
 
     베이스 = 구간 첫 박에 울리는 가장 낮은 음 (왈츠의 "쿵"처럼 첫 박 음이 베이스다).
     첫 박에 울리는 음이 없으면, 같은 음높이 길이를 합쳐 구간의 1/4 이상 울린 음 중 가장 낮은 음
@@ -110,24 +116,27 @@ def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], 
     w = [0.0] * 12
     wh = [0.0] * 12  # 화음 트랙(멜로디 말고)만 — 9 · 11 · 13 같은 덧붙인 음은 여기 있을 때만 이름에 넣는다
     by_pitch: dict[int, float] = {}
+    by_track: dict[int, list[float]] = {}
     first: list[int] = []
-    for pitch, n_start, dur, weight in tones:
+    for pitch, n_start, dur, weight, track in tones:
         overlap = min(end, n_start + dur) - max(start, n_start)
         if overlap <= 1e-6:
             continue
         w[pitch % 12] += overlap * weight
         if weight >= 1.0:
             wh[pitch % 12] += overlap
+            by_track.setdefault(track, [0.0] * 12)[pitch % 12] += overlap
         by_pitch[pitch] = by_pitch.get(pitch, 0.0) + overlap
         if n_start <= start + 0.25 and n_start + dur > start + 1e-6:
             first.append(pitch)
+    own = {pc for tw in by_track.values() for pc in range(12) if tw[pc] >= sum(tw) * TRACK_SHARE}
     if not by_pitch:
-        return w, None, wh
+        return w, None, wh, own
     if first:
-        return w, min(first) % 12, wh
+        return w, min(first) % 12, wh, own
     span = end - start
     solid = [p for p, d in by_pitch.items() if d >= span * 0.25] or list(by_pitch)
-    return w, min(solid) % 12, wh
+    return w, min(solid) % 12, wh, own
 
 
 def _best_root(w: list[float], bass: int | None) -> tuple[int, float]:
@@ -181,18 +190,22 @@ def _quality(present: set[int]) -> str:
 
 
 def name_chord(
-    w: list[float], bass: int | None, flats: bool, wh: list[float] | None = None
+    w: list[float], bass: int | None, flats: bool, wh: list[float] | None = None, own: set[int] | None = None
 ) -> tuple[int | None, str, str, float]:
-    """(근음, 이름, 종류, 점수). 울린 음이 없으면 근음 None · "N.C."."""
+    """(근음, 이름, 종류, 점수). 울린 음이 없으면 근음 None · "N.C.".
+
+    own: 화음 트랙 안에서 충분히 울린 음 (_weights) — 짧게 짚은 코드음도 울린 음으로 넣는다.
+    """
     if sum(w) <= 1e-6:
         return None, "N.C.", "", 0.0
     root, score = _best_root(w, bass)
     top = max(w)
-    present = {(pc - root) % 12 for pc in range(12) if w[pc] >= top * PRESENT}
+    own = own or set()
+    present = {(pc - root) % 12 for pc in range(12) if w[pc] >= top * PRESENT or pc in own}
     # 덧붙인 음(9 · 11 · 13)은 화음 트랙에서 울렸을 때만 (멜로디의 지나가는 음은 빼고)
     if wh is not None and sum(wh) > 1e-6:
         htop = max(wh)
-        present = {i for i in present if i not in (2, 5, 9) or wh[(root + i) % 12] >= htop * 0.15}
+        present = {i for i in present if i not in (2, 5, 9) or wh[(root + i) % 12] >= htop * 0.15 or (root + i) % 12 in own}
     q = _quality(present)
     name = pc_name(root, flats) + q
     if bass is not None and bass != root:
@@ -338,21 +351,31 @@ class HarmonyAnalysis:
 
 
 def _is_melody(track: Track, lowest: str | None) -> bool:
-    """한 줄로만 움직이는(겹치는 음이 거의 없는) 트랙 중 가장 낮은 트랙(베이스)이 아닌 것."""
+    """한 줄로만 움직이는(겹치는 음이 거의 없는) 트랙 중 가장 낮은 트랙(베이스)이 아니고, 순차로 움직이는 것.
+
+    펼침화음(아르페지오)도 한 줄이지만 3 · 4도로 뛰며 같은 리듬(8분음표만 …)을 되풀이한다 → 화음으로 본다.
+    멜로디는 대부분 2도(반음 · 온음)로 움직이고, 코드음을 따라 뛰는 멜로디도 음 길이가 들쭉날쭉하다.
+    """
     if track.id == lowest or len(track.notes) < 2:
         return False
     notes = sorted(track.notes, key=lambda n: n.start)
     overlaps = sum(1 for a, b in zip(notes, notes[1:]) if b.start < a.start + a.duration - 1e-3)
-    return overlaps / (len(notes) - 1) < 0.1
+    if overlaps / (len(notes) - 1) >= 0.1:
+        return False
+    moves = [abs(b.pitch - a.pitch) for a, b in zip(notes, notes[1:]) if b.pitch != a.pitch]
+    if not moves or sum(1 for m in moves if m <= 2) / len(moves) >= STEPWISE:
+        return True
+    gaps = Counter(round(b.start - a.start, 2) for a, b in zip(notes, notes[1:]))
+    return gaps.most_common(1)[0][1] / (len(notes) - 1) < EVEN_RHYTHM
 
 
 def _tones(project: Project) -> list[Tone]:
     pitched = [t for t in project.tracks if not t.is_drum and t.notes]
     lowest = min(pitched, key=lambda t: sum(n.pitch for n in t.notes) / len(t.notes)).id if pitched else None
     out: list[Tone] = []
-    for t in pitched:
+    for i, t in enumerate(pitched):
         weight = MELODY_WEIGHT if _is_melody(t, lowest) else 1.0
-        out += [(n.pitch, n.start, n.duration, weight) for n in t.notes]
+        out += [(n.pitch, n.start, n.duration, weight, i) for n in t.notes]
     return out
 
 
@@ -360,12 +383,12 @@ def analyze(project: Project, split_margin: float = 0.12) -> HarmonyAnalysis:
     """곡 전체를 분석한다. 드럼은 뺀다."""
     tones = _tones(project)
     bpb = project.beats_per_bar
-    length = max((s + d for _, s, d, _ in tones), default=0.0)
+    length = max((s + d for _, s, d, _, _ in tones), default=0.0)
     bars = max(1, math.ceil(length / bpb - 1e-9)) if tones else 0
 
     # 1) 키를 먼저 대략 정해야 #/b 이름을 고를 수 있다 → 음 분포로 한 번, 코드 진행까지 보고 다시
     hist = [0.0] * 12
-    for pitch, _, dur, weight in tones:
+    for pitch, _, dur, weight, _ in tones:
         hist[pitch % 12] += dur * weight
     key = find_key(hist)
     flats = key.flats
@@ -374,15 +397,15 @@ def analyze(project: Project, split_margin: float = 0.12) -> HarmonyAnalysis:
     spans: list[ChordSpan] = []
     for b in range(bars):
         s, e = b * bpb, (b + 1) * bpb
-        w, bass, wh = _weights(tones, s, e)
-        root, name, q, score = name_chord(w, bass, flats, wh)
+        w, bass, wh, own = _weights(tones, s, e)
+        root, name, q, score = name_chord(w, bass, flats, wh, own)
         half = bpb / 2 if bpb % 2 == 0 else None  # 3/4 같은 홀수 박자는 나누지 않는다
         parts = None
         if half and root is not None:
             halves = []
             for hs, he in ((s, s + half), (s + half, e)):
-                hw, hb, hwh = _weights(tones, hs, he)
-                halves.append((hs, he, hb, *name_chord(hw, hb, flats, hwh)))
+                hw, hb, hwh, hown = _weights(tones, hs, he)
+                halves.append((hs, he, hb, *name_chord(hw, hb, flats, hwh, hown)))
             r1, r2 = halves[0][3], halves[1][3]
             if r1 is not None and r2 is not None and r1 != r2 and (halves[0][6] + halves[1][6]) / 2 > score + split_margin:
                 parts = halves
