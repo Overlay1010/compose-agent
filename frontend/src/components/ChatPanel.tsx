@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyWithNote, cancelWithNote, undoWithNote } from '../actions'
-import { useChat } from '../store/chat'
+import { toolLabel, useChat } from '../store/chat'
 import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/catalog'
 import { useProject } from '../store/project'
 import { panLabel, sameDrumSounds, sameMix } from '../diff'
@@ -73,11 +73,11 @@ export function ChatPanel() {
               {m.steps && m.steps.length > 0 && (
                 <ol className="steps" aria-label="실행한 도구">
                   {m.steps.map((s, i) => (
-                    <li key={i} className={s.running ? 'step running' : s.ok ? 'step' : 'step failed'} title={JSON.stringify(s.args)}>
+                    <li key={i} className={s.running ? 'step running' : s.ok ? 'step' : 'step failed'} title={`${s.name} ${JSON.stringify(s.args)}`}>
                       <span className="mark" aria-hidden="true">
                         {s.running ? <span className="spinner small" /> : s.ok ? '✓' : '!'}
                       </span>
-                      <span className="tool">{s.name}</span>
+                      <span className="tool">{toolLabel(s.name)}</span>
                       <span className="summary">{s.summary}</span>
                     </li>
                   ))}

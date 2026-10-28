@@ -35,7 +35,7 @@ interface ChatState {
 
 let nextId = 1
 
-// 실행 중인 도구를 사람 말로 (진행 상황 표시용)
+// 도구 이름을 사람 말로 (진행 상황 · 실행한 도구 목록에 보여 줌)
 const TOOL_LABELS: Record<string, string> = {
   transpose: '조옮김',
   shift_octave: '옥타브 이동',
@@ -56,6 +56,7 @@ const TOOL_LABELS: Record<string, string> = {
   analyze_harmony: '화성 분석',
   start_over: '미리보기 버리고 다시 시작',
 }
+export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name
 
 export const useChat = create<ChatState>((set, get) => ({
   messages: [],
@@ -86,7 +87,7 @@ export const useChat = create<ChatState>((set, get) => ({
           update((m) => ({ ...m, status: e.round === 1 ? '생각하는 중…' : '결과를 보고 다음 할 일을 정하는 중…' }))
         } else if (e.kind === 'tool_start') {
           const ids = Array.isArray(e.args.track_ids) ? (e.args.track_ids as string[]).map(trackName).join(', ') : ''
-          const label = TOOL_LABELS[e.name] ?? e.name
+          const label = toolLabel(e.name)
           const running: LiveStep = { name: e.name, args: e.args, ok: true, summary: `${label} 중…${ids ? ` (${ids})` : ''}`, changed_notes: 0, changed_settings: false, running: true }
           update((m) => ({ ...m, status: `${label} 중…`, steps: [...(m.steps ?? []), running] }))
         } else {
