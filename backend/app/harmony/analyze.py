@@ -36,6 +36,15 @@ def pc_name(pc: int, flats: bool) -> str:
     return (FLAT if flats else SHARP)[pc % 12]
 
 
+# 조의 #/b와 달리 b로 적는 음계 밖 자리 (으뜸음에서 반음 수): 장조 bII · bIII · bVI · bVII (C major의 Bb · Ab · Eb · Db),
+# 단조는 bII만 (G# minor의 VII은 F#이라 단조 음계 자리는 조의 #/b를 따른다)
+FLAT_DEGREES = {"major": {1, 3, 8, 10}, "minor": {1}}
+
+
+def spell(pc: int, key: "KeyInfo") -> str:
+    return pc_name(pc, key.flats or (pc - key.tonic) % 12 in FLAT_DEGREES[key.mode])
+
+
 # ---------- 조성 ----------
 
 # Krumhansl & Kessler (1982) 조성 기준 분포 (으뜸음 = 0)
@@ -481,6 +490,6 @@ def analyze(project: Project, split_margin: float = 0.12) -> HarmonyAnalysis:
     key = decide_key(hist, merged)
     for c in merged:
         if c.root is not None:
-            c.name = pc_name(c.root, key.flats) + c.quality + (f"/{pc_name(c.bass, key.flats)}" if c.bass is not None and c.bass != c.root else "")
+            c.name = spell(c.root, key) + c.quality + (f"/{spell(c.bass, key)}" if c.bass is not None and c.bass != c.root else "")
     label(merged, key)
     return HarmonyAnalysis(key, merged, bpb)

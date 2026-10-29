@@ -239,3 +239,19 @@ def test_major_seventh_first_inversion():
     # E-G-B-C: 베이스 E를 근음으로 보면 C가 b6 → Cmaj7/E로 읽는다 (예전에는 Em)
     a = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=[Note(pitch=p, start=0, duration=4) for p in (52, 55, 59, 60)])]))
     assert a.chords[0].name == "Cmaj7/E"
+
+
+def test_borrowed_chords_are_spelled_with_flats():
+    # 조의 #/b만 따르면 C major의 Bb을 A#으로 적는다 → 장조 bII · bIII · bVI · bVII 자리는 b로
+    c, bb, ab, f = ([60, 64, 67], 48), ([58, 62, 65], 46), ([56, 60, 63], 44), ([53, 57, 60], 41)
+    a = analyze(song(c, ab, bb, c))
+    assert a.key.name == "C major" and [(x.name, x.roman) for x in a.chords] == [("C", "I"), ("Ab", "bVI"), ("Bb", "bVII"), ("C", "I")]
+    assert [x.name for x in analyze(song(c, bb, f, c)).chords] == ["C", "Bb", "F", "C"]
+
+
+def test_minor_scale_chords_keep_the_key_spelling():
+    # G# minor의 VII은 F#(Gb 아님): 단조 음계 자리는 조의 #/b, b로 적는 건 bII만
+    gsm, cs, fs, ds = ([56, 59, 63], 44), ([61, 64, 68], 49), ([54, 58, 61], 42), ([51, 54, 58], 39)
+    a = analyze(song(gsm, cs, fs, ds, gsm))
+    assert a.key.name == "G# minor"
+    assert "F#" in [x.name for x in a.chords]

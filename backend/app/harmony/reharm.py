@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-from app.harmony.analyze import ChordSpan, HarmonyAnalysis, analyze, family, label, melody_ids, pc_name
+from app.harmony.analyze import FLAT_DEGREES, ChordSpan, HarmonyAnalysis, analyze, family, label, melody_ids, pc_name, spell
 from app.models.project import Project
 
 # 코드 종류 → 근음에서의 음정 (analyze._quality가 붙이는 이름 전부)
@@ -102,8 +102,8 @@ class _Builder:
         return self.real[0] if self.loops and self.real[0] is not c else None
 
     def _spell(self, root: int) -> str:
-        """새 코드 근음 이름: 음계 밖 bII · bIII · bV · bVI · bVII 자리는 C major에서도 b로 (A# 말고 Bb, C#7 말고 Db7)."""
-        return pc_name(root, self.key.flats or (root - self.key.tonic) % 12 in (1, 3, 6, 8, 10))
+        """새 코드 근음 이름: 분석과 같은 규칙(A# 말고 Bb)에 bV도 b로 — 트라이톤 대리 subV7/IV는 C major에서 Gb7."""
+        return pc_name(root, self.key.flats or (root - self.key.tonic) % 12 in FLAT_DEGREES[self.key.mode] | {6})
 
     def _tritone_ahead(self, c: ChordSpan) -> bool:
         """c가 으뜸화음으로 가는 딸림이라 재지하게에서 트라이톤 대리(bII7)로 바뀔 자리인가."""
@@ -125,9 +125,9 @@ class _Builder:
         return None if t == c.quality else t
 
     def name(self, root: int, bass: int, quality: str, kept: bool) -> str:
-        """근음을 그대로 둔 코드는 원래 표기(분석과 같은 #/b), 새 근음은 _spell."""
-        spell = (lambda pc: pc_name(pc, self.key.flats)) if kept else self._spell
-        return spell(root) + quality + (f"/{spell(bass)}" if bass != root else "")
+        """근음을 그대로 둔 코드는 분석과 같은 표기, 새 근음은 _spell."""
+        name = (lambda pc: spell(pc, self.key)) if kept else self._spell
+        return name(root) + quality + (f"/{name(bass)}" if bass != root else "")
 
     def _keep(self, c: ChordSpan, quality: str, kind: str) -> Piece:
         """근음은 그대로 두고 종류만 바꾼 조각. 자리바꿈 베이스는 새 코드 음이면 그대로 (C/E → Cmaj9/E)."""
@@ -252,7 +252,7 @@ class _Builder:
                 continue
             if (ns >= s - 0.1 and _accented(ns, self.bpb)) or overlap >= 1 - EPS:
                 return True, []
-            weak.append(f"{self.where(ns)} 멜로디 {pc_name(pc, self.key.flats)} ↔ {self.name(root, root, q, kept=root == c.root)} (반음)")
+            weak.append(f"{self.where(ns)} 멜로디 {spell(pc, self.key)} ↔ {self.name(root, root, q, kept=root == c.root)} (반음)")
         return False, weak
 
     def where(self, beat: float) -> str:
