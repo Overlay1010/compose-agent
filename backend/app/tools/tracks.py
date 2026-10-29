@@ -21,6 +21,21 @@ CHORD_GAP = 0.06  # 박. 이만큼 안에 시작한 음은 같은 화음으로 �
 VOICE_NAMES = {"top": "탑노트", "bottom": "베이스"}
 
 
+def new_track_id(project: Project) -> str:
+    """아직 안 쓴 가장 작은 번호 (t6 …). 트랙이 너무 많으면 ToolError."""
+    if len(project.tracks) >= MAX_TRACKS:
+        raise ToolError(f"트랙은 {MAX_TRACKS}개까지만 만들 수 있어요.", code="too_many_tracks")
+    used = {t.id for t in project.tracks}
+    return next(f"t{i}" for i in range(1, MAX_TRACKS + 2) if f"t{i}" not in used)
+
+
+def free_name(project: Project, base: str, numbered_only: bool = False) -> str:
+    """겹치지 않는 트랙 이름: base, 있으면 "base 2" … (numbered_only면 처음부터 "base 2" — 복사본이 원래 이름과 같지 않게)."""
+    names = {t.name for t in project.tracks}
+    candidates = ([] if numbered_only else [base]) + [f"{base} {i}" for i in range(2, MAX_TRACKS + 2)]
+    return next(c for c in candidates if c not in names)
+
+
 def pick_voice(notes: list[Note], voice: str) -> list[Note]:
     """화음마다 가장 높은(top) · 낮은(bottom) 음만. all이면 그대로."""
     if voice == "all":
@@ -54,8 +69,6 @@ def duplicate_track(project: Project, args: DuplicateTrackArgs) -> ToolResult:
     if source is None:
         valid = ", ".join(f"{t.id}({t.name})" for t in project.tracks)
         raise ToolError(f"없는 트랙 id예요: {args.track_id}. 쓸 수 있는 트랙: {valid}", code="unknown_track")
-    if len(project.tracks) >= MAX_TRACKS:
-        raise ToolError(f"트랙은 {MAX_TRACKS}개까지만 만들 수 있어요.", code="too_many_tracks")
     if source.is_drum and (args.octaves or args.program is not None or args.voice != "all"):
         raise ToolError(
             "드럼 트랙은 음 번호가 곧 드럼 소리라 옥타브 · 악기 · 화음 고르기(voice) 없이 그대로 복사만 할 수 있어요.",
@@ -71,13 +84,9 @@ def duplicate_track(project: Project, args: DuplicateTrackArgs) -> ToolResult:
                 code="out_of_range",
             )
 
-    used = {t.id for t in project.tracks}
-    new_id = next(f"t{i}" for i in range(1, MAX_TRACKS + 2) if f"t{i}" not in used)
-    names = {t.name for t in project.tracks}
+    new_id = new_track_id(project)
     base = f"{source.name} {VOICE_NAMES[args.voice]}" if args.voice in VOICE_NAMES else source.name
-    candidates = [base] if args.voice in VOICE_NAMES else []
-    candidates += [f"{base} {i}" for i in range(2, MAX_TRACKS + 2)]
-    name = args.name or next(c for c in candidates if c not in names)
+    name = args.name or free_name(project, base, numbered_only=args.voice not in VOICE_NAMES)
     copy = source.model_copy(
         update={
             "id": new_id,

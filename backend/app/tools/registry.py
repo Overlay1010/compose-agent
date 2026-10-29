@@ -35,6 +35,7 @@ from app.tools.instrument import SetInstrumentArgs, set_instrument
 from app.tools.mix import SetMixArgs, set_mix
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
+from app.tools.generate import GenerateChordsArgs, generate_chords
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
@@ -151,6 +152,13 @@ TOOLS: dict[str, Tool] = {
             "트랙을 복사해 새 트랙을 만든다. 옥타브를 옮기거나 악기를 바꿔 겹치기(더블링)에 쓴다. 결과에 새 트랙 id가 나온다.",
             DuplicateTrackArgs,
             duplicate_track,
+        ),
+        Tool(
+            "generate_chords",
+            "곡의 코드(분석 결과)를 따라 새 트랙에 화음을 깐다. pattern pad = 코드마다 길게 누르는 패드. "
+            "악기 · 음역은 말이 없으면 곡에 맞춰 고른다. 결과에 새 트랙 id가 나온다.",
+            GenerateChordsArgs,
+            generate_chords,
         ),
         Tool(
             "set_drum_sound",

@@ -57,6 +57,22 @@ _WORD = re.compile("[A-Za-z]{2,}")
 ENGLISH_NOTE = "(Answer in English only. Translate the Korean tool results; keep chord and key names as they are.)"
 
 
+# 도구 없이 편집했다고 말하는 답 (평가에서 95개 중 2번: "리드 세기를 100으로 맞춰 미리보기로 만들었어요" — 도구 호출 0개)
+_CLAIM = re.compile(
+    r"미리보기(?:로|를)\s*(?:만들|준비)|(?:바꿨|올렸|내렸|맞췄|넣었|깔았|줄였|키웠|지웠|옮겼|흔들었)어요|"
+    r"\bI(?:'ve| have)? (?:changed|raised|lowered|added|made|applied|set)\b",
+    re.IGNORECASE,
+)
+NOT_EDITED = (
+    "(시스템) 아직 도구를 하나도 부르지 않아서 곡은 그대로야. 편집하려면 알맞은 도구를 불러. "
+    "편집할 게 아니면 바꿨다 · 미리보기로 만들었다고 말하지 말고 다시 답해."
+)
+
+
+def claims_edit(text: str) -> bool:
+    return bool(_CLAIM.search(text or ""))
+
+
 def in_english(message: str) -> bool:
     return not _HANGUL.search(message) and bool(_WORD.search(message))
 
@@ -169,6 +185,7 @@ def run_agent(
     out = AgentResult(reply="", model=llm.model)
     emit = on_event or (lambda kind, data: None)
 
+    nudged = False
     for round_no in range(1, max_steps + 1):
         emit("thinking", {"round": round_no})
         reply = llm.complete(messages, tools)
@@ -178,6 +195,11 @@ def run_agent(
         out.output_tokens += reply.output_tokens
 
         if not reply.tool_calls:
+            if not out.steps and not nudged and claims_edit(reply.text):
+                # 도구를 하나도 안 부르고 "바꿨어요"라고 답했다 — 곡은 그대로인데 사용자는 바뀐 줄 안다. 한 번만 다시 묻는다
+                nudged = True
+                messages += [{"role": "assistant", "content": reply.text}, {"role": "user", "content": NOT_EDITED}]
+                continue
             out.reply = track_names(plain(reply.text), draft) or "알겠어요."
             break
 

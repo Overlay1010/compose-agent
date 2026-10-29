@@ -537,3 +537,21 @@ def test_reply_names_tracks_instead_of_ids():
     assert track_names("t1 Piano · t10 Pad", p) == "Piano · Pad"
     assert track_names("t1의 악기를 따뜻한 패드(89번)로", p) == "Piano의 악기를 따뜻한 패드로"
     assert track_names("Fmaj9 (IVmaj7) · 2마디(2박)", p) == "Fmaj9 (IVmaj7) · 2마디(2박)"
+
+
+def test_claimed_edit_without_a_tool_is_asked_again(lofi):
+    # 도구를 안 부르고 "올렸어요"라고 하면 한 번 더 묻는다 — 곡은 그대로인데 사용자는 바뀐 줄 알게 된다
+    llm = FakeLLM(
+        say("베이스를 2반음 올렸어요."),
+        calls(("transpose", {"track_ids": ["t2"], "semitones": 2})),
+        say("베이스를 2반음 올렸어요."),
+    )
+    r = run_agent(lofi, "베이스 2키 올려줘", llm)
+    assert [s.name for s in r.steps] == ["transpose"] and r.draft is not None and r.llm_calls == 3
+    assert "도구를 하나도 부르지 않아서" in llm.calls[1][-1]["content"]
+
+
+def test_claimed_edit_is_asked_only_once(lofi):
+    llm = FakeLLM(say("올렸어요."), say("어떤 트랙을 올릴까요?"))
+    r = run_agent(lofi, "올려줘", llm)
+    assert r.reply == "어떤 트랙을 올릴까요?" and r.llm_calls == 2 and r.draft is None

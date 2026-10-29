@@ -56,6 +56,8 @@ const TOOL_LABELS: Record<string, string> = {
   get_project_info: '트랙 확인',
   analyze_harmony: '화성 분석',
   suggest_reharmonization: '리하모니 제안',
+  apply_chords: '제안대로 코드 바꾸기',
+  generate_chords: '코드 깔기',
   start_over: '미리보기 버리고 다시 시작',
 }
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name

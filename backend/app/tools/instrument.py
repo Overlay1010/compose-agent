@@ -7,9 +7,11 @@ MIDI로 내보낼 때 이 번호가 프로그램 체인지로 들어가 DAW에�
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.project import Project
+from app.models.project import Project, Track
 from app.tools.base import ToolError, ToolResult
 
 # General MIDI 1 악기 이름 (번호 = 목록 위치)
@@ -48,7 +50,7 @@ GM_NAMES_KO = {
     0: "그랜드 피아노", 4: "전자 피아노", 5: "전자 피아노 (FM)", 9: "글로켄슈필", 24: "나일론 기타", 25: "스틸 기타",
     27: "클린 일렉 기타", 32: "어쿠스틱 베이스", 33: "핑거 베이스", 34: "피크 베이스", 38: "신스 베이스",
     48: "스트링 앙상블", 52: "합창", 61: "브라스 섹션", 73: "플룻", 80: "사각파 리드", 81: "톱니파 리드",
-    88: "뉴에이지 패드", 89: "따뜻한 패드",
+    88: "뉴에이지 패드", 89: "따뜻한 패드", 90: "폴리신스 패드", 91: "콰이어 패드", 95: "스윕 패드",
 }
 
 
@@ -71,6 +73,23 @@ def display_name(program: int) -> str:
 
 def gm_name(program: int) -> str:
     return f"{program} {GM_NAMES[program]}"
+
+
+# 트랙 이름 → 들리는 악기 (프론트엔드 audio/catalog.ts NAME_HINTS와 같은 목록). DAW가 악기 번호를 비워(0) 보내면
+# 화면은 이름으로 소리를 고르므로, 곡에 맞춰 악기를 고를 때도 같은 기준을 쓴다
+NAME_HINTS = [
+    (r"808", 38), (r"sub|bass|베이스", 33), (r"rhodes|e\.?\s?piano|\bep\b|wurli|keys|건반", 4), (r"organ|오르간", 16),
+    (r"pluck|guitar|gtr|기타", 27), (r"string|violin|cello|현악", 48), (r"choir|vox|voice|코러스", 52),
+    (r"brass|horn|trumpet", 61), (r"flute|플룻", 73), (r"bell|glock|chime", 9), (r"pad|패드|atmo", 89), (r"lead|synth|리드", 81),
+]
+
+
+def heard_program(track: Track) -> int:
+    """화면에서 실제로 들리는 악기 번호 (frontend gmProgramOf와 같음)."""
+    if track.program or track.program_set:
+        return track.program
+    name = track.name.lower()
+    return next((program for pattern, program in NAME_HINTS if re.search(pattern, name)), 0)
 
 
 class SetInstrumentArgs(BaseModel):
