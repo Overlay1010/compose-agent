@@ -77,3 +77,26 @@ def test_waltz_reads_back_with_tritone_sub():
     back = analyze(new).chords
     assert [c.name for c in back if c.name.startswith("Ab")] == ["Ab7", "Ab7"]
     assert [c.start for c in back] == [c.start for c in s.chords]
+
+
+def test_anticipated_chord_is_not_cut_at_the_bar_line():
+    # 1박 먼저 친 화음(3박에 쳐서 3박 누름)은 마디선에서 자르지 않고 처음부터 새 코드 음으로 — 자르면 같은 음을 다시 치거나
+    # 누르던 음이 중간에 바뀐다 (Astroworld의 Eb). 음높이가 그대로인 음은 한 음으로 남는다
+    eb = [Note(pitch=p, start=3, duration=3) for p in (39, 51, 63)]
+    dm = [Note(pitch=p, start=0, duration=3) for p in (38, 50, 62)] + [Note(pitch=p, start=6, duration=2) for p in (38, 50, 62)]
+    p = Project(id="p", tracks=[Track(id="t1", name="Keys", notes=dm + eb)])
+    old, new = chord("Eb", 3, "", 4, 6), chord("Ebmaj7", 3, "maj7", 4, 6)
+    out, _ = apply_progression(p, [chord("Dm", 2, "m", 0, 4), old, chord("Dm", 2, "m", 6, 8)], [chord("Dm", 2, "m", 0, 4), new, chord("Dm", 2, "m", 6, 8)])
+    moved = sorted((n.pitch, n.start, n.duration) for n in out.tracks[0].notes if n.start == 3)
+    assert [s for _, s, _ in moved] == [3, 3, 3] and all(d == 3 for _, _, d in moved)  # 자르지 않음
+    assert not [n for n in out.tracks[0].notes if n.start == 4]  # 마디선에서 다시 치지 않음
+
+
+def test_melody_line_in_a_chord_track_keeps_its_passing_tones():
+    # 한 트랙에 섞인 윗선율의 짧은 지나가는 음(96 C · 93 A)은 그대로 — 가까운 코드 음으로 몰면 같은 음 되풀이가 된다
+    keys = [Note(pitch=p, start=0, duration=4) for p in (39, 51, 63)] + [
+        Note(pitch=q, start=i * 0.5, duration=0.5) for i, q in enumerate((98, 96, 94, 93))
+    ]
+    p = Project(id="p", tracks=[Track(id="t1", name="Keys", notes=keys)])
+    out, _ = apply_progression(p, [chord("Eb", 3, "", 0, 4)], [chord("Ebmaj9", 3, "maj9", 0, 4)])
+    assert [n.pitch for n in sorted(out.tracks[0].notes, key=lambda n: n.start) if n.pitch > 90] == [98, 96, 94, 93]

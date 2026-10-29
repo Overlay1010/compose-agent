@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from itertools import permutations
 
 from app.harmony.analyze import CLOSE_BASS, ChordSpan, melody_ids
-from app.harmony.reharm import INTERVALS
+from app.harmony.reharm import INTERVALS, rubs
 from app.models.project import Note, Project
 
 EPS = 1e-6
@@ -137,13 +137,40 @@ def bass_note(pitch: int, old: ChordSpan, new: ChordSpan) -> int:
     return min(127, max(0, q))
 
 
+PASSING = 1.0  # 박. 이보다 짧은 코드 밖 음은 지나가는 음 (그대로 둔다)
+
+
+def line_note(n: Note, old: ChordSpan, new: ChordSpan) -> int:
+    """혼자 친 음(펼침화음 · 한 트랙에 섞인 윗선율)의 새 음높이.
+
+    코드 음이거나 길게 누른 음은 가까운 새 코드 음으로, 짧게 지나가는 코드 밖 음은 그대로 — 새 코드와 반음으로 부딪힐 때만 옮긴다.
+    지나가는 음까지 다 옮기면 내려가는 선율 98 96 94 93이 98 94 94 94처럼 같은 음 되풀이가 된다 (Astroworld).
+    """
+    chord_tone = (n.pitch - old.root) % 12 in INTERVALS.get(old.quality, (0, 4, 7))
+    if chord_tone or n.duration >= PASSING or rubs(n.pitch % 12, new.root, new.quality):
+        return _nearest(n.pitch, set(_tones(new)), set())
+    return n.pitch
+
+
+OWN = 1.0  # 박. 코드 경계에 걸친 음의 한쪽이 이만큼 이하이고 다른 쪽이 그 두 배 이상이면 자르지 않고 긴 쪽 코드의 음으로 본다
+
+
 def _pieces(n: Note, segs: list[Segment]) -> list[tuple[float, float, Segment | None]]:
-    """음을 코드 바뀜 자리에서 나눈 조각 [(시작, 끝, 그 조각이 든 바뀐 구간 또는 None)]."""
+    """음을 코드 바뀜 자리에서 나눈 조각 [(시작, 끝, 그 조각이 든 바뀐 구간 또는 None)].
+
+    당겨 친 음(마디보다 1박 먼저 친 Eb 화음)과 살짝 넘어간 꼬리는 자르지 않는다 — 자르면 같은 음을 마디선에서 다시 치거나
+    누르던 음이 중간에 바뀐다. 조각은 가운데가 든 구간의 것 (당겨 친 음은 다음 코드의 음).
+    """
     end = n.start + n.duration
-    cuts = sorted({n.start, end, *(t for s in segs for t in (s.start, s.end) if n.start + EPS < t < end - EPS)})
+    bounds = sorted({t for s in segs for t in (s.start, s.end) if n.start + EPS < t < end - EPS})
+    # 당겨 친 음 = 짧게(1박 이하) 먼저 치고 그 두 배 이상을 다음 코드에서 울림. 반씩 걸친 음(사람이 친 흔들림)은 자른다
+    keep = lambda short, long: short <= OWN and long >= 2 * short  # noqa: E731
+    cuts = [t for t in bounds if not (keep(t - n.start, end - t) or keep(end - t, t - n.start))]
+    edges = [n.start, *cuts, end]
     out = []
-    for a, b in zip(cuts, cuts[1:]):
-        seg = next((s for s in segs if s.start - EPS <= a < s.end - EPS), None)
+    for a, b in zip(edges, edges[1:]):
+        mid = (a + b) / 2
+        seg = next((s for s in segs if s.start - EPS <= mid < s.end - EPS), None)
         out.append((a, b, seg))
     return out
 
@@ -151,11 +178,12 @@ def _pieces(n: Note, segs: list[Segment]) -> list[tuple[float, float, Segment | 
 STRUM = 0.1  # 박. 이만큼 안에 시작한 음은 같이 친 한 화음 (사람이 친 흔들림 · 스트럼)
 
 
-def _strokes(idx: list[int], notes: list[Note]) -> list[list[int]]:
-    """한 구간 안의 조각들을 같이 친 화음 묶음으로."""
+def _strokes(idx: list[int], notes: list[Note], seg_start: float) -> list[list[int]]:
+    """한 구간 안의 조각들을 같이 친 화음 묶음으로. 당겨 친 음은 구간 첫 박에 친 것으로 본다."""
+    at = lambda i: max(notes[i].start, seg_start)  # noqa: E731
     out: list[list[int]] = []
-    for i in sorted(idx, key=lambda i: notes[i].start):
-        if out and notes[i].start - notes[out[-1][0]].start <= STRUM:
+    for i in sorted(idx, key=at):
+        if out and at(i) - at(out[-1][0]) <= STRUM:
             out[-1].append(i)
         else:
             out.append([i])
@@ -189,16 +217,19 @@ def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSp
         if track.id not in harmonic_ids:
             continue
         notes: list[Note] = []
+        origin: list[int] = []  # 조각이 나온 원래 음 번호 (같은 음높이로 남은 조각은 다시 잇는다)
         by_seg: dict[int, list[int]] = {}  # 바뀐 구간마다 그 안에 든 조각
-        for n in track.notes:
+        for j, n in enumerate(track.notes):
             parts = _pieces(n, segs)
             if all(seg is None for _, _, seg in parts):
                 notes.append(n)
+                origin.append(j)
                 continue
             for a, b, seg in parts:
                 if b - a < MIN_PIECE:
                     continue
                 notes.append(n.model_copy(update={"start": round(a, 4), "duration": round(b - a, 4)}))
+                origin.append(j)
                 if seg is not None:
                     by_seg.setdefault(segs.index(seg), []).append(len(notes) - 1)
         for k, idx in by_seg.items():
@@ -217,19 +248,37 @@ def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSp
                 continue
             # 베이스 트랙이 없으면(왈츠 왼손 "쿵-짝-짝", 한 트랙에 베이스 · 화음 · 윗선율이 섞인 루프) 음마다 베이스인지 본다:
             # 그 순간 울리는 음 중 맨 아래이고 위 음과 5도 넘게 떨어졌거나, 구간 첫 박에 혼자 친 음. 베이스는 베이스 트랙처럼 옮긴다
-            for k, stroke in enumerate(_strokes(idx, notes)):
-                low = min(stroke, key=lambda i: notes[i].pitch)
+            for k, stroke in enumerate(_strokes(idx, notes, seg.start)):
+                stroke = sorted(stroke, key=lambda i: notes[i].pitch)
+                low = stroke[0]
                 floor = None
                 if bass is None and self_bass(notes, low, seg.old, first=k == 0 and notes[low].start <= seg.start + 0.25):
                     notes[low] = notes[low].model_copy(update={"pitch": bass_note(notes[low].pitch, seg.old, seg.new)})
                     floor = notes[low].pitch
-                    stroke = [i for i in stroke if i != low]
-                if stroke:
+                    stroke = stroke[1:]
+                # 맨 위 음이 바로 아래 음과 5도 넘게 떨어졌으면 화음이 아니라 윗선율 (한 트랙에 섞인 멜로디). 혼자 친 음도 선율처럼
+                gap = len(stroke) >= 2 and notes[stroke[-1]].pitch - notes[stroke[-2]].pitch >= CLOSE_BASS
+                line = stroke if len(stroke) == 1 else stroke[-1:] if gap else []
+                stroke = [i for i in stroke if i not in line]
+                for i in line:
+                    notes[i] = notes[i].model_copy(update={"pitch": line_note(notes[i], seg.old, seg.new)})
+                if len(stroke) == 1:
+                    notes[stroke[0]] = notes[stroke[0]].model_copy(update={"pitch": line_note(notes[stroke[0]], seg.old, seg.new)})
+                elif stroke:
                     moved = revoice([notes[i].pitch for i in stroke], seg.new, floor=floor)
                     for i, p in zip(stroke, moved):
                         notes[i] = notes[i].model_copy(update={"pitch": p})
-        changed = sum(len(idx) for idx in by_seg.values())
+        # 나눈 조각이 다시 같은 음높이면 잇는다 (자른 자리에서 같은 음을 두 번 치지 않게)
+        joined: list[Note] = []
+        for i, n in enumerate(notes):
+            prev = joined[-1] if joined and i > 0 and origin[i] == origin[i - 1] else None
+            if prev is not None and prev.pitch == n.pitch and abs(prev.start + prev.duration - n.start) < 1e-3:
+                joined[-1] = prev.model_copy(update={"duration": round(n.start + n.duration - prev.start, 4)})
+            else:
+                joined.append(n)
+        before = {(n.pitch, n.start, n.duration) for n in track.notes}
+        changed = sum((n.pitch, n.start, n.duration) not in before for n in joined)
         if changed:
-            track.notes = sorted(notes, key=lambda n: (n.start, n.pitch))
+            track.notes = sorted(joined, key=lambda n: (n.start, n.pitch))
             counts[track.name] = changed
     return out, counts

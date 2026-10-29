@@ -61,7 +61,7 @@ def _tones(root: int, quality: str) -> set[int]:
     return {(root + i) % 12 for i in INTERVALS.get(quality, (0,))}
 
 
-def _rubs(pc: int, root: int, quality: str) -> bool:
+def rubs(pc: int, root: int, quality: str) -> bool:
     """멜로디 음 pc가 코드 음의 반음 위인가 (딸림7의 b9 · b13은 텐션이라 아님)."""
     tones = _tones(root, quality)
     below = (pc - 1) % 12
@@ -248,7 +248,7 @@ class _Builder:
             if overlap <= EPS:
                 continue
             pc = pitch % 12
-            if not _rubs(pc, root, q) or _rubs(pc, c.root, c.quality):
+            if not rubs(pc, root, q) or rubs(pc, c.root, c.quality):
                 continue
             if (ns >= s - 0.1 and _accented(ns, self.bpb)) or overlap >= 1 - EPS:
                 return True, []

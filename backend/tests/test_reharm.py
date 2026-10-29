@@ -116,7 +116,8 @@ def test_tool_sends_short_text_to_llm_and_chords_to_screen():
 def test_apply_chords_changes_keys_and_bass_as_a_preview():
     p = song(C, AM, F, G)
     r = run_tool(p, "apply_chords", {"style": "가볍게", "bars": [3, 4]})
-    assert r.changed_notes == 8 and r.summary.startswith("Keys, Bass 트랙 8개 음을 가볍게 제안 코드로 바꿨어요")
+    # 실제로 음높이 · 길이가 바뀐 음만 센다 (Dm9로 바꿔도 F · A · C는 그대로)
+    assert r.changed_notes == 4 and r.summary.startswith("Keys, Bass 트랙 4개 음을 가볍게 제안 코드로 바꿨어요")
     assert [c.name for c in suggest(r.project)[0].chords] == ["C", "Am", "Dm9", "G9"]
     assert [n.pitch for n in p.tracks[1].notes] == [48, 45, 41, 43]  # 원래 곡은 그대로
 
