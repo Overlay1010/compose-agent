@@ -33,6 +33,17 @@ def plain(text: str) -> str:
     return re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE).strip()
 
 
+# 규칙(한국어)에 "물어본 말로 답해"라고 적어도 도구 결과가 한국어라 영어 질문에 한국어로 답하는 일이 많았다 (4개 중 3개).
+# 영어 메시지에는 이번 명령에만 한 줄을 붙인다 (대화 기록 · 캐시하는 앞부분은 그대로)
+_HANGUL = re.compile("[가-힣]")
+_WORD = re.compile("[A-Za-z]{2,}")
+ENGLISH_NOTE = "(Answer in English only. Translate the Korean tool results; keep chord and key names as they are.)"
+
+
+def in_english(message: str) -> bool:
+    return not _HANGUL.search(message) and bool(_WORD.search(message))
+
+
 
 START_OVER = "start_over"
 START_OVER_SPEC = {
@@ -134,7 +145,7 @@ def run_agent(
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt(project, pending, selection)},
         *(history or []),
-        {"role": "user", "content": message},
+        {"role": "user", "content": f"{message}\n\n{ENGLISH_NOTE}" if in_english(message) else message},
     ]
     tools = tool_specs() + ([START_OVER_SPEC] if base is not None else [])
     draft = project

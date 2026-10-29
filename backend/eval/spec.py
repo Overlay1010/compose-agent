@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -99,6 +100,10 @@ class Call:
         return f"{self.tool}({args})"
 
 
+HANGUL = re.compile("[가-힣]")
+CARD_NAMES = re.compile("가볍게|재지하게|색다르게")
+
+
 @dataclass(frozen=True)
 class Case:
     id: str
@@ -112,6 +117,7 @@ class Case:
     reads: tuple[str, ...] = ()  # 꼭 불러야 하는 읽기 도구 (예: analyze_harmony)
     reply_has: tuple[str | tuple[str, ...], ...] = ()  # 답에 들어 있어야 할 말 (묶음이면 그중 하나, 대소문자 무시)
     reply_lacks: tuple[str, ...] = ()  # 답에 있으면 안 되는 말 (예: 조성을 "C 장조"로 바꿔 말함)
+    english: bool = False  # 영어로 물었으니 답에 한글이 없어야 함 (화면 카드 이름 가볍게 · 재지하게 · 색다르게는 그대로 써도 됨)
 
     @property
     def expects_no_edit(self) -> bool:
@@ -145,6 +151,8 @@ def score(case: Case, steps: list[ToolStep], melodic: set[str], reply: str = "")
     banned = [w for w in case.reply_lacks if w.lower() in text]
     if banned:
         return Score(False, True, "답에 쓰면 안 되는 말: " + ", ".join(banned))
+    if case.english and HANGUL.search(CARD_NAMES.sub("", reply)):
+        return Score(False, True, "영어로 물었는데 한국어로 답함")
     return s
 
 

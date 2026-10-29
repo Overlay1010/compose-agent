@@ -1,4 +1,4 @@
-"""정답 있는 명령 79개.
+"""정답 있는 명령 83개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -38,11 +38,11 @@ def octave(track: str, n: int, **extra) -> Answer:
 
 
 def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), note="", selection=None, reads=(), reply_has=(),
-         reply_lacks=()) -> Case:
+         reply_lacks=(), english=False) -> Case:
     """spec은 정답 호출 목록(list)이나, velocity() · octave()가 만든 (정답, 다른 정답들) 묶음(tuple)."""
     if isinstance(spec, tuple) and spec:
         spec, alt = spec
-    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection, tuple(reads), tuple(reply_has), tuple(reply_lacks))
+    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection, tuple(reads), tuple(reply_has), tuple(reply_lacks), english)
 
 
 NO_KO_KEY = ("장조", "단조")
@@ -225,6 +225,12 @@ CASES: list[Case] = [
     case("R03", "리하모니", "fl_style_loose", "5마디부터 8마디까지 대리코드 추천해줘", reads=["suggest_reharmonization"]),
     case("R04", "리하모니", "lofi_groove", "여기 코드 리하모니 해줘", reads=["suggest_reharmonization"], reply_lacks=("바꿨어요",),
          selection={"track_ids": None, "beats": [32, 48], "pitches": None}, note="고른 부분 = 9~12마디"),
+    # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
+    case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
+    case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
+         english=True),
+    case("L03", "영어", "lofi_groove", "make the chords jazzier", reads=["suggest_reharmonization"], english=True),
+    case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 79 and len({c.id for c in CASES}) == 79
+assert len(CASES) == 83 and len({c.id for c in CASES}) == 83

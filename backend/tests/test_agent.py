@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from app.agent import LLMReply, LLMUnavailable, ToolCall, get_llm, run_agent
-from app.agent.loop import TOO_MANY_STEPS
+from app.agent.loop import TOO_MANY_STEPS, in_english
 from app.agent.prompt import system_prompt
 from app.main import app
 from app.midi_io.convert import midi_bytes_to_project
@@ -522,3 +522,8 @@ def test_reply_markdown_is_stripped():
     assert plain("이 곡은 C major(다장조)예요. 다음 후보는 A minor(가단조)") == "이 곡은 C major예요. 다음 후보는 A minor"
     assert plain("G 장조이고 E단조와 헷갈려요. Bb 장조도") == "G major이고 E minor와 헷갈려요. Bb major도"
     assert plain("장조 느낌이 밝아요") == "장조 느낌이 밝아요"  # 조성 이름이 아니면 그대로
+
+
+def test_english_message_gets_an_answer_in_english_note():
+    assert in_english("what key is this song in?") and in_english("make the chords jazzier")
+    assert not in_english("베이스 2키 올려줘") and not in_english("Rhodes 음 길게") and not in_english("120")
