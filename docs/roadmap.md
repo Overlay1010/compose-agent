@@ -33,7 +33,7 @@
 - [x] 벨로시티 편집창: 멜로디 트랙 피아노롤 아래에서 음마다 세기를 누르거나 끌어서 바꾸기
 - [x] README 정리 · 시연 GIF (docs/demo.gif) · 첫 화면 가볍게(소리 라이브러리는 처음 재생할 때)
 
-## v0.2 · 화성 분석 · 리하모니
+## v0.2 · 화성 분석 · 리하모니 (완료)
 
 음악 전공자로서의 차별점. 다음 단계(말로 만들기)가 코드 진행을 기준으로 음을 만들기 때문에 먼저 한다.
 
@@ -112,7 +112,7 @@ LLM이 음표를 직접 하나하나 쓰게 하면 긴 곡에서 박자 · 음�
 | --- | --- | --- |
 | 편집 | transpose · shift_octave · quantize · adjust_velocity · swing · set_tempo · set_instrument · delete_notes · set_length · copy_bars · humanize · velocity_ramp · set_mix · duplicate_track · set_drum_sound | v0.1 ✅ |
 | 정보 | get_project_info · analyze_harmony | v0.1 ✅ · v0.2 ✅ |
-| 화성 | suggest_reharmonization · apply_chords | v0.2 |
+| 화성 | suggest_reharmonization · apply_chords | v0.2 ✅ |
 | 만들기 | generate_drums · generate_chords · generate_bassline · generate_melody | v0.3 |
 | 트랙 | add_track | v0.3 |
 | 편곡 | harmonize_melody · arrange | v0.4 |
