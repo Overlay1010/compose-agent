@@ -123,6 +123,24 @@ def test_cadence_needs_predominant_and_dominant_seventh():
     assert cadences(spans("Am", "G7", "C"), 0, "major") == 0  # V7 앞이 버금딸림이 아님
 
 
+def test_keys_only_inversion_is_not_read_from_its_bottom_note():
+    # 베이스 트랙 없이 건반만 C E A — 맨 아래 C는 밀집 화음의 한 음이라 근음 가산점을 주지 않는다 (C6이 아니라 Am/C)
+    keys = [Note(pitch=p, start=i * 4, duration=4) for i, chord in enumerate([(60, 64, 69), (62, 65, 69), (64, 67, 72)]) for p in chord]
+    a = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=keys)]))
+    assert [c.name for c in a.chords] == ["Am/C", "Dm", "C/E"]
+    # 따로 낮게 친 베이스는 그대로 근음 쪽으로 (근음 없는 건반: 베이스 F + 건반 A C E G = Fmaj9)
+    assert sample("lofi_groove").chords[0].name == "Fmaj9"
+
+
+def test_half_bar_change_when_bass_is_struck():
+    # Dm9 → G9를 반 마디씩: 한 마디로 보면 D F A C E G B(Dm11)지만 3박에 베이스를 G로 새로 친다
+    keys = [Note(pitch=p, start=0, duration=2) for p in (62, 65, 69, 72, 76)] + [Note(pitch=p, start=2, duration=2) for p in (59, 65, 67, 69, 74)]
+    keys += [Note(pitch=p, start=4, duration=4) for p in (60, 64, 67, 71, 74)]
+    bass = [Note(pitch=38, start=0, duration=2), Note(pitch=43, start=2, duration=2), Note(pitch=36, start=4, duration=4)]
+    a = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=keys), Track(id="t2", name="Bass", notes=bass)]))
+    assert [(c.name, c.start, c.end) for c in a.chords] == [("Dm9", 0, 2), ("G9", 2, 4), ("Cmaj9", 4, 8)]
+
+
 def test_two_chords_in_one_bar():
     keys = [Note(pitch=p, start=0, duration=2) for p in (60, 64, 67)] + [Note(pitch=p, start=2, duration=2) for p in (59, 62, 67)]
     keys += [Note(pitch=p, start=4, duration=4) for p in (60, 64, 67)]

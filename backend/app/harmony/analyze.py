@@ -86,6 +86,7 @@ def find_key(hist: list[float]) -> KeyInfo:
 
 # 근음에서의 음정 → 코드음으로서 얼마나 그럴듯한가 (음수 = 그 근음이면 어색한 음)
 FIT = {0: 1.0, 4: 0.8, 3: 0.8, 7: 0.55, 10: 0.45, 11: 0.45, 2: 0.25, 9: 0.25, 5: 0.05, 6: -0.25, 8: -0.6, 1: -0.6}
+CLOSE_BASS = 7  # 반음. 베이스와 그 위 음이 이보다 가까우면 밀집 화음 (_weights)
 BASS_BONUS = 0.25  # 근음 없는 보이싱(베이스가 근음)은 읽고, 자리바꿈(C/E)은 베이스를 근음으로 오해하지 않는 정도
 PRESENT = 0.12  # 구간에서 가장 많이 울린 음의 이만큼 이상이면 "울린 음"으로 본다
 # 화음 트랙(멜로디 말고) 안에서 그 트랙이 낸 소리의 이만큼 이상이면 "울린 음" — 길게 누른 베이스가 기준이 되어
@@ -106,12 +107,14 @@ class ChordSpan:
     score: float  # 근음 판단 점수 (높을수록 확실)
 
 
-def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], int | None, list[float], set[int]]:
-    """구간에서 12음이 울린 길이(가중치 반영), 베이스음, 화음 트랙 안에서 충분히 울린 음.
+def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], int | None, list[float], set[int], bool]:
+    """구간에서 12음이 울린 길이(가중치 반영), 베이스음, 화음 트랙 안에서 충분히 울린 음, 베이스가 밀집 화음의 맨 아래인지.
 
     베이스 = 구간 첫 박에 울리는 가장 낮은 음 (왈츠의 "쿵"처럼 첫 박 음이 베이스다).
     첫 박에 울리는 음이 없으면, 같은 음높이 길이를 합쳐 구간의 1/4 이상 울린 음 중 가장 낮은 음
     (짧게 반복하는 베이스도 잡히게).
+    밀집: 베이스 바로 위 5도 안쪽에 다른 음이 붙어 있음 — 베이스 트랙 없이 건반만 친 자리바꿈(C E A = Am/C)에서
+    맨 아래 음은 화음의 한 음일 뿐이라 근음 가산점을 주지 않는다. 따로 낮게 친 베이스는 위 음과 멀다.
     """
     w = [0.0] * 12
     wh = [0.0] * 12  # 화음 트랙(멜로디 말고)만 — 9 · 11 · 13 같은 덧붙인 음은 여기 있을 때만 이름에 넣는다
@@ -131,12 +134,18 @@ def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], 
             first.append(pitch)
     own = {pc for tw in by_track.values() for pc in range(12) if tw[pc] >= sum(tw) * TRACK_SHARE}
     if not by_pitch:
-        return w, None, wh, own
-    if first:
-        return w, min(first) % 12, wh, own
+        return w, None, wh, own, False
     span = end - start
-    solid = [p for p, d in by_pitch.items() if d >= span * 0.25] or list(by_pitch)
-    return w, min(solid) % 12, wh, own
+    pool = first or [p for p, d in by_pitch.items() if d >= span * 0.25] or list(by_pitch)
+    low = min(pool)
+    above = [p for p in pool if p % 12 != low % 12]
+    return w, low % 12, wh, own, bool(above) and min(above) - low < CLOSE_BASS
+
+
+def _bass_struck(tones: list[Tone], t: float) -> bool:
+    """t에 울리는 가장 낮은 음이 t에 새로 친 음인가 (코드가 바뀌는 박에는 베이스를 새로 친다)."""
+    sounding = [(p, st) for p, st, d, _, _ in tones if st <= t + 0.25 and st + d > t + 1e-6]
+    return bool(sounding) and abs(min(sounding)[1] - t) <= 0.125
 
 
 def _best_root(w: list[float], bass: int | None) -> tuple[int, float]:
@@ -190,15 +199,17 @@ def _quality(present: set[int]) -> str:
 
 
 def name_chord(
-    w: list[float], bass: int | None, flats: bool, wh: list[float] | None = None, own: set[int] | None = None
+    w: list[float], bass: int | None, flats: bool, wh: list[float] | None = None, own: set[int] | None = None,
+    close_bass: bool = False,
 ) -> tuple[int | None, str, str, float]:
     """(근음, 이름, 종류, 점수). 울린 음이 없으면 근음 None · "N.C.".
 
     own: 화음 트랙 안에서 충분히 울린 음 (_weights) — 짧게 짚은 코드음도 울린 음으로 넣는다.
+    close_bass: 베이스가 밀집 화음의 맨 아래 음이면 근음 가산점 없이 고른다 (슬래시 표기는 그대로).
     """
     if sum(w) <= 1e-6:
         return None, "N.C.", "", 0.0
-    root, score = _best_root(w, bass)
+    root, score = _best_root(w, None if close_bass else bass)
     top = max(w)
     own = own or set()
     present = {(pc - root) % 12 for pc in range(12) if w[pc] >= top * PRESENT or pc in own}
@@ -426,17 +437,24 @@ def analyze(project: Project, split_margin: float = 0.12) -> HarmonyAnalysis:
     spans: list[ChordSpan] = []
     for b in range(bars):
         s, e = b * bpb, (b + 1) * bpb
-        w, bass, wh, own = _weights(tones, s, e)
-        root, name, q, score = name_chord(w, bass, flats, wh, own)
+        w, bass, wh, own, close = _weights(tones, s, e)
+        root, name, q, score = name_chord(w, bass, flats, wh, own, close)
         half = bpb / 2 if bpb % 2 == 0 else None  # 3/4 같은 홀수 박자는 나누지 않는다
         parts = None
         if half and root is not None:
             halves = []
             for hs, he in ((s, s + half), (s + half, e)):
-                hw, hb, hwh, hown = _weights(tones, hs, he)
-                halves.append((hs, he, hb, *name_chord(hw, hb, flats, hwh, hown)))
+                hw, hb, hwh, hown, hclose = _weights(tones, hs, he)
+                halves.append((hs, he, hb, *name_chord(hw, hb, flats, hwh, hown, hclose)))
             r1, r2 = halves[0][3], halves[1][3]
-            if r1 is not None and r2 is not None and r1 != r2 and (halves[0][6] + halves[1][6]) / 2 > score + split_margin:
+            # 반 마디에 베이스를 새 근음으로 치면 나눈다: Dm9 → G9를 한 마디로 보면 D F A C E G B(Dm13 모양)라 점수가 높게 나온다.
+            # 건반을 누른 채 베이스가 쉬면 맨 아래 건반 음이 "베이스"가 되므로 새로 쳤는지까지 본다 (lofi_groove의 Fmaj9)
+            bass_moves = (
+                halves[0][2] != halves[1][2] and (r1, r2) == (halves[0][2], halves[1][2]) and _bass_struck(tones, s + half)
+            )
+            if r1 is not None and r2 is not None and r1 != r2 and (
+                bass_moves or (halves[0][6] + halves[1][6]) / 2 > score + split_margin
+            ):
                 parts = halves
         if parts:
             for hs, he, hb, r, nm, hq, sc in parts:
