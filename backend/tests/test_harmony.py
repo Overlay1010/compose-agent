@@ -100,6 +100,29 @@ def test_minor_key_with_harmonic_dominant():
     assert [c.function for c in a.chords] == ["T", "S", "D", "T"]
 
 
+II_V_I_LOOP = [([65, 69, 72, 76], 50), ([65, 69, 71, 74], 43), ([64, 67, 71, 74], 48), ([61, 64, 67, 69], 45)]  # Dm9 G9 Cmaj9 A7
+
+
+@pytest.mark.parametrize("times", [1, 2])
+def test_loop_starting_on_ii_is_read_from_its_cadence(times):
+    # 첫 코드가 Dm9라도 ii–V7–I가 있는 C major. 두 번 돌면 A7 → Dm9(V7 → i)도 생기지만 그 앞이 버금딸림이 아니다
+    a = analyze(song(*II_V_I_LOOP * times))
+    assert a.key.name == "C major"
+    assert [c.name for c in a.chords] == ["Dm9", "G9", "Cmaj9", "A7"] * times
+
+
+def test_cadence_needs_predominant_and_dominant_seventh():
+    from app.harmony.analyze import cadences
+
+    def spans(*names):
+        return analyze(song(*[{"Dm": ([62, 65, 69], 50), "G": ([62, 67, 71], 43), "G7": ([65, 67, 71], 43),
+                                "C": ([64, 67, 72], 48), "Am": ([64, 69, 72], 45)}[n] for n in names])).chords
+
+    assert cadences(spans("Dm", "G7", "C"), 0, "major") == 0.5  # 바뀜 2번 중 ii–V7–I 하나
+    assert cadences(spans("Dm", "G", "C"), 0, "major") == 0  # 7음 없는 V
+    assert cadences(spans("Am", "G7", "C"), 0, "major") == 0  # V7 앞이 버금딸림이 아님
+
+
 def test_two_chords_in_one_bar():
     keys = [Note(pitch=p, start=0, duration=2) for p in (60, 64, 67)] + [Note(pitch=p, start=2, duration=2) for p in (59, 62, 67)]
     keys += [Note(pitch=p, start=4, duration=4) for p in (60, 64, 67)]

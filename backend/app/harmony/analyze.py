@@ -289,10 +289,39 @@ def family(quality: str) -> str | None:
 # 으뜸화음으로 끝나는 곡(종지)과 으뜸화음으로 시작하는 루프(샘플팩 MIDI) 둘 다 있어서 첫 · 마지막 코드를 비슷하게 본다
 LAST_BONUS = 0.2
 FIRST_BONUS = 0.3
+# 버금딸림 → 딸림7 → 으뜸(ii–V7–I)은 조를 가장 강하게 알려 준다. 코드 바뀜 중 그 비율만큼 더한다 (ii로 시작하는 루프)
+CADENCE = 1.0  # 생성 곡에서 0.5 → 533, 1.0 → 534, 그 위로는 그대로
+DOMINANT = ("7", "9", "13", "7sus4")
+PREDOMINANT = {"major": {2, 5}, "minor": {2, 5, 8}}  # ii · IV (단조는 iiø · iv · VI) — 으뜸음에서 반음 수
+
+
+def cadences(spans: list["ChordSpan"], tonic: int, mode: str) -> float:
+    """코드가 바뀐 자리 중 버금딸림 → V7 → I(그 조의 으뜸화음)로 끝나는 비율 (0~1).
+
+    - 7음 없는 V → I는 세지 않는다: B → E는 B major의 I → IV로도 읽히지만, B7의 3온음(D#–A)은 E 조에만 있다.
+    - V7 앞이 버금딸림이어야 한다: Dm9–G9–Cmaj9–A7을 되풀이하면 A7 → Dm9도 D minor의 V7 → i지만,
+      그 앞은 Cmaj9(VII)라 종지 진행이 아니다 (C major로는 V7/ii → ii).
+    """
+    want_tonic = "maj" if mode == "major" else "min"
+    groups: list[list[ChordSpan]] = []  # 근음이 같은 코드끼리 묶음 (V7sus4 → V7은 한 딸림화음)
+    for c in spans:
+        if c.root is None:
+            continue
+        if groups and groups[-1][0].root == c.root:
+            groups[-1].append(c)
+        else:
+            groups.append([c])
+    hits = sum(
+        (pre[0].root - tonic) % 12 in PREDOMINANT[mode]
+        and dom[0].root == (tonic + 7) % 12 and any(c.quality in DOMINANT for c in dom)
+        and to[0].root == tonic and family(to[0].quality) in (want_tonic, None)
+        for pre, dom, to in zip(groups, groups[1:], groups[2:])
+    )
+    return hits / (len(groups) - 1) if len(groups) > 1 else 0.0
 
 
 def chord_fit(spans: list["ChordSpan"], tonic: int, mode: str) -> float:
-    """코드들이 그 조의 음계 화음과 얼마나 맞나 (0~1, 길이 가중) + 마지막 · 첫 코드가 으뜸화음이면 더함."""
+    """코드들이 그 조의 음계 화음과 얼마나 맞나 (0~1, 길이 가중) + 마지막 · 첫 코드가 으뜸화음이면 · V → I 종지만큼 더함."""
     table = DIATONIC[mode]
     want_tonic = "maj" if mode == "major" else "min"
     total = fit = 0.0
@@ -313,7 +342,7 @@ def chord_fit(spans: list["ChordSpan"], tonic: int, mode: str) -> float:
             score += LAST_BONUS
         if real[0].root == tonic and family(real[0].quality) in (want_tonic, None):
             score += FIRST_BONUS
-    return score
+    return score + CADENCE * cadences(spans, tonic, mode)
 
 
 def decide_key(hist: list[float], spans: list["ChordSpan"]) -> KeyInfo:
