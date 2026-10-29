@@ -10,6 +10,7 @@ import type { Selection } from '../selection'
 import { usePlayer } from '../store/player'
 import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
+import { useReharm } from '../store/reharm'
 import { trackColor } from '../theme'
 import { ChordStrip, KeyBadge } from './ChordStrip'
 import { EmptyState } from './EmptyState'
@@ -79,10 +80,19 @@ export function PianoRoll() {
     }
   }
   const [draft, setDraft] = useState<Selection | null>(null)
-  // 코드 띠: 미리보기를 듣는 중이면 미리보기의 코드 (원래와 달라진 코드 표시)
+  // 코드 띠: 미리보기를 듣는 중이면 미리보기의 코드, 리하모니 제안 카드를 눌렀으면 그 제안 (원래와 달라진 코드 표시)
   const harmony = useHarmony()
-  const shownHarmony = hearPreview && harmony.preview ? harmony.preview : harmony.current
-  const baseHarmony = shownHarmony === harmony.preview ? harmony.current : null
+  const comparing = useReharm((s) => s.comparing)
+  const songKey = harmony.current?.key ?? null
+  const suggested = useMemo(
+    () => comparing && { shown: { key: songKey, chords: comparing.chords }, base: { key: songKey, chords: comparing.base } },
+    [comparing, songKey],
+  )
+  const listened = hearPreview && harmony.preview ? harmony.preview : harmony.current
+  const shownHarmony = suggested ? suggested.shown : listened
+  const baseHarmony = suggested ? suggested.base : listened === harmony.preview ? harmony.current : null
+  // 곡이나 미리보기가 바뀌면 그 전에 계산한 제안은 맞지 않으니 비교를 끝낸다
+  useEffect(() => useReharm.getState().stop(), [project?.id, project?.version, preview])
   const [rollBeats, setRollBeats] = useState(0) // 그린 피아노롤 길이 (코드 띠도 같은 길이로)
   const playing = usePlayer((s) => s.playing)
   const cursor = usePlayer((s) => s.cursor)
@@ -469,6 +479,7 @@ export function PianoRoll() {
           <ChordStrip
             harmony={shownHarmony}
             base={baseHarmony}
+            label={suggested ? '제안' : '코드'}
             keyPx={track.is_drum ? DRUM_KEY_PX : KEY_PX}
             beatPx={BEAT_PX}
             lengthBeats={rollBeats}

@@ -1,4 +1,4 @@
-"""정답 있는 명령 76개.
+"""정답 있는 명령 79개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -218,8 +218,13 @@ CASES: list[Case] = [
     case("A04", "화성 분석", "waltz_3_4", "이 곡 화성 분석해줘", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["G major", "D7", "Em"]),
     case("A05", "화성 분석", "lofi_groove", "여기 코드 뭐야?", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["A7"],
          selection={"track_ids": None, "beats": [44, 48], "pitches": None}, note="고른 부분 = 12마디 (A7 → Dm9로 가는 V7/ii)"),
-    case("A06", "화성 분석", "lofi_groove", "코드 진행을 좀 더 재즈스럽게 바꿔줘",
-         note="리하모니는 아직 못 함 → 다른 도구로 흉내 내지 않고 알려 줌"),
+    # ---------- 리하모니 제안 (편집 없이 suggest_reharmonization 결과로 답, 아직 음을 바꾸지 않았으니 "바꿨어요"는 틀림) ----------
+    case("R01", "리하모니", "lofi_groove", "코드 진행을 좀 더 재즈스럽게 바꿔줘", reads=["suggest_reharmonization"],
+         reply_has=[("재지하게", "재즈")], reply_lacks=("바꿨어요",)),
+    case("R02", "리하모니", "fl_style_loose", "코드 좀 다른 걸로 바꿔 볼래?", reads=["suggest_reharmonization"], reply_lacks=("바꿨어요",)),
+    case("R03", "리하모니", "fl_style_loose", "5마디부터 8마디까지 대리코드 추천해줘", reads=["suggest_reharmonization"]),
+    case("R04", "리하모니", "lofi_groove", "여기 코드 리하모니 해줘", reads=["suggest_reharmonization"], reply_lacks=("바꿨어요",),
+         selection={"track_ids": None, "beats": [32, 48], "pitches": None}, note="고른 부분 = 9~12마디"),
 ]
 
-assert len(CASES) == 76 and len({c.id for c in CASES}) == 76
+assert len(CASES) == 79 and len({c.id for c in CASES}) == 79

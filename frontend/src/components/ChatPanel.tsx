@@ -3,6 +3,8 @@ import { applyWithNote, cancelWithNote, undoWithNote } from '../actions'
 import { toolLabel, useChat } from '../store/chat'
 import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/catalog'
 import { useProject } from '../store/project'
+import { useReharm } from '../store/reharm'
+import type { ReharmView } from '../api/types'
 import { panLabel, sameDrumSounds, sameMix } from '../diff'
 import { selectionLabel } from '../selection'
 import { soundName } from '../theme'
@@ -91,6 +93,9 @@ export function ChatPanel() {
               ) : (
                 <>
                   <p className="msg agent">{m.text}</p>
+                  {m.steps?.map(
+                    (s, i) => s.ok && s.view?.reharm && <ReharmCards key={i} id={`${m.id}-${i}`} view={s.view.reharm} />,
+                  )}
                   <span className="meta">
                     {m.madePreview && <strong>미리보기 만들어짐 · </strong>}
                     {m.meta}
@@ -228,5 +233,43 @@ export function ChatPanel() {
       </form>
       <span className="hint">Enter 보내기 · Shift+Enter 줄바꿈 · 입력칸 밖에서 ? 누르면 단축키</span>
     </aside>
+  )
+}
+
+const SHOWN_CHANGES = 3
+
+/** 리하모니 제안 카드: 누르면 코드 띠가 그 제안을 보여 준다 (다시 누르면 원래 코드) */
+function ReharmCards({ id, view }: { id: string; view: ReharmView }) {
+  const comparing = useReharm((s) => s.comparing)
+  const { compare, stop } = useReharm.getState()
+  return (
+    <div className="reharm-cards" role="group" aria-label="리하모니 제안">
+      {view.suggestions.map((s, i) => {
+        const key = `${id}-${i}`
+        const on = comparing?.id === key
+        return (
+          <button
+            key={key}
+            className={on ? 'reharm-card on' : 'reharm-card'}
+            aria-pressed={on}
+            title={s.changes.join('\n')}
+            onClick={() => (on ? stop() : compare(key, s.chords, view.base))}
+          >
+            <span className="reharm-head">
+              <strong>{s.style}</strong>
+              <span className="hint">{on ? '코드 띠에서 비교 중 · 누르면 원래대로' : '누르면 코드 띠에서 비교'}</span>
+            </span>
+            <span className="feel">{s.feel}</span>
+            <span className="changes">
+              {s.changes.slice(0, SHOWN_CHANGES).map((c) => (
+                <span key={c}>{c}</span>
+              ))}
+              {s.changes.length > SHOWN_CHANGES && <span className="more">외 {s.changes.length - SHOWN_CHANGES}곳</span>}
+            </span>
+            {s.rubs.length > 0 && <span className="rub">멜로디와 살짝 부딪히는 곳 {s.rubs.length}곳 (약박의 짧은 음)</span>}
+          </button>
+        )
+      })}
+    </div>
   )
 }

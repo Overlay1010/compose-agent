@@ -21,7 +21,7 @@ from app.tools.edits import (
     transpose,
 )
 from app.tools.drums import SetDrumSoundArgs, set_drum_sound
-from app.tools.harmony import AnalyzeHarmonyArgs, analyze_harmony
+from app.tools.harmony import AnalyzeHarmonyArgs, SuggestReharmonizationArgs, analyze_harmony, suggest_reharmonization
 from app.tools.feel import HumanizeArgs, VelocityRampArgs, humanize, velocity_ramp
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
@@ -46,6 +46,13 @@ TOOLS: dict[str, Tool] = {
             "키 · 코드 · 코드 진행 · 화성을 물으면 음을 보고 짐작하지 말고 이 도구를 부른다. 프로젝트는 바꾸지 않는다.",
             AnalyzeHarmonyArgs,
             analyze_harmony,
+        ),
+        Tool(
+            "suggest_reharmonization",
+            "지금 코드 진행을 분석해 색깔이 다른 대리코드 진행 3개(가볍게 · 재지하게 · 색다르게)를 계산한다. "
+            "멜로디와 세게 부딪히는 대리코드는 이미 뺐다. 제안은 화면에 카드로 나오고, 프로젝트는 바꾸지 않는다.",
+            SuggestReharmonizationArgs,
+            suggest_reharmonization,
         ),
         Tool(
             "transpose",

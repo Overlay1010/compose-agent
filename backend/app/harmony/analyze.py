@@ -409,12 +409,19 @@ def _is_melody(track: Track, lowest: str | None) -> bool:
     return gaps.most_common(1)[0][1] / (len(notes) - 1) < EVEN_RHYTHM
 
 
-def _tones(project: Project) -> list[Tone]:
+def melody_ids(project: Project) -> set[str]:
+    """멜로디로 보는 트랙 id (리하모니 제안이 부딪힘을 검사하는 음)."""
     pitched = [t for t in project.tracks if not t.is_drum and t.notes]
     lowest = min(pitched, key=lambda t: sum(n.pitch for n in t.notes) / len(t.notes)).id if pitched else None
+    return {t.id for t in pitched if _is_melody(t, lowest)}
+
+
+def _tones(project: Project) -> list[Tone]:
+    pitched = [t for t in project.tracks if not t.is_drum and t.notes]
+    melody = melody_ids(project)
     out: list[Tone] = []
     for i, t in enumerate(pitched):
-        weight = MELODY_WEIGHT if _is_melody(t, lowest) else 1.0
+        weight = MELODY_WEIGHT if t.id in melody else 1.0
         out += [(n.pitch, n.start, n.duration, weight, i) for n in t.notes]
     return out
 

@@ -88,6 +88,7 @@ class ToolResult(BaseModel):
     changed_settings: bool = Field(default=False, description="음표 말고 곡 설정(템포 등)이 바뀜")
     summary: str = Field(description="채팅 화면에 보여 줄 한 줄 요약")
     data: dict[str, Any] | None = Field(default=None, description="읽기 도구가 돌려주는 정보")
+    view: dict[str, Any] | None = Field(default=None, description="화면에만 보내는 정보 (LLM에는 안 감 — 예: 리하모니 제안 코드 목록)")
 
 
 @dataclass(frozen=True)

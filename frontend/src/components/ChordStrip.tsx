@@ -14,17 +14,19 @@ const FUNCTION_NAMES: Record<ChordFunction, string> = {
 const FN_CLASS: Record<ChordFunction, string> = { T: 't', S: 's', D: 'd', 부속: 'sec', 차용: 'bor', '': 'nc' }
 const fnClass = (f: ChordFunction) => `fn-${FN_CLASS[f]}`
 
-const same = (a: ChordSpan, b: ChordSpan) => a.start === b.start && a.end === b.end && a.name === b.name
+/** 원래도 그 자리에 같은 코드가 울렸나 (뒤 반 마디에 딸림7을 끼워 짧아진 Fmaj9는 바뀐 코드가 아니다) */
+const kept = (c: ChordSpan, base: Harmony) => base.chords.some((b) => b.name === c.name && b.start <= c.start && c.start < b.end)
 
 /**
  * 피아노롤 위 코드 띠: 구간마다 코드 이름 · 로마숫자, 배경색 = 화성 기능.
  * 피아노롤과 같은 가로 배율로 그려서 같이 스크롤되고, 세로로 스크롤해도 위에 붙어 있다.
  * 누르면 그 코드 구간(모든 트랙)을 고르고 재생 위치를 옮긴다 → "여기 코드 바꿔줘"처럼 말할 수 있다.
- * base가 있으면(미리보기를 듣는 중) 원래와 달라진 코드를 라임 테두리로 표시한다.
+ * base가 있으면(미리보기를 듣는 중 · 리하모니 제안 비교 중) 원래와 달라진 코드를 라임 테두리로 표시한다.
  */
 export function ChordStrip({
   harmony,
   base,
+  label = '코드',
   keyPx,
   beatPx,
   lengthBeats,
@@ -32,6 +34,7 @@ export function ChordStrip({
 }: {
   harmony: Harmony
   base: Harmony | null
+  label?: string
   keyPx: number
   beatPx: number
   lengthBeats: number
@@ -72,10 +75,10 @@ export function ChordStrip({
   return (
     <div className="chord-strip" style={{ width: keyPx + lengthBeats * beatPx }}>
       <span className="chord-label" style={{ width: keyPx }}>
-        코드
+        {label}
       </span>
       {chords.map((c, i) => {
-        const changed = !!base && !base.chords.some((b) => same(b, c))
+        const changed = !!base && !kept(c, base)
         return (
           <button
             key={`${c.start}-${c.name}`}
@@ -84,7 +87,7 @@ export function ChordStrip({
             }}
             className={`chord ${fnClass(c.function)}${changed ? ' changed' : ''}`}
             style={{ left: keyPx + c.start * beatPx, width: (Math.min(c.end, lengthBeats) - c.start) * beatPx }}
-            title={`${c.name} · ${c.roman || '-'} · ${FUNCTION_NAMES[c.function]}${changed ? ' · 미리보기에서 바뀜' : ''}\n누르면 이 구간을 골라요`}
+            title={`${c.name} · ${c.roman || '-'} · ${FUNCTION_NAMES[c.function]}${changed ? ` · ${label === '제안' ? '제안에서' : '미리보기에서'} 바뀜` : ''}\n누르면 이 구간을 골라요`}
             onClick={() => onPick(c)}
           >
             <b>{c.name}</b>

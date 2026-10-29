@@ -40,6 +40,22 @@ export interface ToolStep {
   summary: string // 도구 결과 요약 또는 오류 메시지
   changed_notes: number
   changed_settings: boolean // 템포처럼 음표 말고 곡 설정이 바뀜
+  view?: { reharm?: ReharmView } | null // 화면에만 보내는 도구 결과
+}
+
+// 백엔드 app/tools/harmony.py suggest_reharmonization의 view
+
+export interface ReharmSuggestion {
+  style: '가볍게' | '재지하게' | '색다르게'
+  feel: string // 이 제안의 느낌 한 줄
+  chords: ChordSpan[] // 곡 전체 (범위 밖은 원래 코드 그대로)
+  changes: string[] // "3마디 F → Dm9 (같은 기능)"
+  rubs: string[] // 약박에서 살짝 부딪히는 멜로디 음
+}
+
+export interface ReharmView {
+  base: ChordSpan[] // 제안을 계산한 지금 코드
+  suggestions: ReharmSuggestion[]
 }
 
 export interface ChatResponse {
