@@ -101,7 +101,7 @@ class Call:
 
 
 HANGUL = re.compile("[가-힣]")
-CARD_NAMES = re.compile("가볍게|재지하게|색다르게")
+CARD_NAMES = re.compile("가볍게|재지하게|색다르게|이걸로 바꾸기")  # 화면에 한국어로 적힌 카드 · 버튼 이름은 인용해도 됨
 
 
 @dataclass(frozen=True)
@@ -117,7 +117,7 @@ class Case:
     reads: tuple[str, ...] = ()  # 꼭 불러야 하는 읽기 도구 (예: analyze_harmony)
     reply_has: tuple[str | tuple[str, ...], ...] = ()  # 답에 들어 있어야 할 말 (묶음이면 그중 하나, 대소문자 무시)
     reply_lacks: tuple[str, ...] = ()  # 답에 있으면 안 되는 말 (예: 조성을 "C 장조"로 바꿔 말함)
-    english: bool = False  # 영어로 물었으니 답에 한글이 없어야 함 (화면 카드 이름 가볍게 · 재지하게 · 색다르게는 그대로 써도 됨)
+    english: bool = False  # 영어로 물었으니 답에 한글이 없어야 함 (화면 카드 · 버튼 이름은 그대로 써도 됨)
 
     @property
     def expects_no_edit(self) -> bool:

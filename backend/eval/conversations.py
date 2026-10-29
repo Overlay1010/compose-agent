@@ -58,6 +58,13 @@ CONVERSATIONS: list[Conversation] = [
                  note="MIDI 범위(127)를 넘어 불가능 → 편집하지 않고 설명"),
     Conversation("R03", "스스로 고치기", "lofi_groove", ("20마디부터 베이스 약하게",), (),
                  note="곡은 16마디 → 바뀐 게 없다고 알려 줌"),
+    # ---------- 리하모니: 제안을 보고 고르기 (같은 범위로 apply_chords) ----------
+    Conversation("H01", "리하모니", "lofi_groove", ("코드 진행을 좀 더 재즈스럽게 바꿔줘", "재지하게 제안으로 바꿔줘"),
+                 (("apply_chords", {"style": "재지하게"}),), note="카드의 \"이걸로 바꾸기\"가 보내는 말과 같다"),
+    Conversation("H02", "리하모니", "fl_style_loose", ("5마디부터 8마디까지 대리코드 추천해줘", "세 번째 걸로 바꿔줘"),
+                 (("apply_chords", {"style": "색다르게", "bars": [5, 8]}),), note="번호 = 직전 제안 순서, 범위도 제안 때와 같게"),
+    Conversation("H03", "리하모니", "fl_style_loose", ("코드를 재즈스럽게 바로 바꿔서 들려줘",),
+                 (("apply_chords", {"style": "재지하게"}),), note="처음부터 바꿔 달라고 분명히 말함 → 제안 없이 바로"),
 ]
 
 assert len({c.id for c in CONVERSATIONS}) == len(CONVERSATIONS)

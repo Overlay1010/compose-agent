@@ -21,7 +21,14 @@ from app.tools.edits import (
     transpose,
 )
 from app.tools.drums import SetDrumSoundArgs, set_drum_sound
-from app.tools.harmony import AnalyzeHarmonyArgs, SuggestReharmonizationArgs, analyze_harmony, suggest_reharmonization
+from app.tools.harmony import (
+    AnalyzeHarmonyArgs,
+    ApplyChordsArgs,
+    SuggestReharmonizationArgs,
+    analyze_harmony,
+    apply_chords,
+    suggest_reharmonization,
+)
 from app.tools.feel import HumanizeArgs, VelocityRampArgs, humanize, velocity_ramp
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
@@ -53,6 +60,13 @@ TOOLS: dict[str, Tool] = {
             "멜로디와 세게 부딪히는 대리코드는 이미 뺐다. 제안은 화면에 카드로 나오고, 프로젝트는 바꾸지 않는다.",
             SuggestReharmonizationArgs,
             suggest_reharmonization,
+        ),
+        Tool(
+            "apply_chords",
+            "suggest_reharmonization의 제안 하나(style)대로 같은 범위의 건반 · 패드 · 베이스 음을 새 코드로 바꾼다. "
+            "리듬 · 세기는 그대로, 멜로디 · 드럼은 바꾸지 않는다. 범위는 제안할 때와 같게 준다.",
+            ApplyChordsArgs,
+            apply_chords,
         ),
         Tool(
             "transpose",

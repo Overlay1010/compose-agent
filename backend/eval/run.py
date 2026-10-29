@@ -1,4 +1,4 @@
-"""에이전트 평가: 정답 있는 명령 30개 + 이어지는 대화 · 스스로 고치기 9개를 모델별로 돌려 채점한다.
+"""에이전트 평가: 정답 있는 명령(cases.py)과 이어지는 대화 · 스스로 고치기(conversations.py)를 모델별로 돌려 채점한다.
 
     cd backend
     compose_venv\\Scripts\\python -m eval.run                       # .env의 모델로

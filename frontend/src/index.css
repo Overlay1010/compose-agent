@@ -190,11 +190,14 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 
 /* 리하모니 제안 카드: 누르면 코드 띠에서 비교 (바뀐 코드만 라임 — 카드 자체는 라임을 쓰지 않는다) */
 .reharm-cards { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
-.reharm-card {
-  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 9px 12px; text-align: left;
-  border-radius: 12px; background: var(--surface); line-height: 1.4;
-}
+.reharm-card { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
 .reharm-card.on { border-color: var(--info); background: color-mix(in srgb, var(--info) 10%, var(--surface)); }
+.reharm-compare {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 9px 12px; text-align: left;
+  min-height: 0; border: 0; border-radius: 0; background: transparent; line-height: 1.4;
+}
+.reharm-compare:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.reharm-apply { min-height: 32px; margin: 0 12px 10px; align-self: flex-start; font-size: 12px; }
 .reharm-card .reharm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .reharm-card strong { font-size: 13px; }
 .reharm-card .hint { font-size: 11px; }

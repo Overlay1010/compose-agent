@@ -1,19 +1,24 @@
-"""읽기 도구: analyze_harmony · suggest_reharmonization (프로젝트는 바꾸지 않음).
+"""화성 도구: analyze_harmony · suggest_reharmonization (읽기만) · apply_chords (편집).
 
 - analyze_harmony: 조성 · 코드 · 로마숫자 · 화성 기능을 읽는다
 - suggest_reharmonization: 색깔이 다른 대리코드 진행 3개 (멜로디와 센 부딪힘은 뺀 것)
+- apply_chords: 그 제안대로 건반 · 패드 · 베이스 음을 바꾼다 (편집 도구 — 미리보기로)
 
 계산은 app/harmony가 하고, 에이전트는 결과를 설명만 한다 (음 목록을 보고 코드를 짐작하지 않게).
 """
 
 from __future__ import annotations
 
+import math
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.harmony import ChordSpan, analyze
-from app.harmony.reharm import suggest
+from app.harmony.reharm import Suggestion, suggest
+from app.harmony.voicing import apply_progression
 from app.models.project import Project
-from app.tools.base import Bar, ToolError, ToolResult
+from app.tools.base import NOTHING_CHANGED, Bar, ToolError, ToolResult
 
 FUNCTION_KO = {
     "T": "토닉",
@@ -126,22 +131,32 @@ def _chord_view(c: ChordSpan) -> dict:
     return {"start": c.start, "end": c.end, "name": c.name, "roman": c.roman, "function": c.function}
 
 
-def suggest_reharmonization(project: Project, args: SuggestReharmonizationArgs | None = None) -> ToolResult:
-    args = args or SuggestReharmonizationArgs()
+def _suggestions(project: Project, args: SuggestReharmonizationArgs):
+    """(분석, 제안들, 범위 [start, end), 범위 이름). suggest_reharmonization · apply_chords가 같은 범위로 같은 제안을 계산한다."""
     bpb = project.beats_per_bar
     start, end = _range(args, bpb, float("inf"))
     a, sugs = suggest(project, start, None if end == float("inf") else end)
-    if not a.chords:
-        return ToolResult(summary=NO_NOTES, data={"key": None, "suggestions": []})
-    if not any(c.root is not None and start - 1e-6 <= c.start < end - 1e-6 for c in a.chords):
+    if a.chords and not any(c.root is not None and start - 1e-6 <= c.start < end - 1e-6 for c in a.chords):
         raise ToolError(f"그 범위에서 시작하는 코드가 없어요. 곡은 {project.bar_count}마디예요.", code="empty_range")
-
     if args.bars:
         span = f"{args.bars[0]}마디" if args.bars[0] == args.bars[1] else f"{args.bars[0]}~{args.bars[1]}마디"
     elif args.beats:
         span = f"{_where(start, bpb)}부터"
     else:
         span = "곡 전체"
+    return a, sugs, start, end, span
+
+
+def _change_lines(s: Suggestion, bpb: float) -> list[str]:
+    return [f"{_where(ch.start, bpb)} {ch.before} → {' · '.join(ch.after)} ({ch.kind})" for ch in s.changes]
+
+
+def suggest_reharmonization(project: Project, args: SuggestReharmonizationArgs | None = None) -> ToolResult:
+    args = args or SuggestReharmonizationArgs()
+    bpb = project.beats_per_bar
+    a, sugs, start, end, span = _suggestions(project, args)
+    if not a.chords:
+        return ToolResult(summary=NO_NOTES, data={"key": None, "suggestions": []})
     if not sugs:
         return ToolResult(
             summary=f"{span}에 바꿀 만한 대리코드가 없어요",
@@ -151,7 +166,7 @@ def suggest_reharmonization(project: Project, args: SuggestReharmonizationArgs |
     inside = lambda c: start - 1e-6 <= c.start < end - 1e-6  # noqa: E731
     items, views = [], []
     for no, s in enumerate(sugs, 1):
-        changes = [f"{_where(ch.start, bpb)} {ch.before} → {' · '.join(ch.after)} ({ch.kind})" for ch in s.changes]
+        changes = _change_lines(s, bpb)
         extra = [f"외 {len(changes) - MAX_CHANGES}곳"] if len(changes) > MAX_CHANGES else []
         item = {"no": no, "style": s.style, "feel": FEEL[s.style], "progression": " → ".join(c.name for c in s.chords if inside(c)),
                 "changes": changes[:MAX_CHANGES] + extra}
@@ -160,8 +175,37 @@ def suggest_reharmonization(project: Project, args: SuggestReharmonizationArgs |
         items.append(item)
         views.append({"style": s.style, "feel": FEEL[s.style], "chords": [_chord_view(c) for c in s.chords],
                       "changes": changes, "rubs": s.rubs})
+    # 카드의 "이걸로 바꾸기"가 같은 범위로 apply_chords를 부르게 마디 범위를 함께 보낸다 (고른 부분은 마디 단위로)
+    bars = list(args.bars) if args.bars else [int(start // bpb) + 1, math.ceil(end / bpb - 1e-6)] if args.beats else None
     return ToolResult(
         summary=f"조성 {a.key.name} · {span} 리하모니 제안 {len(sugs)}개 ({' · '.join(s.style for s in sugs)})",
         data={"key": a.key.name, "suggestions": items},
-        view={"reharm": {"base": [_chord_view(c) for c in a.chords], "suggestions": views}},
+        view={"reharm": {"base": [_chord_view(c) for c in a.chords], "suggestions": views, "bars": bars}},
+    )
+
+
+class ApplyChordsArgs(SuggestReharmonizationArgs):
+    style: Literal["가볍게", "재지하게", "색다르게"] = Field(description="suggest_reharmonization 제안 이름")
+
+
+def apply_chords(project: Project, args: ApplyChordsArgs) -> ToolResult:
+    """제안을 같은 범위로 다시 계산해 그대로 음을 바꾼다 (LLM이 코드 목록을 옮겨 적지 않게)."""
+    a, sugs, _, _, span = _suggestions(project, args)
+    if not a.chords:
+        raise ToolError(NO_NOTES, code="no_chords")
+    s = next((s for s in sugs if s.style == args.style), None)
+    if s is None:
+        have = " · ".join(x.style for x in sugs) or "없음"
+        raise ToolError(f"{span}에는 '{args.style}' 제안이 없어요 (바꿀 만한 대리코드가 없음). 있는 제안: {have}", code="no_suggestion")
+    new, counts = apply_progression(project, a.chords, s.chords)
+    total = sum(counts.values())
+    if not total:
+        return ToolResult(project=project, summary=NOTHING_CHANGED)
+    lines = _change_lines(s, project.beats_per_bar)
+    shown = ", ".join(lines[:3]) + (f" 외 {len(lines) - 3}곳" if len(lines) > 3 else "")
+    return ToolResult(
+        project=new,
+        changed_notes=total,
+        summary=f"{', '.join(counts)} 트랙 {total}개 음을 {args.style} 제안 코드로 바꿨어요 ({shown})",
+        data={"changes": lines[:MAX_CHANGES], "tracks": counts},
     )

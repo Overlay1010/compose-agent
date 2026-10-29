@@ -28,7 +28,8 @@ export interface ChatMessage {
 interface ChatState {
   messages: ChatMessage[]
   sending: boolean
-  send: (text: string) => Promise<void>
+  /** withSelection=false: 화면에서 고른 부분을 싣지 않는다 (리하모니 카드처럼 범위를 말에 담아 보낼 때) */
+  send: (text: string, withSelection?: boolean) => Promise<void>
   /** 적용 · 취소 · 되돌리기 같은 일을 대화에 한 줄로 남긴다 */
   note: (text: string, canUndo?: boolean) => void
 }
@@ -66,11 +67,11 @@ export const useChat = create<ChatState>((set, get) => ({
   note: (text, canUndo = false) =>
     set({ messages: [...get().messages.map((m) => ({ ...m, canUndo: false })), { id: nextId++, role: 'note', text, canUndo }] }),
 
-  send: async (raw) => {
+  send: async (raw, withSelection = true) => {
     const text = raw.trim()
     const { project, selection } = useProject.getState()
     if (!text || !project || get().sending) return
-    const picked = selection ? { ...selection, label: selectionLabel(project, selection) } : null
+    const picked = withSelection && selection ? { ...selection, label: selectionLabel(project, selection) } : null
 
     const add = (m: Omit<ChatMessage, 'id'>) => set({ messages: [...get().messages, { id: nextId++, ...m }] })
     add({ role: 'user', text, selection: picked?.label })

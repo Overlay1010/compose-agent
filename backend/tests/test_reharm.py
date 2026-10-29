@@ -110,6 +110,21 @@ def test_tool_sends_short_text_to_llm_and_chords_to_screen():
     cards = step.view["reharm"]
     assert [c["name"] for c in cards["base"]] == ["C", "Am", "F", "G"]
     assert [c["name"] for c in cards["suggestions"][0]["chords"]] == ["C", "Am", "Dm9", "G9"]
+    assert cards["bars"] == [3, 4]  # 카드의 "이걸로 바꾸기"가 같은 범위로 바꾸게
+
+
+def test_apply_chords_changes_keys_and_bass_as_a_preview():
+    p = song(C, AM, F, G)
+    r = run_tool(p, "apply_chords", {"style": "가볍게", "bars": [3, 4]})
+    assert r.changed_notes == 8 and r.summary.startswith("Keys, Bass 트랙 8개 음을 가볍게 제안 코드로 바꿨어요")
+    assert [c.name for c in suggest(r.project)[0].chords] == ["C", "Am", "Dm9", "G9"]
+    assert [n.pitch for n in p.tracks[1].notes] == [48, 45, 41, 43]  # 원래 곡은 그대로
+
+
+def test_apply_chords_without_that_suggestion_says_what_exists():
+    # 3/4 왈츠에 "색다르게"가 없는 범위: 1마디(G, 으뜸화음)만 고르면 빌려올 화음이 없다
+    with pytest.raises(ToolError, match="있는 제안"):
+        run_tool(project("waltz_3_4"), "apply_chords", {"style": "색다르게", "bars": [1, 1]})
 
 
 def test_tool_rejects_a_range_without_chords():

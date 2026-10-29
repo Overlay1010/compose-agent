@@ -238,36 +238,48 @@ export function ChatPanel() {
 
 const SHOWN_CHANGES = 3
 
-/** 리하모니 제안 카드: 누르면 코드 띠가 그 제안을 보여 준다 (다시 누르면 원래 코드) */
+/** 리하모니 제안 카드: 누르면 코드 띠가 그 제안을 보여 주고(다시 누르면 원래 코드), "이걸로 바꾸기"는 그 코드로 음을 바꾼다 */
 function ReharmCards({ id, view }: { id: string; view: ReharmView }) {
   const comparing = useReharm((s) => s.comparing)
+  const sending = useChat((s) => s.sending)
+  const busy = useProject((s) => s.busy)
   const { compare, stop } = useReharm.getState()
+  // 제안할 때와 같은 범위로 바꾸게 마디를 말에 담는다 (고른 부분은 싣지 않음 — 지금 고른 곳과 다를 수 있어서)
+  const range = view.bars ? (view.bars[0] === view.bars[1] ? `${view.bars[0]}마디 ` : `${view.bars[0]}~${view.bars[1]}마디 `) : ''
   return (
     <div className="reharm-cards" role="group" aria-label="리하모니 제안">
       {view.suggestions.map((s, i) => {
         const key = `${id}-${i}`
         const on = comparing?.id === key
         return (
-          <button
-            key={key}
-            className={on ? 'reharm-card on' : 'reharm-card'}
-            aria-pressed={on}
-            title={s.changes.join('\n')}
-            onClick={() => (on ? stop() : compare(key, s.chords, view.base))}
-          >
-            <span className="reharm-head">
-              <strong>{s.style}</strong>
-              <span className="hint">{on ? '코드 띠에서 비교 중 · 누르면 원래대로' : '누르면 코드 띠에서 비교'}</span>
-            </span>
-            <span className="feel">{s.feel}</span>
-            <span className="changes">
-              {s.changes.slice(0, SHOWN_CHANGES).map((c) => (
-                <span key={c}>{c}</span>
-              ))}
-              {s.changes.length > SHOWN_CHANGES && <span className="more">외 {s.changes.length - SHOWN_CHANGES}곳</span>}
-            </span>
-            {s.rubs.length > 0 && <span className="rub">멜로디와 살짝 부딪히는 곳 {s.rubs.length}곳 (약박의 짧은 음)</span>}
-          </button>
+          <div key={key} className={on ? 'reharm-card on' : 'reharm-card'}>
+            <button
+              className="reharm-compare"
+              aria-pressed={on}
+              title={s.changes.join('\n')}
+              onClick={() => (on ? stop() : compare(key, s.chords, view.base))}
+            >
+              <span className="reharm-head">
+                <strong>{s.style}</strong>
+                <span className="hint">{on ? '코드 띠에서 비교 중 · 누르면 원래대로' : '누르면 코드 띠에서 비교'}</span>
+              </span>
+              <span className="feel">{s.feel}</span>
+              <span className="changes">
+                {s.changes.slice(0, SHOWN_CHANGES).map((c) => (
+                  <span key={c}>{c}</span>
+                ))}
+                {s.changes.length > SHOWN_CHANGES && <span className="more">외 {s.changes.length - SHOWN_CHANGES}곳</span>}
+              </span>
+              {s.rubs.length > 0 && <span className="rub">멜로디와 살짝 부딪히는 곳 {s.rubs.length}곳 (약박의 짧은 음)</span>}
+            </button>
+            <button
+              className="reharm-apply"
+              disabled={sending || busy}
+              onClick={() => void useChat.getState().send(`${range}${s.style} 제안으로 코드 바꿔줘`, false)}
+            >
+              이걸로 바꾸기
+            </button>
+          </div>
         )
       })}
     </div>

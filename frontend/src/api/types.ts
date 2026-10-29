@@ -56,6 +56,7 @@ export interface ReharmSuggestion {
 export interface ReharmView {
   base: ChordSpan[] // 제안을 계산한 지금 코드
   suggestions: ReharmSuggestion[]
+  bars: [number, number] | null // 제안한 마디 범위 (곡 전체면 null) — "이걸로 바꾸기"가 같은 범위로 바꾼다
 }
 
 export interface ChatResponse {
