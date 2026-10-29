@@ -270,6 +270,7 @@ def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
         "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix", "duplicate_track", "set_drum_sound",
+        "analyze_harmony", "suggest_reharmonization", "apply_chords",
     }
     specs = tool_specs()
     for spec in specs:
@@ -280,6 +281,16 @@ def test_registry_has_all_tools_with_schemas():
     assert transpose_schema["properties"]["semitones"]["maximum"] == 24
     assert transpose_schema["required"] == ["semitones"]
     assert transpose_schema["additionalProperties"] is False
+
+
+def test_tool_schemas_are_compact(lofi):
+    # 입력 토큰을 아끼려고 pydantic 군더더기(title · anyOf [X, null] · default null)를 덜어 낸다
+    text = json.dumps(tool_specs(), ensure_ascii=False)
+    assert '"title"' not in text and '{"type": "null"}' not in text and '"default": null' not in text
+    bars = next(s for s in tool_specs() if s["name"] == "transpose")["input_schema"]["properties"]["bars"]
+    assert bars["type"] == "array" and bars["items"] == {"minimum": 1, "type": "integer"} and bars["maxItems"] == 2
+    # 스키마에서 null을 지웠어도 LLM이 null을 보내면 그대로 받는다 (검사는 pydantic)
+    assert run_tool(lofi, "transpose", {"semitones": 1, "track_ids": None, "bars": None}).changed_notes
 
 
 def test_run_tool_runs(lofi):

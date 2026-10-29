@@ -21,6 +21,14 @@ from app.tools.edits import (
     transpose,
 )
 from app.tools.drums import SetDrumSoundArgs, set_drum_sound
+from app.tools.harmony import (
+    AnalyzeHarmonyArgs,
+    ApplyChordsArgs,
+    SuggestReharmonizationArgs,
+    analyze_harmony,
+    apply_chords,
+    suggest_reharmonization,
+)
 from app.tools.feel import HumanizeArgs, VelocityRampArgs, humanize, velocity_ramp
 from app.tools.info import ProjectInfoArgs, get_project_info
 from app.tools.instrument import SetInstrumentArgs, set_instrument
@@ -38,6 +46,27 @@ TOOLS: dict[str, Tool] = {
             "편집 전에 트랙 id를 확인할 때 쓴다. 프로젝트는 바꾸지 않는다.",
             ProjectInfoArgs,
             get_project_info,
+        ),
+        Tool(
+            "analyze_harmony",
+            "곡의 조성(키)과 마디별 코드 이름 · 로마숫자 · 화성 기능(토닉 · 서브도미넌트 · 도미넌트 …)을 분석해 읽는다. "
+            "키 · 코드 · 코드 진행 · 화성을 물으면 음을 보고 짐작하지 말고 이 도구를 부른다. 프로젝트는 바꾸지 않는다.",
+            AnalyzeHarmonyArgs,
+            analyze_harmony,
+        ),
+        Tool(
+            "suggest_reharmonization",
+            "지금 코드 진행을 분석해 색깔이 다른 대리코드 진행 3개(가볍게 · 재지하게 · 색다르게)를 계산한다. "
+            "멜로디와 세게 부딪히는 대리코드는 이미 뺐다. 제안은 화면에 카드로 나오고, 프로젝트는 바꾸지 않는다.",
+            SuggestReharmonizationArgs,
+            suggest_reharmonization,
+        ),
+        Tool(
+            "apply_chords",
+            "suggest_reharmonization의 제안 하나(style)대로 같은 범위의 건반 · 패드 · 베이스 음을 새 코드로 바꾼다. "
+            "리듬 · 세기는 그대로, 멜로디 · 드럼은 바꾸지 않는다. 범위는 제안할 때와 같게 준다.",
+            ApplyChordsArgs,
+            apply_chords,
         ),
         Tool(
             "transpose",

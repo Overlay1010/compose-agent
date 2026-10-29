@@ -28,14 +28,15 @@ export interface ChatMessage {
 interface ChatState {
   messages: ChatMessage[]
   sending: boolean
-  send: (text: string) => Promise<void>
+  /** withSelection=false: 화면에서 고른 부분을 싣지 않는다 (리하모니 카드처럼 범위를 말에 담아 보낼 때) */
+  send: (text: string, withSelection?: boolean) => Promise<void>
   /** 적용 · 취소 · 되돌리기 같은 일을 대화에 한 줄로 남긴다 */
   note: (text: string, canUndo?: boolean) => void
 }
 
 let nextId = 1
 
-// 실행 중인 도구를 사람 말로 (진행 상황 표시용)
+// 도구 이름을 사람 말로 (진행 상황 · 실행한 도구 목록에 보여 줌)
 const TOOL_LABELS: Record<string, string> = {
   transpose: '조옮김',
   shift_octave: '옥타브 이동',
@@ -53,8 +54,11 @@ const TOOL_LABELS: Record<string, string> = {
   duplicate_track: '트랙 복제',
   set_drum_sound: '드럼 소리 바꾸기',
   get_project_info: '트랙 확인',
+  analyze_harmony: '화성 분석',
+  suggest_reharmonization: '리하모니 제안',
   start_over: '미리보기 버리고 다시 시작',
 }
+export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name
 
 export const useChat = create<ChatState>((set, get) => ({
   messages: [],
@@ -63,11 +67,11 @@ export const useChat = create<ChatState>((set, get) => ({
   note: (text, canUndo = false) =>
     set({ messages: [...get().messages.map((m) => ({ ...m, canUndo: false })), { id: nextId++, role: 'note', text, canUndo }] }),
 
-  send: async (raw) => {
+  send: async (raw, withSelection = true) => {
     const text = raw.trim()
     const { project, selection } = useProject.getState()
     if (!text || !project || get().sending) return
-    const picked = selection ? { ...selection, label: selectionLabel(project, selection) } : null
+    const picked = withSelection && selection ? { ...selection, label: selectionLabel(project, selection) } : null
 
     const add = (m: Omit<ChatMessage, 'id'>) => set({ messages: [...get().messages, { id: nextId++, ...m }] })
     add({ role: 'user', text, selection: picked?.label })
@@ -85,7 +89,7 @@ export const useChat = create<ChatState>((set, get) => ({
           update((m) => ({ ...m, status: e.round === 1 ? '생각하는 중…' : '결과를 보고 다음 할 일을 정하는 중…' }))
         } else if (e.kind === 'tool_start') {
           const ids = Array.isArray(e.args.track_ids) ? (e.args.track_ids as string[]).map(trackName).join(', ') : ''
-          const label = TOOL_LABELS[e.name] ?? e.name
+          const label = toolLabel(e.name)
           const running: LiveStep = { name: e.name, args: e.args, ok: true, summary: `${label} 중…${ids ? ` (${ids})` : ''}`, changed_notes: 0, changed_settings: false, running: true }
           update((m) => ({ ...m, status: `${label} 중…`, steps: [...(m.steps ?? []), running] }))
         } else {

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Callable
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,51 @@ from app.agent.llm import LLM
 from app.agent.prompt import system_prompt
 from app.models.project import Project
 from app.tools import ToolError, run_tool, tool_specs
+
+
+_KO_KEY_NOTE = re.compile(r"(\b[A-G][#b]? (?:major|minor))\s*\([^()]*[장단]조[^()]*\)")  # "C major(다장조)"
+_KO_KEY = re.compile(r"\b([A-G][#b]?) ?(장조|단조)")  # "C 장조", "A단조"
+
+
+def plain(text: str) -> str:
+    """채팅 화면은 글자를 그대로 보여 주므로, 모델이 가끔 쓰는 마크다운 굵게(**) · 제목(#)을 지운다.
+
+    조성은 화면 · 분석과 같게 "C major"로만 쓴다 (프롬프트로 일러도 모델이 가끔 "C major(다장조)"처럼 덧붙인다).
+    """
+    text = text.replace("**", "").replace("__", "")
+    text = _KO_KEY_NOTE.sub(r"\1", text)
+    text = _KO_KEY.sub(lambda m: f"{m[1]} {'major' if m[2] == '장조' else 'minor'}", text)
+    return re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE).strip()
+
+
+_NUMBER_NOTE = re.compile(r"\s*\((?:악기 )?(?:번호 )?\d{1,3}번?\)")  # "따뜻한 패드(89번)" · "어쿠스틱 기타(25)"
+
+
+def track_names(text: str, project: Project) -> str:
+    """답에서 트랙 id를 이름으로: "Piano(t1)" → "Piano", "t1의 악기" → "Piano의 악기". 괄호 속 악기 번호도 지운다.
+
+    규칙으로 일러도 9번 중 1번은 "따뜻한 패드(89번)"처럼 말했다 — t1 · 89는 도구 인자에만 쓰는 번호라 사용자는 모른다.
+    """
+    for t in project.tracks:
+        # \b는 "t1의"처럼 숫자 뒤에 한글이 붙으면 경계로 보지 않아서 앞뒤를 직접 본다 (t1이 t10 · at1에 걸리지 않게)
+        tid = rf"(?<![A-Za-z0-9]){re.escape(t.id)}(?![0-9])"
+        text = re.sub(rf"\s*\({tid}\)", "", text)  # "Piano(t1)"
+        text = re.sub(rf"{tid}\s*(?={re.escape(t.name)})", "", text)  # "t1 Piano"
+        text = re.sub(tid, t.name, text)  # "t1의 악기"
+    return _NUMBER_NOTE.sub("", text)
+
+
+# 규칙(한국어)에 "물어본 말로 답해"라고 적어도 도구 결과가 한국어라 영어 질문에 한국어로 답하는 일이 많았다 (4개 중 3개).
+# 영어 메시지에는 이번 명령에만 한 줄을 붙인다 (대화 기록 · 캐시하는 앞부분은 그대로)
+_HANGUL = re.compile("[가-힣]")
+_WORD = re.compile("[A-Za-z]{2,}")
+ENGLISH_NOTE = "(Answer in English only. Translate the Korean tool results; keep chord and key names as they are.)"
+
+
+def in_english(message: str) -> bool:
+    return not _HANGUL.search(message) and bool(_WORD.search(message))
+
+
 
 START_OVER = "start_over"
 START_OVER_SPEC = {
@@ -43,6 +89,7 @@ class ToolStep(BaseModel):
     summary: str = Field(description="도구 결과 요약 또는 오류 메시지")
     changed_notes: int = 0
     changed_settings: bool = False  # 템포처럼 음표 말고 곡 설정이 바뀜
+    view: dict[str, Any] | None = None  # 화면에만 보내는 도구 결과 (리하모니 제안 카드)
 
     @property
     def changed(self) -> bool:
@@ -88,7 +135,7 @@ def _run_call(draft: Project, name: str, raw_args: str) -> tuple[Project, ToolSt
 
     step = ToolStep(
         name=name, args=args, ok=True, summary=result.summary,
-        changed_notes=result.changed_notes, changed_settings=result.changed_settings,
+        changed_notes=result.changed_notes, changed_settings=result.changed_settings, view=result.view,
     )
     content: dict[str, Any] = {"ok": True, "summary": result.summary, "changed_notes": result.changed_notes}
     if result.data is not None:
@@ -115,7 +162,7 @@ def run_agent(
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt(project, pending, selection)},
         *(history or []),
-        {"role": "user", "content": message},
+        {"role": "user", "content": f"{message}\n\n{ENGLISH_NOTE}" if in_english(message) else message},
     ]
     tools = tool_specs() + ([START_OVER_SPEC] if base is not None else [])
     draft = project
@@ -131,7 +178,7 @@ def run_agent(
         out.output_tokens += reply.output_tokens
 
         if not reply.tool_calls:
-            out.reply = reply.text.strip() or "알겠어요."
+            out.reply = track_names(plain(reply.text), draft) or "알겠어요."
             break
 
         messages.append(

@@ -20,7 +20,8 @@ export interface Voice {
 }
 
 export function createVoice(track: Track): Voice {
-  return track.is_drum ? new SampledDrumVoice(track) : new SampledVoice(track)
+  if (track.is_drum) return new SampledDrumVoice(track)
+  return sustains(gmProgramOf(track)) ? new LoopedVoice(track) : new SampledVoice(track)
 }
 
 const LOAD_TIMEOUT_MS = 15000
@@ -98,6 +99,93 @@ class SampledVoice implements Voice {
 
   dispose() {
     this.sampler?.dispose()
+    this.synth?.dispose()
+    this.output.dispose()
+  }
+}
+
+// ---------- 계속 울리는 악기: 녹음 가운데를 되풀이 ----------
+
+// FluidR3 녹음은 모든 음이 3.13초이고, 소리가 줄지 않은 채 거기서 잘려 있다. 피아노 · 기타처럼 저절로 줄어드는 악기는
+// 괜찮지만 오르간 · 스트링 · 패드는 3.13초보다 긴 음이 뚝 끊긴다. Tone.Sampler는 되풀이를 못 해서 직접 튼다.
+// 오르간 16~23 · 바이올린~트레몰로 40~44 · 앙상블 · 합창 48~55 · 금관 · 리드 · 플룻 56~79 · 신스 리드 · 패드 80~95
+const sustains = (program: number) => (program >= 16 && program <= 23) || (program >= 40 && program <= 44) || (program >= 48 && program <= 95)
+const LOOP_FROM = 1.0 // 초. 어택(패드는 0.4초쯤)이 끝나고 소리가 안정된 곳부터 되풀이
+const RECORDED = 3.1 // 초. 녹음 끝(3.13초) 조금 앞까지만 쓴다
+const XFADE = 0.15 // 초. 되풀이 조각끼리 이만큼 겹쳐 서서히 바꾼다
+const RELEASE = 0.8 // 음이 끝난 뒤 줄어드는 시간 (SampledVoice와 같게)
+
+class LoopedVoice implements Voice {
+  output = new Tone.Gain()
+  ready: Promise<void>
+  fallback = false
+  private buffers: Tone.ToneAudioBuffers | null = null
+  private bases: number[]
+  private sources = new Set<Tone.ToneBufferSource>()
+  private synth: SynthVoice | null = null
+
+  constructor(track: Track) {
+    const program = gmProgramOf(track)
+    const urls = sampleUrls(track)
+    this.bases = Object.keys(urls).map(Number)
+    this.ready = waitLoad((done, fail) => {
+      this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: `${FLUID_URL}${GM_NAMES[program]}-mp3/`, onload: done, onerror: fail })
+    }).then((ok) => {
+      if (ok) return
+      this.buffers?.dispose()
+      this.buffers = null
+      this.synth = new SynthVoice(presetOf(program))
+      this.synth.output.connect(this.output)
+      this.fallback = true
+    })
+  }
+
+  play(pitch: number, duration: string, time: number, velocity: number) {
+    if (!this.buffers?.loaded) {
+      this.synth?.play(pitch, duration, time, velocity)
+      return
+    }
+    // 가장 가까운 녹음을 재생 속도로 옮겨 낸다 (Tone.Sampler와 같음)
+    const base = this.bases.reduce((a, b) => (Math.abs(b - pitch) < Math.abs(a - pitch) ? b : a))
+    const rate = 2 ** ((pitch - base) / 12)
+    const buffer = this.buffers.get(base)
+    const end = time + this.output.toSeconds(duration)
+    // 녹음의 LOOP_FROM ~ handover를 조각으로 이어 붙인다. 이음매를 바로 이으면(주기를 맞춰도) 오르간 · 스트링에서 1초마다
+    // 딸깍 소리가 나서 조각끼리 XFADE만큼 겹친다. 어느 순간 음이 끝나도 줄어드는 소리(RELEASE)가 녹음 안에 들도록 일찍 넘긴다
+    const handover = Math.max(LOOP_FROM + 0.5, RECORDED - (RELEASE + XFADE) * rate)
+    let offset = 0
+    let at = time
+    for (;;) {
+      const next = at + (handover - offset) / rate
+      const last = next >= end
+      const source = new Tone.ToneBufferSource({
+        context: this.output.context,
+        url: buffer,
+        playbackRate: rate,
+        fadeIn: offset > 0 ? XFADE : 0,
+        fadeOut: last ? RELEASE : XFADE,
+        curve: 'linear', // 겹친 두 조각의 합이 일정하게
+      }).connect(this.output)
+      // 끝난 소리는 목록에서만 뺀다 (정리는 Tone.js가 실시간 재생에서만 한다 — 여기서 dispose하면 음원 녹음 때 소리가 나기 전에 지워진다)
+      source.onended = () => this.sources.delete(source)
+      this.sources.add(source)
+      source.start(at, offset, undefined, velocity / 127)
+      source.stop(last ? end : next)
+      if (last) break
+      offset = LOOP_FROM
+      at = next
+    }
+  }
+
+  releaseAll() {
+    for (const s of this.sources) s.stop()
+    this.synth?.releaseAll()
+  }
+
+  dispose() {
+    for (const s of this.sources) s.dispose()
+    this.sources.clear()
+    this.buffers?.dispose()
     this.synth?.dispose()
     this.output.dispose()
   }

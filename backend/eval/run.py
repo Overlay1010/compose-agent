@@ -1,4 +1,4 @@
-"""에이전트 평가: 정답 있는 명령 30개 + 이어지는 대화 · 스스로 고치기 9개를 모델별로 돌려 채점한다.
+"""에이전트 평가: 정답 있는 명령(cases.py)과 이어지는 대화 · 스스로 고치기(conversations.py)를 모델별로 돌려 채점한다.
 
     cd backend
     compose_venv\\Scripts\\python -m eval.run                       # .env의 모델로
@@ -48,7 +48,7 @@ def run_case(llm: LLM, case: Case) -> dict:
         return {"id": case.id, "category": case.category, "command": case.command, "passed": False,
                 "tools_ok": False, "reason": f"LLM 오류: {e}", "seconds": time.perf_counter() - started}
     seconds = time.perf_counter() - started
-    s = score(case, r.steps, melodic)
+    s = score(case, r.steps, melodic, r.reply)
     recovered = any(not a.ok and b.ok for a, b in zip(r.steps, r.steps[1:]))
     return {
         "id": case.id, "category": case.category, "command": case.command,

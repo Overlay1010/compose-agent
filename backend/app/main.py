@@ -1,11 +1,26 @@
+import importlib
+import threading
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app import config
 from app.agent import LLMError, LLMUnavailable
 from app.api import audio, chat, projects
 from app.tools import ToolError
 
-app = FastAPI(title="Compose Agent", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # LLM SDK는 불러오는 데만 10초 넘게 걸린다 (anthropic: 쓰지 않는 타입 모듈까지 한꺼번에 읽음).
+    # 서버가 켜질 때 뒤에서 미리 불러 두어 첫 명령이 그 시간을 기다리지 않게 한다
+    sdk = "anthropic" if config.LLM_PROVIDER == "anthropic" else "openai"
+    threading.Thread(target=importlib.import_module, args=(sdk,), daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Compose Agent", version="0.1.0", lifespan=lifespan)
 
 
 @app.exception_handler(HTTPException)

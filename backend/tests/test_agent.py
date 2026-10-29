@@ -7,10 +7,11 @@ from pathlib import Path
 import pytest
 
 from app.agent import LLMReply, LLMUnavailable, ToolCall, get_llm, run_agent
-from app.agent.loop import TOO_MANY_STEPS
+from app.agent.loop import TOO_MANY_STEPS, in_english, track_names
 from app.agent.prompt import system_prompt
 from app.main import app
 from app.midi_io.convert import midi_bytes_to_project
+from app.models.project import Project, Track
 from app.store.memory import PreviewConflict, ProjectNotFound, ProjectStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -510,3 +511,29 @@ def test_make_llm_picks_provider(monkeypatch):
         llm_mod.make_llm("gpt-6-luna")
     monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "k")
     assert isinstance(llm_mod.make_llm("claude-haiku-5-5"), llm_mod.AnthropicChat)
+
+
+def test_reply_markdown_is_stripped():
+    from app.agent.loop import plain
+
+    assert plain("고른 부분 코드는 **A7**이에요.") == "고른 부분 코드는 A7이에요."
+    assert plain("## 결과\n- 1마디 C\n- 2마디 G") == "결과\n- 1마디 C\n- 2마디 G"  # 목록 기호는 글자로 읽혀서 둔다
+    assert plain("Cmaj7 · V7/ii · 2-5-1") == "Cmaj7 · V7/ii · 2-5-1"
+    # 조성은 "C major"로만 (화면 · 분석과 같은 표기)
+    assert plain("이 곡은 C major(다장조)예요. 다음 후보는 A minor(가단조)") == "이 곡은 C major예요. 다음 후보는 A minor"
+    assert plain("G 장조이고 E단조와 헷갈려요. Bb 장조도") == "G major이고 E minor와 헷갈려요. Bb major도"
+    assert plain("장조 느낌이 밝아요") == "장조 느낌이 밝아요"  # 조성 이름이 아니면 그대로
+
+
+def test_english_message_gets_an_answer_in_english_note():
+    assert in_english("what key is this song in?") and in_english("make the chords jazzier")
+    assert not in_english("베이스 2키 올려줘") and not in_english("Rhodes 음 길게") and not in_english("120")
+
+
+def test_reply_names_tracks_instead_of_ids():
+    # t1 · 89는 도구 인자에만 쓰는 번호라 답에서는 트랙 이름 · 악기 이름으로
+    p = Project(id="p", tracks=[Track(id="t1", name="Piano", notes=[]), Track(id="t10", name="Pad", notes=[])])
+    assert track_names("Piano(t1) 하나뿐이에요", p) == "Piano 하나뿐이에요"
+    assert track_names("t1 Piano · t10 Pad", p) == "Piano · Pad"
+    assert track_names("t1의 악기를 따뜻한 패드(89번)로", p) == "Piano의 악기를 따뜻한 패드로"
+    assert track_names("Fmaj9 (IVmaj7) · 2마디(2박)", p) == "Fmaj9 (IVmaj7) · 2마디(2박)"

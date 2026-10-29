@@ -118,3 +118,32 @@ def test_no_change_conversation():
     refused = FakeLLM(calls(("shift_octave", {"track_ids": ["t5"], "octaves": 4})), say("범위를 넘어 못 올려요."))
     result = run_conversation(refused, r02)
     assert result["passed"]  # 인자 오류(최대 3)로 실패하고 설명만 했으니 곡은 그대로
+
+
+def test_read_cases_need_the_tool_and_the_answer():
+    case = Case("X", "화성 분석", "lofi_groove", "무슨 키야?", reads=("analyze_harmony",), reply_has=("C major", ("Fmaj9", "F major 7")))
+    read = step("analyze_harmony", {}, changed=0)
+    assert score(case, [read], MELODIC, "C Major예요. 첫 코드는 Fmaj9").passed  # 대소문자는 무시
+    assert "안 부름" in score(case, [], MELODIC, "C major예요. Fmaj9").reason  # 짐작으로 답함
+    assert "Fmaj9|F major 7" in score(case, [read], MELODIC, "C major예요.").reason
+    assert not score(case, [read, step("transpose", {"semitones": 2})], MELODIC, "C major · Fmaj9").passed  # 묻기만 했는데 편집
+    ko = Case("X", "화성 분석", "lofi_groove", "무슨 키야?", reply_lacks=("장조",))
+    assert "장조" in score(ko, [read], MELODIC, "C major(다장조)예요.").reason
+
+
+def test_harmony_eval_scoring():
+    from eval.harmony import Truth, key_from_filename, key_relation, same_tones, seventh_class
+
+    assert key_from_filename("Cymatics - Amber Eyes MIDI - C# Min.mid") == (1, "minor")
+    assert key_from_filename("Cymatics - Making The Bed MIDI - D Maj.mid") == (2, "major")
+    assert key_from_filename("loop.mid") is None
+    a_minor = (9, "minor")
+    assert key_relation((9, "minor"), a_minor) == "정답"
+    assert key_relation((0, "major"), a_minor) == "나란한조"
+    assert key_relation((2, "minor"), a_minor) == "5도 관계"
+    assert key_relation((9, "major"), a_minor) == "같은 으뜸음조"
+    assert key_relation((1, "major"), a_minor) == "틀림"
+    assert [seventh_class(q) for q in ("maj9", "13", "m9", "m", "", "m7b5")] == ["maj7", "7", "m7", "m", "", "m7b5"]
+    am7 = Truth(0, 4, 9, "m7")
+    assert same_tones(0, "6", am7)  # Am7 = C6 (같은 음)
+    assert not same_tones(0, "maj7", am7)

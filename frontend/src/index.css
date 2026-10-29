@@ -26,6 +26,13 @@
   --playhead: #f5f3ee;
   --change: #c6f432;
   --change-line: #eeffc2;
+  /* 화성 기능 색 (코드 띠). 라임은 "바뀐 것"에만 쓰니 피한다 */
+  --fn-t: #6fb3e0; /* 토닉 */
+  --fn-s: #e0b85c; /* 서브도미넌트 */
+  --fn-d: #ff8f6b; /* 도미넌트 */
+  --fn-sec: #ff8fbf; /* 부속 딸림화음 */
+  --fn-bor: #b79cff; /* 차용 화음 */
+  --fn-nc: #5a5d64;
   --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
   color-scheme: dark;
   font-family: 'IBM Plex Sans KR', system-ui, 'Malgun Gothic', sans-serif;
@@ -181,6 +188,25 @@ select.instrument:disabled { opacity: 0.5; cursor: default; }
 .msg.thinking { display: flex; align-items: center; gap: 8px; }
 button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background: none; color: var(--info); font-size: 12px; text-decoration: underline; }
 
+/* 리하모니 제안 카드: 누르면 코드 띠에서 비교 (바뀐 코드만 라임 — 카드 자체는 라임을 쓰지 않는다) */
+.reharm-cards { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
+.reharm-card { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.reharm-card.on { border-color: var(--info); background: color-mix(in srgb, var(--info) 10%, var(--surface)); }
+.reharm-compare {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 9px 12px; text-align: left;
+  min-height: 0; border: 0; border-radius: 0; background: transparent; line-height: 1.4;
+}
+.reharm-compare:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.reharm-apply { min-height: 32px; margin: 0 12px 10px; align-self: flex-start; font-size: 12px; }
+.reharm-card .reharm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.reharm-card strong { font-size: 13px; }
+.reharm-card .hint { font-size: 11px; }
+.reharm-card.on .hint { color: var(--info); }
+.reharm-card .feel { font-size: 12px; color: var(--text-2); }
+.reharm-card .changes { display: flex; flex-direction: column; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.reharm-card .more { color: var(--text-quiet); }
+.reharm-card .rub { font-size: 11px; color: var(--fn-s); }
+
 .preview-card {
   display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 14px;
   border: 1px solid var(--change); background: linear-gradient(#1c220d, #171b0d); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -204,7 +230,7 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 .composer button.primary { min-height: 44px; }
 
 /* ---------- 고른 부분 ---------- */
-.roll-grid { cursor: crosshair; touch-action: none; }
+.roll-grid { cursor: default; touch-action: none; }
 .roll-tools { display: flex; align-items: center; gap: 8px; margin: -2px 0 6px; font-size: 12px; color: var(--text-2); }
 .roll-tools label { display: flex; align-items: center; gap: 6px; }
 .roll-tools select { min-height: 28px; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--border); background: #17191d; color: var(--text); font: inherit; }
@@ -224,7 +250,7 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 .vel-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .vel-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
 .vel-scroll { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.vel-scroll canvas { display: block; cursor: ns-resize; touch-action: none; }
+.vel-scroll canvas { display: block; cursor: default; touch-action: none; }
 .vel-scroll canvas.locked { cursor: not-allowed; }
 
 /* ---------- 드럼 소리별 크기 ---------- */
@@ -316,3 +342,34 @@ kbd { min-width: 24px; padding: 2px 7px; border-radius: 6px; border: 1px solid v
   .topbar { gap: 8px; }
   .transport { margin: 0; }
 }
+
+/* 코드 띠 (피아노롤 위, 세로로 스크롤해도 붙어 있음) */
+.chord-strip { position: sticky; top: 0; z-index: 3; height: 36px; background: var(--surface-2); border-bottom: 1px solid var(--border-strong); }
+.chord-label { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; padding-left: 8px; font-size: 10px; color: var(--text-quiet); }
+.chord {
+  --fn: var(--fn-nc);
+  position: absolute; top: 3px; bottom: 3px; min-height: 0; padding: 0 6px; margin: 0; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 1px;
+  border: 0; border-left: 3px solid var(--fn); border-radius: 4px;
+  background: color-mix(in srgb, var(--fn) 16%, var(--surface-2)); color: var(--text);
+  font: inherit; text-align: left; white-space: nowrap; cursor: pointer;
+}
+.chord + .chord { margin-left: 1px; }
+.chord b { font-size: 12px; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.chord span { font-family: var(--mono); font-size: 10px; line-height: 1.1; color: color-mix(in srgb, var(--fn) 70%, var(--text)); }
+.chord:hover { background: color-mix(in srgb, var(--fn) 28%, var(--surface-2)); }
+.chord:focus-visible { outline: 2px solid var(--info); outline-offset: -2px; }
+.chord.now { background: color-mix(in srgb, var(--fn) 42%, var(--surface-2)); }
+.chord.changed { box-shadow: inset 0 0 0 1.5px var(--change); }
+.fn-t { --fn: var(--fn-t); }
+.fn-s { --fn: var(--fn-s); }
+.fn-d { --fn: var(--fn-d); }
+.fn-sec { --fn: var(--fn-sec); }
+.fn-bor { --fn: var(--fn-bor); }
+.fn-nc { --fn: var(--fn-nc); }
+.harmony-info { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.key-badge { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.key-badge.moved { border-color: var(--change); color: var(--change-line); }
+.fn-legend { display: flex; gap: 8px; font-size: 11px; color: var(--text-quiet); }
+.fn-legend span { display: flex; align-items: center; gap: 4px; }
+.fn-legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--fn); }
