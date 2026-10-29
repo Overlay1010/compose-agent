@@ -34,20 +34,11 @@ class Selection(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # LLM이 인자 이름을 틀리면 조용히 무시하지 않고 오류로
 
-    track_ids: list[str] | None = Field(
-        default=None, description='트랙 id 목록 (예: ["t2"]). 없으면 모든 트랙'
-    )
-    bars: tuple[Bar, Bar] | None = Field(
-        default=None,
-        description="마디 범위 [시작, 끝]. 1부터 세고 끝 마디도 포함. 음은 시작 위치로 마디를 정한다",
-    )
-    pitches: list[Pitch] | None = Field(
-        default=None, description="이 음 번호만 (예: 하이햇 [42, 44, 46]). 없으면 모든 음"
-    )
-    beats: tuple[float, float] | None = Field(
-        default=None,
-        description="박 범위 [시작, 끝) — 화면에서 고른 부분처럼 마디 중간부터일 때. 0부터 세고 끝은 포함 안 함. bars와 함께 쓰지 마",
-    )
+    # 설명은 짧게: 이 네 인자가 거의 모든 도구에 붙어 도구 설명 토큰의 절반을 차지한다 (자세한 쓰임은 시스템 프롬프트 규칙에)
+    track_ids: list[str] | None = Field(default=None, description="없으면 모든 트랙")
+    bars: tuple[Bar, Bar] | None = Field(default=None, description="[시작, 끝] 마디, 끝 포함. 없으면 곡 전체")
+    pitches: list[Pitch] | None = Field(default=None, description="이 음 번호만. 없으면 모든 음")
+    beats: tuple[float, float] | None = Field(default=None, description="[시작, 끝) 박, 0부터. 화면에서 고른 부분. bars와 함께 쓰지 마")
 
     @field_validator("track_ids")
     @classmethod
@@ -108,7 +99,33 @@ class Tool:
 
     def spec(self) -> dict[str, Any]:
         """LLM 도구 호출에 넘길 형식 (이름 · 설명 · 인자 JSON Schema)."""
-        return {"name": self.name, "description": self.description, "input_schema": self.args_model.model_json_schema()}
+        return {"name": self.name, "description": self.description, "input_schema": compact_schema(self.args_model.model_json_schema())}
+
+
+def compact_schema(s: Any) -> Any:
+    """pydantic JSON Schema에서 LLM에게 뜻이 없는 부분을 덜어 낸다 (도구 설명이 입력 토큰의 대부분이라).
+
+    - title: 인자 이름과 같다
+    - X | None = None: anyOf [X, null] + default null → X (안 넣으면 없음. 검사는 pydantic이 그대로 한다)
+    - 같은 타입 두 개짜리 tuple: prefixItems [a, a] → items a
+    """
+    if isinstance(s, list):
+        return [compact_schema(x) for x in s]
+    if not isinstance(s, dict):
+        return s
+    s = {k: compact_schema(v) for k, v in s.items() if k != "title" or not isinstance(v, str)}
+    if s.get("default", ...) is None:
+        del s["default"]
+    alts = s.get("anyOf")
+    if alts and {"type": "null"} in alts:
+        rest = [a for a in alts if a != {"type": "null"}]
+        s.pop("anyOf")
+        s = {**(rest[0] if len(rest) == 1 else {"anyOf": rest}), **s}
+    items = s.get("prefixItems")
+    if items and all(i == items[0] for i in items):
+        s.pop("prefixItems")
+        s["items"] = items[0]
+    return s
 
 
 def round_beat(x: float) -> float:
