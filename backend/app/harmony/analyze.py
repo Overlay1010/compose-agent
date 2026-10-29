@@ -121,7 +121,8 @@ def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], 
 
     베이스 = 구간 첫 박에 울리는 가장 낮은 음 (왈츠의 "쿵"처럼 첫 박 음이 베이스다).
     첫 박에 울리는 음이 없으면, 같은 음높이 길이를 합쳐 구간의 1/4 이상 울린 음 중 가장 낮은 음
-    (짧게 반복하는 베이스도 잡히게).
+    (짧게 반복하는 베이스도 잡히게). 반 박 늦게 들어온 낮은 베이스(첫 박 음보다 5도 넘게 아래)도 베이스로 본다 —
+    건반이 박에 치고 베이스가 "and"에 들어오면 B7을 B7/A(건반 맨 아래 음)로 읽던 것.
     밀집: 베이스 바로 위 5도 안쪽에 다른 음이 붙어 있음 — 베이스 트랙 없이 건반만 친 자리바꿈(C E A = Am/C)에서
     맨 아래 음은 화음의 한 음일 뿐이라 근음 가산점을 주지 않는다. 따로 낮게 친 베이스는 위 음과 멀다.
     """
@@ -130,6 +131,7 @@ def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], 
     by_pitch: dict[int, float] = {}
     by_track: dict[int, list[float]] = {}
     first: list[int] = []
+    late: list[int] = []
     for pitch, n_start, dur, weight, track in tones:
         overlap = min(end, n_start + dur) - max(start, n_start)
         if overlap <= 1e-6:
@@ -141,6 +143,10 @@ def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], 
         by_pitch[pitch] = by_pitch.get(pitch, 0.0) + overlap
         if n_start <= start + 0.25 and n_start + dur > start + 1e-6:
             first.append(pitch)
+        elif start + 0.25 < n_start <= start + 0.5:
+            late.append(pitch)
+    if first and late and min(late) <= min(first) - CLOSE_BASS:
+        first.append(min(late))
     own = {pc for tw in by_track.values() for pc in range(12) if tw[pc] >= sum(tw) * TRACK_SHARE}
     if not by_pitch:
         return w, None, wh, own, False
@@ -149,6 +155,11 @@ def _weights(tones: list[Tone], start: float, end: float) -> tuple[list[float], 
     low = min(pool)
     above = [p for p in pool if p % 12 != low % 12]
     return w, low % 12, wh, own, bool(above) and min(above) - low < CLOSE_BASS
+
+
+def _chord_struck(tones: list[Tone], t: float) -> bool:
+    """t에 화음 트랙(멜로디 말고)이 음 두 개 이상을 새로 쳤나 — 베이스가 반 박 늦게 들어와도 코드는 그 박에 바뀐다."""
+    return sum(1 for _, st, _, weight, _ in tones if weight >= 1.0 and abs(st - t) <= 0.125) >= 2
 
 
 def _bass_struck(tones: list[Tone], t: float) -> bool:
@@ -468,8 +479,10 @@ def analyze(project: Project, split_margin: float = 0.12) -> HarmonyAnalysis:
             bass_moves = (
                 halves[0][2] != halves[1][2] and (r1, r2) == (halves[0][2], halves[1][2]) and _bass_struck(tones, s + half)
             )
+            # 베이스가 늦게 들어와도(26.5박) 반 마디에 화음을 새로 쳤고 나눈 쪽이 더 잘 맞으면 나눈다 (Dm9 | Db7)
+            restruck = _chord_struck(tones, s + half) and (halves[0][6] + halves[1][6]) / 2 > score
             if r1 is not None and r2 is not None and r1 != r2 and (
-                bass_moves or (halves[0][6] + halves[1][6]) / 2 > score + split_margin
+                bass_moves or restruck or (halves[0][6] + halves[1][6]) / 2 > score + split_margin
             ):
                 parts = halves
         if parts:
