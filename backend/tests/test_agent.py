@@ -7,10 +7,11 @@ from pathlib import Path
 import pytest
 
 from app.agent import LLMReply, LLMUnavailable, ToolCall, get_llm, run_agent
-from app.agent.loop import TOO_MANY_STEPS, in_english
+from app.agent.loop import TOO_MANY_STEPS, in_english, track_names
 from app.agent.prompt import system_prompt
 from app.main import app
 from app.midi_io.convert import midi_bytes_to_project
+from app.models.project import Project, Track
 from app.store.memory import PreviewConflict, ProjectNotFound, ProjectStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -527,3 +528,12 @@ def test_reply_markdown_is_stripped():
 def test_english_message_gets_an_answer_in_english_note():
     assert in_english("what key is this song in?") and in_english("make the chords jazzier")
     assert not in_english("베이스 2키 올려줘") and not in_english("Rhodes 음 길게") and not in_english("120")
+
+
+def test_reply_names_tracks_instead_of_ids():
+    # t1 · 89는 도구 인자에만 쓰는 번호라 답에서는 트랙 이름 · 악기 이름으로
+    p = Project(id="p", tracks=[Track(id="t1", name="Piano", notes=[]), Track(id="t10", name="Pad", notes=[])])
+    assert track_names("Piano(t1) 하나뿐이에요", p) == "Piano 하나뿐이에요"
+    assert track_names("t1 Piano · t10 Pad", p) == "Piano · Pad"
+    assert track_names("t1의 악기를 따뜻한 패드(89번)로", p) == "Piano의 악기를 따뜻한 패드로"
+    assert track_names("Fmaj9 (IVmaj7) · 2마디(2박)", p) == "Fmaj9 (IVmaj7) · 2마디(2박)"

@@ -33,6 +33,23 @@ def plain(text: str) -> str:
     return re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE).strip()
 
 
+_NUMBER_NOTE = re.compile(r"\s*\((?:악기 )?(?:번호 )?\d{1,3}번?\)")  # "따뜻한 패드(89번)" · "어쿠스틱 기타(25)"
+
+
+def track_names(text: str, project: Project) -> str:
+    """답에서 트랙 id를 이름으로: "Piano(t1)" → "Piano", "t1의 악기" → "Piano의 악기". 괄호 속 악기 번호도 지운다.
+
+    규칙으로 일러도 9번 중 1번은 "따뜻한 패드(89번)"처럼 말했다 — t1 · 89는 도구 인자에만 쓰는 번호라 사용자는 모른다.
+    """
+    for t in project.tracks:
+        # \b는 "t1의"처럼 숫자 뒤에 한글이 붙으면 경계로 보지 않아서 앞뒤를 직접 본다 (t1이 t10 · at1에 걸리지 않게)
+        tid = rf"(?<![A-Za-z0-9]){re.escape(t.id)}(?![0-9])"
+        text = re.sub(rf"\s*\({tid}\)", "", text)  # "Piano(t1)"
+        text = re.sub(rf"{tid}\s*(?={re.escape(t.name)})", "", text)  # "t1 Piano"
+        text = re.sub(tid, t.name, text)  # "t1의 악기"
+    return _NUMBER_NOTE.sub("", text)
+
+
 # 규칙(한국어)에 "물어본 말로 답해"라고 적어도 도구 결과가 한국어라 영어 질문에 한국어로 답하는 일이 많았다 (4개 중 3개).
 # 영어 메시지에는 이번 명령에만 한 줄을 붙인다 (대화 기록 · 캐시하는 앞부분은 그대로)
 _HANGUL = re.compile("[가-힣]")
@@ -161,7 +178,7 @@ def run_agent(
         out.output_tokens += reply.output_tokens
 
         if not reply.tool_calls:
-            out.reply = plain(reply.text) or "알겠어요."
+            out.reply = track_names(plain(reply.text), draft) or "알겠어요."
             break
 
         messages.append(

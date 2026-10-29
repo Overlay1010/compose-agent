@@ -46,6 +46,7 @@ def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), 
 
 
 NO_KO_KEY = ("장조", "단조")
+TRACK_IDS = ("t1", "t2", "t3", "t4", "t5")  # 답에서 트랙은 이름으로
 V_HATS = velocity("t1", SOFTER, SOFTER_OFFSET, pitches=HATS)
 O_LEAD_DOWN = octave("t5", -1)
 
@@ -203,11 +204,12 @@ CASES: list[Case] = [
     case("G05", "고른 부분", "lofi_groove", "베이스 2키 올려줘",
          [Call("transpose", {"track_ids": ["t2"], "semitones": 2, "bars": None, "beats": None})],
          selection={"track_ids": ["t3"], "beats": [17, 24]}, note="다른 트랙을 말하면 고른 부분은 무시"),
-    case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", note="정보만 답하고 편집하지 않음"),
+    case("C01", "되묻기 · 정보", "lofi_groove", "지금 무슨 트랙 있어?", reply_has=["Rhodes", "Pad"], reply_lacks=TRACK_IDS,
+         note="정보만 답하고 편집하지 않음. 트랙은 이름으로 (t1 같은 id · 악기 번호는 화면 밖 이야기)"),
     case("C02", "되묻기 · 정보", "lofi_groove", "좀 더 좋게 해줘", note="막연함 → 되묻기"),
     case("C03", "되묻기 · 정보", "lofi_groove", "느낌 있게 바꿔줘", note="막연함 → 되묻기"),
     case("C04", "되묻기 · 정보", "lofi_groove", "드럼 2키 올려줘", note="드럼은 조옮김 대상이 아님 → 바뀐 음 0개"),
-    case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", note="없는 트랙 → 편집하지 않고 알려 줌"),
+    case("C05", "되묻기 · 정보", "lofi_groove", "스트링 트랙 한 옥타브 올려줘", reply_lacks=TRACK_IDS, note="없는 트랙 → 편집하지 않고 알려 줌"),
     # ---------- 화성 분석 (묻기만 함: 편집 없이 analyze_harmony 결과로 답) ----------
     # 조성은 "C major"처럼 영어 이름으로만 (사용자가 "C 장조 · 다장조" 표기를 원하지 않음)
     case("A01", "화성 분석", "lofi_groove", "이 곡 무슨 키야?", reads=["analyze_harmony"], reply_lacks=NO_KO_KEY, reply_has=["C major"]),
