@@ -238,6 +238,9 @@ def name_chord(
         htop = max(wh)
         present = {i for i in present if i not in (2, 5, 9) or wh[(root + i) % 12] >= htop * 0.15 or (root + i) % 12 in own}
     q = _quality(present)
+    if q == "m6" and bass is not None and (bass - root) % 12 == 9:
+        # 같은 네 음: 6음이 베이스면 그 베이스를 근음으로 한 m7b5 (E G Bb D 위에 베이스 E = Em7b5, Gm6/E라고 하지 않는다)
+        root, q = bass, "m7b5"
     name = pc_name(root, flats) + q
     if bass is not None and bass != root:
         name += "/" + pc_name(bass, flats)
@@ -436,13 +439,34 @@ def melody_ids(project: Project) -> set[str]:
     return {t.id for t in pitched if _is_melody(t, lowest)}
 
 
+SHORT = 1.0  # 박. 화음 트랙 안의 윗선율로 볼 음의 길이 (이보다 짧게 지나가는 음)
+# 윗선율 음의 가중치. 근음 · 3화음에는 거의 그대로 세고, 1.0보다 작아서 화음 트랙 음(wh · own)에는 들지 않는다 →
+# 지나가는 음이 9 · 11 · 13음으로 이름에 붙지 않는다. 멜로디처럼 0.5로 낮추면 위에서 짧게 친 3음까지 약해져 Dm이 D5가 됐다 (Carved)
+LINE_WEIGHT = 0.99
+
+
+def top_line(track: Track) -> set[int]:
+    """화음 트랙에 섞인 윗선율 음 (track.notes 번호): 짧고, 아래에 화음(두 음 이상)이 울리며 그 화음보다 5도 넘게 위인 음
+    (Alarma의 선율 F#이 Em을 Emadd9로 만들었다). 아래가 베이스 하나뿐인 펼침화음은 화음 음 그 자체라 넣지 않는다."""
+    out = set()
+    for i, n in enumerate(track.notes):
+        if n.duration >= SHORT:
+            continue
+        below = [m.pitch for m in track.notes if m is not n and m.start <= n.start + 1e-6 < m.start + m.duration]
+        if len(below) >= 2 and max(below) <= n.pitch - CLOSE_BASS:
+            out.add(i)
+    return out
+
+
 def _tones(project: Project) -> list[Tone]:
     pitched = [t for t in project.tracks if not t.is_drum and t.notes]
     melody = melody_ids(project)
     out: list[Tone] = []
     for i, t in enumerate(pitched):
-        weight = MELODY_WEIGHT if t.id in melody else 1.0
-        out += [(n.pitch, n.start, n.duration, weight, i) for n in t.notes]
+        line = set() if t.id in melody else top_line(t)
+        for j, n in enumerate(t.notes):
+            weight = MELODY_WEIGHT if t.id in melody else LINE_WEIGHT if j in line else 1.0
+            out.append((n.pitch, n.start, n.duration, weight, i))
     return out
 
 

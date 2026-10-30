@@ -90,6 +90,13 @@ def test_chord_names():
     assert name_chord(w((10, 1), (2, 1), (5, 1)), 10, flats=True)[1] == "Bb"  # 플랫 조에서는 Bb
 
 
+def test_minor_sixth_over_its_sixth_is_half_diminished():
+    # E G Bb D 위에 베이스 E: Gm6/E가 아니라 Em7b5 (같은 네 음, 베이스를 근음으로). 베이스가 G면 그대로 Gm6
+    half_dim = w((4, 0.7), (7, 2.5), (10, 2), (2, 1))  # G · Bb가 크게 울려 근음 점수는 G가 앞선다
+    assert name_chord(half_dim, 4, flats=True)[1] == "Em7b5"
+    assert name_chord(half_dim, 7, flats=True)[1] == "Gm6"
+
+
 # ---------- 단조 · 한 마디에 두 코드 · 드럼 ----------
 
 def test_minor_key_with_harmonic_dominant():
@@ -233,6 +240,17 @@ def test_leaping_melody_with_varied_rhythm_stays_melody():
         Track(id="t3", name="Lead", notes=lead),
     ]))
     assert [c.name for c in a.chords] == ["C"]
+
+
+def test_short_top_line_in_a_chord_track_is_not_an_extension():
+    # 한 트랙에서 Em 화음을 누른 채 5도 넘게 위에서 짧게 지나가는 선율 F#(9음)은 Emadd9로 붙이지 않는다 (Alarma).
+    # 같은 높이에서 길게 누르면 화음 음이라 Emadd9
+    chord = [Note(pitch=p, start=0, duration=4) for p in (52, 55, 59)]
+    line = [Note(pitch=q, start=i * 0.5, duration=0.5) for i, q in enumerate((71, 78, 76, 78, 71, 78, 76, 74))]
+    passing = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=chord + line)]))
+    assert passing.chords[0].name == "Em"
+    held = analyze(Project(id="p", tracks=[Track(id="t1", name="Keys", notes=chord + [Note(pitch=78, start=0, duration=4)])]))
+    assert held.chords[0].name == "Emadd9"
 
 
 def test_major_seventh_first_inversion():

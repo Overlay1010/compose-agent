@@ -1,6 +1,6 @@
 from app.harmony import ChordSpan, analyze
 from app.harmony.reharm import suggest
-from app.harmony.voicing import apply_progression, bass_note, revoice
+from app.harmony.voicing import apply_progression, bass_note, fill_tone, revoice
 from app.models.project import Note, Project, Track
 
 from tests.test_harmony import song
@@ -66,8 +66,21 @@ def test_keys_only_track_puts_the_new_root_at_the_bottom():
     light = next(s for s in ss if s.style == "가볍게")
     new, _ = apply_progression(p, a.chords, light.chords)
     assert min(n.pitch for n in new.tracks[0].notes if n.start == 4) % 12 == 2  # D
-    # 세 음뿐이라 근음 D + 3음 · 7음까지 (9음은 자리가 없다 — 음을 더하지는 않는다)
-    assert [c.name for c in analyze(new).chords][1] == "Dm7"
+    # 세 음뿐이라 근음 D + 3음 · 7음까지 담고, 빠진 9음 E는 같은 박 · 길이로 한 음 더한다 (음이 하나 늘어남)
+    at4 = [n for n in new.tracks[0].notes if n.start == 4]
+    assert len(at4) == 4 and all(n.duration == 4 for n in at4) and 4 in {n.pitch % 12 for n in at4}
+    assert [c.name for c in analyze(new).chords][1] == "Dm9"
+
+
+def test_fill_tone_adds_one_missing_color_tone():
+    # 근음 없는 3음(E G B)에 Cmaj9: 9음 D를 묶음 위에 (안쪽엔 반음으로 붙지 않는 자리가 없다)
+    assert fill_tone([64, 67, 71], chord("Cmaj9", 0, "maj9")) == 74
+    # 빠진 게 없으면 더하지 않는다 (근음 · 5음은 베이스 · 다른 음이 채운다)
+    assert fill_tone([64, 71, 74], chord("Cmaj9", 0, "maj9")) is None
+    # 3 · 7음이 먼저: 3화음 모양(C E G)에 C7이면 7음 Bb
+    assert fill_tone([60, 64, 67], chord("C7", 0, "7")) % 12 == 10
+    # 한 음뿐(윗선율 · 펼친 음)이면 그 아래에 — 선율 위로 올라가지 않게
+    assert fill_tone([79], chord("Cmaj9", 0, "maj9"), have={0, 4, 7, 11}) < 79
 
 
 def test_waltz_reads_back_with_tritone_sub():
@@ -88,7 +101,7 @@ def test_anticipated_chord_is_not_cut_at_the_bar_line():
     old, new = chord("Eb", 3, "", 4, 6), chord("Ebmaj7", 3, "maj7", 4, 6)
     out, _ = apply_progression(p, [chord("Dm", 2, "m", 0, 4), old, chord("Dm", 2, "m", 6, 8)], [chord("Dm", 2, "m", 0, 4), new, chord("Dm", 2, "m", 6, 8)])
     moved = sorted((n.pitch, n.start, n.duration) for n in out.tracks[0].notes if n.start == 3)
-    assert [s for _, s, _ in moved] == [3, 3, 3] and all(d == 3 for _, _, d in moved)  # 자르지 않음
+    assert len(moved) >= 3 and all(d == 3 for _, _, d in moved)  # 자르지 않음 (빠진 7음을 더한 음도 같은 박 · 길이)
     assert not [n for n in out.tracks[0].notes if n.start == 4]  # 마디선에서 다시 치지 않음
 
 

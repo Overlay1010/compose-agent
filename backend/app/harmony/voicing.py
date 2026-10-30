@@ -115,6 +115,31 @@ def revoice(pitches: list[int], chord: ChordSpan, root_below: bool = False, floo
     return out
 
 
+def fill_tone(
+    pitches: list[int], chord: ChordSpan, have: set[int] | None = None, floor: int | None = None, ceiling: int | None = None,
+) -> int | None:
+    """옮긴 화음 묶음(pitches)에 더할 빠진 코드 음 하나 (근음 · 5음 말고, PRIORITY 순): 음이 적은 건반(3음)에 Cmaj9를 담으면
+    9음이 빠져 Cmaj7로 들린다. 빠진 게 없거나 자리가 없으면 None.
+    have: 이미 울리는 음 (기본은 pitches). floor · ceiling: 이 사이로만 (같은 트랙의 베이스 위 · 윗선율 아래).
+    자리는 묶음 안쪽 → 위 → 아래, 한 음뿐이면 아래 → 위 (윗선율 위로 올라가지 않게). 같은 음 · 반음으로 붙는 자리는 피한다."""
+    ivs = INTERVALS.get(chord.quality, (0, 4, 7))
+    have = have if have is not None else {p % 12 for p in pitches}
+    missing = [(chord.root + i) % 12 for i in PRIORITY if i in ivs and i not in (0, 7) and (chord.root + i) % 12 not in have]
+    if not missing:
+        return None
+    low, high = min(pitches), max(pitches)
+    lo = floor + 1 if floor is not None else 0
+    hi = ceiling - 1 if ceiling is not None else 127
+    near = [q for q in range(low - 12, high + 13) if q % 12 == missing[0] and lo <= q <= hi and all(abs(q - p) > 1 for p in pitches)]
+    inside = [q for q in near if low < q < high]
+    above = [q for q in near if q > high]
+    below = [q for q in near if q < low][::-1]
+    for group in (inside, above, below) if len(pitches) > 1 else (below, above):
+        if group:
+            return group[0]
+    return None
+
+
 def _shift(old_root: int, new_root: int) -> int:
     """근음 사이 가까운 쪽 반음 수 (−6 ~ +5)."""
     return (new_root - old_root + 6) % 12 - 6
@@ -204,6 +229,17 @@ def self_bass(notes: list[Note], i: int, old: ChordSpan, first: bool) -> bool:
     return min(above) - n.pitch >= CLOSE_BASS or (first and n.pitch % 12 == old.root)
 
 
+def _add(notes: list[Note], origin: list[int], stroke: list[int], pitch: int | None) -> None:
+    """stroke(같이 친 음 번호들)와 같은 박 · 길이 · 세기로 pitch 음을 더한다 (origin -1 = 원래 없던 음)."""
+    if pitch is None:
+        return
+    s = min(notes[i].start for i in stroke)
+    e = max(notes[i].start + notes[i].duration for i in stroke)
+    vel = round(sum(notes[i].velocity for i in stroke) / len(stroke))
+    notes.append(Note(pitch=pitch, start=round(s, 4), duration=round(e - s, 4), velocity=vel))
+    origin.append(-1)
+
+
 def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSpan]) -> tuple[Project, dict[str, int]]:
     """(새 프로젝트, 트랙 이름별 바뀐 음 수). 원래 project는 고치지 않는다."""
     segs = segments(base, new)
@@ -248,6 +284,8 @@ def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSp
                 continue
             # 베이스 트랙이 없으면(왈츠 왼손 "쿵-짝-짝", 한 트랙에 베이스 · 화음 · 윗선율이 섞인 루프) 음마다 베이스인지 본다:
             # 그 순간 울리는 음 중 맨 아래이고 위 음과 5도 넘게 떨어졌거나, 구간 첫 박에 혼자 친 음. 베이스는 베이스 트랙처럼 옮긴다
+            opening = None  # 구간 첫 묶음 (베이스 뺀 음, 베이스 음)
+            added = len(notes)  # 이 구간에서 더한 음은 여기부터
             for k, stroke in enumerate(_strokes(idx, notes, seg.start)):
                 stroke = sorted(stroke, key=lambda i: notes[i].pitch)
                 low = stroke[0]
@@ -256,6 +294,8 @@ def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSp
                     notes[low] = notes[low].model_copy(update={"pitch": bass_note(notes[low].pitch, seg.old, seg.new)})
                     floor = notes[low].pitch
                     stroke = stroke[1:]
+                if k == 0:
+                    opening = (stroke, floor)
                 # 맨 위 음이 바로 아래 음과 5도 넘게 떨어졌으면 화음이 아니라 윗선율 (한 트랙에 섞인 멜로디). 혼자 친 음도 선율처럼
                 gap = len(stroke) >= 2 and notes[stroke[-1]].pitch - notes[stroke[-2]].pitch >= CLOSE_BASS
                 line = stroke if len(stroke) == 1 else stroke[-1:] if gap else []
@@ -268,6 +308,15 @@ def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSp
                     moved = revoice([notes[i].pitch for i in stroke], seg.new, floor=floor)
                     for i, p in zip(stroke, moved):
                         notes[i] = notes[i].model_copy(update={"pitch": p})
+                    # 음이 모자라 3 · 7음이나 텐션(9 · 13음)이 빠졌으면 같은 박 · 세기로 한 음 더한다 (Cmaj9가 Cmaj7로 들리지 않게)
+                    have = {notes[i].pitch % 12 for i in [*stroke, *line]} | ({floor % 12} if floor is not None else set())
+                    ceiling = min((notes[i].pitch for i in line), default=None)
+                    _add(notes, origin, stroke, fill_tone([notes[i].pitch for i in stroke], seg.new, have, floor, ceiling))
+            # 묶음이 선율 · 펼침화음으로 흩어져 있으면(Dreamer: 베이스 + 펼친 3화음 + 위 두 음) 구간 전체에 없을 때 첫 묶음에
+            if opening and opening[0]:
+                upper, floor = opening
+                have = {notes[i].pitch % 12 for i in [*idx, *range(added, len(notes))]}
+                _add(notes, origin, upper, fill_tone([notes[i].pitch for i in upper], seg.new, have, floor))
         # 나눈 조각이 다시 같은 음높이면 잇는다 (자른 자리에서 같은 음을 두 번 치지 않게)
         joined: list[Note] = []
         for i, n in enumerate(notes):
