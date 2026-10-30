@@ -1,0 +1,6380 @@
+{
+  "summary": {
+    "model": "claude-haiku-5-5",
+    "date": "2026-10-30T09:22:14",
+    "cases": 103,
+    "passed": 102,
+    "tool_choice_ok": 103,
+    "median_seconds": 2.79,
+    "mean_llm_calls": 2.09,
+    "mean_input_tokens": 36171,
+    "mean_cached_tokens": 35535,
+    "mean_output_tokens": 318,
+    "recovered": 0,
+    "by_category": {
+      "조옮김": "7/7",
+      "퀀타이즈": "5/5",
+      "세기": "6/6",
+      "스윙": "4/4",
+      "여러 도구": "4/4",
+      "템포": "3/3",
+      "악기": "12/12",
+      "음 · 마디": "6/6",
+      "연주 느낌": "4/4",
+      "믹스": "3/3",
+      "트랙": "4/4",
+      "되묻기 · 정보": "7/7",
+      "고른 부분": "5/5",
+      "화성 분석": "5/5",
+      "리하모니": "7/7",
+      "만들기": "8/8",
+      "영어": "3/4",
+      "이어지는 대화": "6/6",
+      "스스로 고치기": "3/3"
+    }
+  },
+  "rows": [
+    {
+      "id": "T01",
+      "category": "조옮김",
+      "command": "베이스 2키 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개를 2반음 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 1.98,
+      "llm_calls": 2,
+      "input_tokens": 37841,
+      "cached_tokens": 37249,
+      "output_tokens": 133,
+      "recovered": false
+    },
+    {
+      "id": "T02",
+      "category": "조옮김",
+      "command": "멜로디 한 옥타브 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": -1,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 1옥타브 내렸어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "멜로디 트랙인 Lead의 음 47개를 한 옥타브 내렸어요. 미리보기로 들어 보고 적용하면 됩니다.",
+      "seconds": 2.63,
+      "llm_calls": 2,
+      "input_tokens": 37856,
+      "cached_tokens": 37254,
+      "output_tokens": 277,
+      "recovered": false
+    },
+    {
+      "id": "T03",
+      "category": "조옮김",
+      "command": "전체를 반음 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": -1
+          },
+          "ok": true,
+          "summary": "Bass, Rhodes, Pad, Lead 트랙 224개 음을 1반음 내렸어요.",
+          "changed_notes": 224,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Bass, Rhodes, Pad, Lead 트랙의 음 224개를 전체 반음 내렸어요. 드럼은 그대로예요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.38,
+      "llm_calls": 2,
+      "input_tokens": 37828,
+      "cached_tokens": 37249,
+      "output_tokens": 212,
+      "recovered": false
+    },
+    {
+      "id": "T04",
+      "category": "조옮김",
+      "command": "건반 5반음 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 5,
+            "track_ids": [
+              "t3"
+            ]
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙 92개 음을 5반음 올렸어요.",
+          "changed_notes": 92,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "건반(Rhodes) 트랙의 음 92개를 5반음 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.69,
+      "llm_calls": 2,
+      "input_tokens": 37843,
+      "cached_tokens": 37249,
+      "output_tokens": 326,
+      "recovered": false
+    },
+    {
+      "id": "T05",
+      "category": "조옮김",
+      "command": "2마디부터 4마디까지 베이스 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": 1,
+            "bars": [
+              2,
+              4
+            ],
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 12개 음을 1옥타브 올렸어요.",
+          "changed_notes": 12,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "2~4마디의 베이스 음 12개를 한 옥타브 올렸어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.36,
+      "llm_calls": 2,
+      "input_tokens": 37904,
+      "cached_tokens": 37265,
+      "output_tokens": 162,
+      "recovered": false
+    },
+    {
+      "id": "T06",
+      "category": "조옮김",
+      "command": "패드를 두 옥타브 위로",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": 2,
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 2옥타브 올렸어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "패드 트랙의 음 24개를 두 옥타브 위로 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 5.12,
+      "llm_calls": 2,
+      "input_tokens": 37849,
+      "cached_tokens": 37251,
+      "output_tokens": 338,
+      "recovered": false
+    },
+    {
+      "id": "T07",
+      "category": "조옮김",
+      "command": "리드 7키 내려",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": -7,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 7반음 내렸어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "리드(Lead) 트랙의 음 47개를 7반음 내렸어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.74,
+      "llm_calls": 2,
+      "input_tokens": 37836,
+      "cached_tokens": 37246,
+      "output_tokens": 202,
+      "recovered": false
+    },
+    {
+      "id": "Q01",
+      "category": "퀀타이즈",
+      "command": "코드 박자 맞춰줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "grid": 0.25
+          },
+          "ok": true,
+          "summary": "Chords 트랙 65개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 65,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "코드 트랙(Chords)의 음 65개를 16분음표 격자에 맞췄어요. 길이는 그대로 두었고, 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.1,
+      "llm_calls": 2,
+      "input_tokens": 37730,
+      "cached_tokens": 37190,
+      "output_tokens": 221,
+      "recovered": false
+    },
+    {
+      "id": "Q02",
+      "category": "퀀타이즈",
+      "command": "코드 박자 정리해줘, 너무 딱딱하진 않게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "grid": 0.25,
+            "strength": 0.7
+          },
+          "ok": true,
+          "summary": "Chords 트랙 65개 음을 16분음표 격자에 맞췄어요 (강도 70%).",
+          "changed_notes": 65,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "코드(Chords) 트랙의 음 65개를 16분음표 격자에 70% 강도로 맞춰 미리보기로 만들어 두었어요. 완전히 딱 맞추지 않아서 약간의 여유는 남아 있어요. 들어 보고 적용하거나 취소하면 됩니다.",
+      "seconds": 2.41,
+      "llm_calls": 2,
+      "input_tokens": 37787,
+      "cached_tokens": 37203,
+      "output_tokens": 279,
+      "recovered": false
+    },
+    {
+      "id": "Q03",
+      "category": "퀀타이즈",
+      "command": "전부 16분음표로 퀀타이즈해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "grid": 0.25
+          },
+          "ok": true,
+          "summary": "FPC, Chords, Bass, Melody 트랙 300개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 300,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "전체 트랙(드럼, 코드, 베이스, 멜로디) 300개 음을 16분음표 격자에 맞춰 정리했어요. 길이는 그대로 두었고, 미리보기로 들어 보신 뒤 적용하시면 됩니다.",
+      "seconds": 1.96,
+      "llm_calls": 2,
+      "input_tokens": 37728,
+      "cached_tokens": 37197,
+      "output_tokens": 146,
+      "recovered": false
+    },
+    {
+      "id": "Q04",
+      "category": "퀀타이즈",
+      "command": "드럼만 8분음표 격자로 맞춰",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "grid": 0.5
+          },
+          "ok": true,
+          "summary": "FPC 트랙 152개 음을 8분음표 격자에 맞췄어요.",
+          "changed_notes": 152,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 트랙(FPC)의 음 152개를 8분음표 격자에 맞췄어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 1.81,
+      "llm_calls": 2,
+      "input_tokens": 37742,
+      "cached_tokens": 37196,
+      "output_tokens": 140,
+      "recovered": false
+    },
+    {
+      "id": "Q05",
+      "category": "퀀타이즈",
+      "command": "베이스 박자를 50%만 당겨줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t3"
+            ],
+            "strength": 0.5
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 16분음표 격자에 맞췄어요 (강도 50%).",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개를 16분음표 격자에 50%만 당겨 맞췄어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.15,
+      "llm_calls": 2,
+      "input_tokens": 37747,
+      "cached_tokens": 37195,
+      "output_tokens": 216,
+      "recovered": false
+    },
+    {
+      "id": "V01",
+      "category": "세기",
+      "command": "하이햇 좀 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 116,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "하이햇(닫힘·열림) 음 116개의 세기를 70%로 줄였어요. 미리보기에서 들어 보고 적용하면 됩니다.",
+      "seconds": 3.16,
+      "llm_calls": 2,
+      "input_tokens": 37900,
+      "cached_tokens": 37249,
+      "output_tokens": 415,
+      "recovered": false
+    },
+    {
+      "id": "V02",
+      "category": "세기",
+      "command": "킥만 세게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 1.3,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              36
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 38개 음의 세기를 130%로 키웠어요.",
+          "changed_notes": 38,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "킥 소리만 세기를 130%로 키웠어요. 드럼의 다른 소리와 나머지 트랙은 그대로예요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.86,
+      "llm_calls": 2,
+      "input_tokens": 37887,
+      "cached_tokens": 37244,
+      "output_tokens": 360,
+      "recovered": false
+    },
+    {
+      "id": "V03",
+      "category": "세기",
+      "command": "9마디부터 패드 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "bars": [
+              9,
+              16
+            ],
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "9마디부터 끝까지 Pad 트랙의 세기를 70%로 낮췄어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.18,
+      "llm_calls": 2,
+      "input_tokens": 37901,
+      "cached_tokens": 37250,
+      "output_tokens": 197,
+      "recovered": false
+    },
+    {
+      "id": "V04",
+      "category": "세기",
+      "command": "멜로디 세기를 전부 100으로 맞춰",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "set",
+            "value": 100,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음의 세기를 모두 100에 맞췄어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Lead 트랙의 음 47개 세기를 모두 100으로 맞췄어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.28,
+      "llm_calls": 2,
+      "input_tokens": 37890,
+      "cached_tokens": 37258,
+      "output_tokens": 230,
+      "recovered": false
+    },
+    {
+      "id": "V05",
+      "category": "세기",
+      "command": "베이스 볼륨 20 줄여줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_mix",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "volume_offset": -20
+          },
+          "ok": true,
+          "summary": "Bass 볼륨 100 → 80(으)로 바꿨어요. 음 세기는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 볼륨을 100에서 80으로 줄였어요. 음 세기는 그대로예요.",
+      "seconds": 2.7,
+      "llm_calls": 2,
+      "input_tokens": 37870,
+      "cached_tokens": 37254,
+      "output_tokens": 120,
+      "recovered": false
+    },
+    {
+      "id": "V06",
+      "category": "세기",
+      "command": "스네어 조금 더 세게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 1.3,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              38
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 28개 음의 세기를 130%로 키웠어요.",
+          "changed_notes": 28,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "스네어 음 28개의 세기를 130%로 키웠어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.62,
+      "llm_calls": 2,
+      "input_tokens": 37897,
+      "cached_tokens": 37249,
+      "output_tokens": 285,
+      "recovered": false
+    },
+    {
+      "id": "S01",
+      "category": "스윙",
+      "command": "하이햇에 살짝 스윙 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "percent": 56,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 58개 음에 8분음표 스윙 56%를 넣었어요.",
+          "changed_notes": 58,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "하이햇 58개 음에 살짝 스윙(56%)을 넣었어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.79,
+      "llm_calls": 2,
+      "input_tokens": 37892,
+      "cached_tokens": 37257,
+      "output_tokens": 356,
+      "recovered": false
+    },
+    {
+      "id": "S02",
+      "category": "스윙",
+      "command": "드럼에 스윙 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "percent": 61,
+            "track_ids": [
+              "t1"
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 75개 음에 8분음표 스윙 61%를 넣었어요.",
+          "changed_notes": 75,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 트랙에 8분음표 기준으로 스윙 61%를 넣었어요. 뒷박 음 75개가 살짝 늦게 울려서 그루브가 더 느긋해졌을 거예요. 들어 보고 괜찮으면 적용하세요.",
+      "seconds": 3.44,
+      "llm_calls": 2,
+      "input_tokens": 37854,
+      "cached_tokens": 37252,
+      "output_tokens": 303,
+      "recovered": false
+    },
+    {
+      "id": "S03",
+      "category": "스윙",
+      "command": "16분음표 스윙 60%로 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "percent": 60,
+            "grid": 0.25
+          },
+          "ok": true,
+          "summary": "Drums 트랙 13개 음에 16분음표 스윙 60%를 넣었어요.",
+          "changed_notes": 13,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "16분음표 스윙 60%를 넣었어요. 드럼 트랙에서 뒷박 16분음표 13개가 조금 늦춰졌고, 다른 트랙은 뒷박 16분음표가 없어 그대로예요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 3.29,
+      "llm_calls": 2,
+      "input_tokens": 37858,
+      "cached_tokens": 37256,
+      "output_tokens": 420,
+      "recovered": false
+    },
+    {
+      "id": "S04",
+      "category": "스윙",
+      "command": "베이스에 셔플 느낌 강하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "swing",
+          "args": {
+            "percent": 66,
+            "grid": 0.5,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 45개 음에 8분음표 스윙 66%를 넣었어요.",
+          "changed_notes": 45,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 8분음표 뒷박 45개에 스윙 66%를 넣었어요. 셔플 느낌이 나는지 미리보기로 들어 보세요. 더 강하게 하려면 75%까지 올릴 수 있어요.",
+      "seconds": 6.1,
+      "llm_calls": 2,
+      "input_tokens": 37882,
+      "cached_tokens": 37254,
+      "output_tokens": 318,
+      "recovered": false
+    },
+    {
+      "id": "M01",
+      "category": "여러 도구",
+      "command": "하이햇 좀 약하게 하고 살짝 스윙 넣어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 116,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "swing",
+          "args": {
+            "percent": 56,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 58개 음에 8분음표 스윙 56%를 넣었어요.",
+          "changed_notes": 58,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "하이햇(닫힘·열림) 음의 세기를 70%로 줄이고, 8분음표 기준으로 살짝 스윙(56%)을 넣었어요. 미리보기로 들어 보고 적용해 주세요.",
+      "seconds": 3.25,
+      "llm_calls": 2,
+      "input_tokens": 38144,
+      "cached_tokens": 37266,
+      "output_tokens": 455,
+      "recovered": false
+    },
+    {
+      "id": "M02",
+      "category": "여러 도구",
+      "command": "베이스 2키 올리고 멜로디는 한 옥타브 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": -1,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 1옥타브 내렸어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙을 2반음 올리고, 멜로디(Lead 트랙)는 1옥타브 내렸어요. 미리보기로 들어 보고 적용하거나 취소하실 수 있어요.",
+      "seconds": 2.5,
+      "llm_calls": 2,
+      "input_tokens": 38054,
+      "cached_tokens": 37266,
+      "output_tokens": 348,
+      "recovered": false
+    },
+    {
+      "id": "M03",
+      "category": "여러 도구",
+      "command": "드럼 박자 맞추고 하이햇은 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "grid": 0.25
+          },
+          "ok": true,
+          "summary": "FPC 트랙 150개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 150,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42
+            ]
+          },
+          "ok": true,
+          "summary": "FPC 트랙 128개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 128,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 트랙의 음 150개를 16분음표 격자에 맞췄고, 하이햇(닫힌 하이햇) 128개의 세기를 70%로 줄였어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.97,
+      "llm_calls": 2,
+      "input_tokens": 37980,
+      "cached_tokens": 37199,
+      "output_tokens": 429,
+      "recovered": false
+    },
+    {
+      "id": "M04",
+      "category": "여러 도구",
+      "command": "9마디부터 패드 약하게 하고 베이스 2키 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "bars": [
+              9,
+              16
+            ],
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "9마디부터 끝까지 Pad 트랙의 세기를 70%로 줄였고, Bass 트랙 음을 2반음 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.71,
+      "llm_calls": 2,
+      "input_tokens": 38107,
+      "cached_tokens": 37265,
+      "output_tokens": 375,
+      "recovered": false
+    },
+    {
+      "id": "P01",
+      "category": "템포",
+      "command": "템포 100으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_tempo",
+          "args": {
+            "mode": "set",
+            "value": 100
+          },
+          "ok": true,
+          "summary": "템포를 84 → 100 BPM으로 바꿨어요. 마디 위치는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "템포를 84에서 100 BPM으로 바꿨어요. 마디 위치는 그대로라 음 배치는 그대로예요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.06,
+      "llm_calls": 2,
+      "input_tokens": 37852,
+      "cached_tokens": 37251,
+      "output_tokens": 145,
+      "recovered": false
+    },
+    {
+      "id": "P02",
+      "category": "템포",
+      "command": "BPM 10 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_tempo",
+          "args": {
+            "mode": "offset",
+            "value": 10
+          },
+          "ok": true,
+          "summary": "템포를 84 → 94 BPM으로 바꿨어요. 마디 위치는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "템포를 84에서 94 BPM으로 올렸어요. 마디 위치는 그대로예요.",
+      "seconds": 1.88,
+      "llm_calls": 2,
+      "input_tokens": 37847,
+      "cached_tokens": 37248,
+      "output_tokens": 110,
+      "recovered": false
+    },
+    {
+      "id": "P03",
+      "category": "템포",
+      "command": "조금만 빠르게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_tempo",
+          "args": {
+            "mode": "set",
+            "value": 90
+          },
+          "ok": true,
+          "summary": "템포를 84 → 90 BPM으로 바꿨어요. 마디 위치는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "템포를 84에서 90 BPM으로 조금 올렸어요. 미리보기로 들어 보고 적용해 주세요.",
+      "seconds": 3.28,
+      "llm_calls": 2,
+      "input_tokens": 37842,
+      "cached_tokens": 37246,
+      "output_tokens": 212,
+      "recovered": false
+    },
+    {
+      "id": "I01",
+      "category": "악기",
+      "command": "베이스를 신스 베이스로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "program": 38
+          },
+          "ok": true,
+          "summary": "Bass(Electric Bass (finger)) 악기를 38 Synth Bass 1(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙을 신스 베이스로 바꿨어요. 음은 그대로고 소리만 달라졌어요.",
+      "seconds": 2.18,
+      "llm_calls": 2,
+      "input_tokens": 37885,
+      "cached_tokens": 37257,
+      "output_tokens": 183,
+      "recovered": false
+    },
+    {
+      "id": "I02",
+      "category": "악기",
+      "command": "Rhodes를 그랜드 피아노 소리로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t3"
+            ],
+            "program": 0
+          },
+          "ok": true,
+          "summary": "Rhodes(Electric Piano 1) 악기를 0 Acoustic Grand Piano(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙의 악기를 그랜드 피아노로 바꿨어요. 음은 그대로예요.",
+      "seconds": 1.91,
+      "llm_calls": 2,
+      "input_tokens": 37902,
+      "cached_tokens": 37264,
+      "output_tokens": 172,
+      "recovered": false
+    },
+    {
+      "id": "I03",
+      "category": "악기",
+      "command": "멜로디를 바이올린으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "program": 40
+          },
+          "ok": true,
+          "summary": "Lead(Lead 1 (square)) 악기를 40 Violin(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Lead 트랙의 악기를 바이올린으로 바꿨어요. 음은 그대로예요.",
+      "seconds": 2.54,
+      "llm_calls": 2,
+      "input_tokens": 37879,
+      "cached_tokens": 37257,
+      "output_tokens": 261,
+      "recovered": false
+    },
+    {
+      "id": "I04",
+      "category": "악기",
+      "command": "패드를 스트링으로 바꾸고 템포 90으로 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "program": 48
+          },
+          "ok": true,
+          "summary": "Pad(Pad 2 (warm)) 악기를 48 String Ensemble 1(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "set_tempo",
+          "args": {
+            "mode": "set",
+            "value": 90
+          },
+          "ok": true,
+          "summary": "템포를 84 → 90 BPM으로 바꿨어요. 마디 위치는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "패드 트랙의 악기를 스트링 앙상블로 바꿨고, 템포는 84에서 90 BPM으로 바꿨어요. 음은 그대로예요.",
+      "seconds": 3.45,
+      "llm_calls": 2,
+      "input_tokens": 38082,
+      "cached_tokens": 37264,
+      "output_tokens": 261,
+      "recovered": false
+    },
+    {
+      "id": "I06",
+      "category": "악기",
+      "command": "드럼을 808 킷으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "program": 25
+          },
+          "ok": true,
+          "summary": "Drums 드럼 킷을 TR-808(25)(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 킷을 TR-808로 바꿨어요. 음은 그대로라 리듬은 그대로 들을 수 있어요. 미리보기로 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 2.03,
+      "llm_calls": 2,
+      "input_tokens": 37872,
+      "cached_tokens": 37256,
+      "output_tokens": 154,
+      "recovered": false
+    },
+    {
+      "id": "I07",
+      "category": "악기",
+      "command": "드럼 소리를 일렉트로닉으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "program": 24
+          },
+          "ok": true,
+          "summary": "Drums 드럼 킷을 일렉트로닉(24)(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 킷을 일렉트로닉으로 바꿨어요. 음은 그대로라 리듬과 패턴은 같고 소리만 달라졌어요. 미리보기로 들어 보시고 괜찮으면 적용해 주세요.",
+      "seconds": 4.7,
+      "llm_calls": 2,
+      "input_tokens": 37887,
+      "cached_tokens": 37262,
+      "output_tokens": 217,
+      "recovered": false
+    },
+    {
+      "id": "I08",
+      "category": "악기",
+      "command": "드럼을 좀 더 로파이한 킷으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "program": 27
+          },
+          "ok": true,
+          "summary": "Drums 드럼 킷을 로파이(27)(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 킷을 로파이로 바꿨어요. 음은 그대로라 리듬은 그대로 두고 소리만 먹먹하고 칠한 느낌으로 바뀌었어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.19,
+      "llm_calls": 2,
+      "input_tokens": 37887,
+      "cached_tokens": 37264,
+      "output_tokens": 177,
+      "recovered": false
+    },
+    {
+      "id": "I09",
+      "category": "악기",
+      "command": "재즈 드럼 킷으로 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_instrument",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "program": 32
+          },
+          "ok": true,
+          "summary": "Drums 드럼 킷을 재즈(32)(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 킷을 재즈 킷으로 바꿨어요. 음은 그대로라 리듬은 그대로 들려요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 1.92,
+      "llm_calls": 2,
+      "input_tokens": 37867,
+      "cached_tokens": 37254,
+      "output_tokens": 199,
+      "recovered": false
+    },
+    {
+      "id": "I10",
+      "category": "악기",
+      "command": "탐 소리가 너무 촌스러워",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_drum_sound",
+          "args": {
+            "track_id": "t1",
+            "pitches": [
+              43,
+              45,
+              48,
+              50
+            ],
+            "sound": "tom_round"
+          },
+          "ok": true,
+          "summary": "Drums 탐 소리를 둥근 로파이 탐(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "탐 소리를 둥근 로파이 탐으로 바꿨어요. 쓰인 탐 세 가지(Floor, Low, Hi-Mid, High Tom)에 모두 적용했고, 음 위치는 그대로예요. 더 다른 느낌을 원하면 깊은 탐이나 808 탐으로도 바꿀 수 있어요.",
+      "seconds": 6.06,
+      "llm_calls": 2,
+      "input_tokens": 37904,
+      "cached_tokens": 37253,
+      "output_tokens": 520,
+      "recovered": false
+    },
+    {
+      "id": "I11",
+      "category": "악기",
+      "command": "킥만 808 킥으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_drum_sound",
+          "args": {
+            "track_id": "t1",
+            "pitches": [
+              36
+            ],
+            "sound": "kick_808"
+          },
+          "ok": true,
+          "summary": "Drums 킥 소리를 808 킥(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 트랙의 킥을 808 킥으로 바꿨어요. 음은 그대로이고 소리만 달라졌어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.97,
+      "llm_calls": 2,
+      "input_tokens": 37893,
+      "cached_tokens": 37255,
+      "output_tokens": 428,
+      "recovered": false
+    },
+    {
+      "id": "I12",
+      "category": "악기",
+      "command": "하이햇을 부드러운 걸로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_drum_sound",
+          "args": {
+            "track_id": "t1",
+            "pitches": [
+              42
+            ],
+            "sound": "hat_soft"
+          },
+          "ok": true,
+          "summary": "Drums 닫힌 하이햇 소리를 작고 부드러운 하이햇(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "set_drum_sound",
+          "args": {
+            "track_id": "t1",
+            "pitches": [
+              46
+            ],
+            "sound": "openhat_soft"
+          },
+          "ok": true,
+          "summary": "Drums 열린 하이햇 소리를 부드러운 오픈햇(으)로 바꿨어요. 음은 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼의 닫힌 하이햇과 열린 하이햇을 부드러운 소리로 바꿨어요. 음 위치와 세기는 그대로예요. 미리보기로 들어 보시고 괜찮으면 적용해 주세요.",
+      "seconds": 3.94,
+      "llm_calls": 2,
+      "input_tokens": 38150,
+      "cached_tokens": 37259,
+      "output_tokens": 451,
+      "recovered": false
+    },
+    {
+      "id": "I05",
+      "category": "악기",
+      "command": "드럼을 피아노 소리로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "드럼은 피아노 같은 다른 악기로 바꿀 수 없어요. 대신 드럼 킷을 바꾸거나 소리 하나씩만 바꿀 수 있어요. 로파이 느낌에 맞는 로파이 킷, 따뜻한 재즈 킷, 90년대 힙합 붐뱁 킷 중에서 골라 드릴까요? 피아노 음색이 필요하시면 Rhodes 트랙을 활용하거나 피아노 악기로 새 패드를 깔 수도 있어요.",
+      "seconds": 2.36,
+      "llm_calls": 1,
+      "input_tokens": 18864,
+      "cached_tokens": 18397,
+      "output_tokens": 318,
+      "recovered": false
+    },
+    {
+      "id": "E01",
+      "category": "음 · 마디",
+      "command": "8마디부터 드럼 빼줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "delete_notes",
+          "args": {
+            "bars": [
+              8,
+              16
+            ],
+            "track_ids": [
+              "t1"
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 107개 음을 지웠어요 (8~16마디).",
+          "changed_notes": 107,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "8마디부터 끝까지 Drums 트랙의 음 107개를 지웠어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 6.31,
+      "llm_calls": 2,
+      "input_tokens": 37856,
+      "cached_tokens": 37252,
+      "output_tokens": 260,
+      "recovered": false
+    },
+    {
+      "id": "E02",
+      "category": "음 · 마디",
+      "command": "하이햇 전부 지워줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "delete_notes",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음을 지웠어요.",
+          "changed_notes": 116,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 트랙의 하이햇(닫힘·열림) 음 116개를 지웠어요. 킥, 스네어, 탐, 심벌은 그대로 남아 있어요.",
+      "seconds": 3.17,
+      "llm_calls": 2,
+      "input_tokens": 37846,
+      "cached_tokens": 37250,
+      "output_tokens": 349,
+      "recovered": false
+    },
+    {
+      "id": "E03",
+      "category": "음 · 마디",
+      "command": "베이스 짧게 끊어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_length",
+          "args": {
+            "mode": "scale",
+            "value": 0.5,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음의 길이를 50%로 줄였어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개 길이를 절반으로 줄여 짧게 끊었어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.89,
+      "llm_calls": 2,
+      "input_tokens": 37872,
+      "cached_tokens": 37251,
+      "output_tokens": 246,
+      "recovered": false
+    },
+    {
+      "id": "E04",
+      "category": "음 · 마디",
+      "command": "Rhodes 음 사이 빈틈 없이 이어지게 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_length",
+          "args": {
+            "mode": "legato",
+            "track_ids": [
+              "t3"
+            ]
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙 60개 음의 길이를 다음 음까지 이어지게 늘렸어요.",
+          "changed_notes": 60,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙의 음 60개를 다음 음이 시작할 때까지 늘려서 음 사이 빈틈을 없앴어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.98,
+      "llm_calls": 2,
+      "input_tokens": 37888,
+      "cached_tokens": 37265,
+      "output_tokens": 201,
+      "recovered": false
+    },
+    {
+      "id": "E05",
+      "category": "음 · 마디",
+      "command": "1~4마디 드럼을 5~8마디에 복사해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "copy_bars",
+          "args": {
+            "bars": [
+              1,
+              4
+            ],
+            "to_bar": 5,
+            "track_ids": [
+              "t1"
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 1~4마디를 5~8마디에 복사했어요 (음 51개). 그 자리에 있던 음 52개는 지웠어요.",
+          "changed_notes": 103,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "1~4마디의 드럼 패턴을 5~8마디에 그대로 복사했어요. 원래 5~8마디에 있던 드럼 음 52개는 지워지고 새 음 51개가 들어갔어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 2.48,
+      "llm_calls": 2,
+      "input_tokens": 37927,
+      "cached_tokens": 37261,
+      "output_tokens": 296,
+      "recovered": false
+    },
+    {
+      "id": "E06",
+      "category": "음 · 마디",
+      "command": "1~2마디를 16마디까지 계속 반복해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "copy_bars",
+          "args": {
+            "bars": [
+              1,
+              2
+            ],
+            "to_bar": 3,
+            "times": 7
+          },
+          "ok": true,
+          "summary": "Drums, Bass, Rhodes, Lead 트랙 1~2마디를 3~16마디에 7번 복사했어요 (음 357개). 그 자리에 있던 음 344개는 지웠어요.",
+          "changed_notes": 701,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "1~2마디를 3마디부터 16마디까지 7번 이어 붙여 반복했어요. 드럼, 베이스, Rhodes, 리드 트랙이 대상이고, 3~16마디에 원래 있던 음 344개는 지워지고 복사한 음으로 바뀌었어요. 패드 트랙은 요약에 없어서 복사되지 않았을 수 있으니 확인해 보세요.",
+      "seconds": 9.59,
+      "llm_calls": 2,
+      "input_tokens": 37933,
+      "cached_tokens": 37259,
+      "output_tokens": 566,
+      "recovered": false
+    },
+    {
+      "id": "H01",
+      "category": "연주 느낌",
+      "command": "드럼을 사람이 친 것처럼 살짝 흔들어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "humanize",
+          "args": {
+            "track_ids": [
+              "t1"
+            ],
+            "timing": 0.01,
+            "velocity": 6
+          },
+          "ok": true,
+          "summary": "Drums 트랙 195개 음을 사람이 친 것처럼 흔들었어요 (박자 ±0.01박 · 세기 ±6).",
+          "changed_notes": 195,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼 트랙의 음 195개를 살짝 흔들었어요. 박자는 ±0.01박, 세기는 ±6 범위예요. 미리보기로 들어 보고 적용하거나 취소하면 돼요.",
+      "seconds": 1.93,
+      "llm_calls": 2,
+      "input_tokens": 37923,
+      "cached_tokens": 37264,
+      "output_tokens": 183,
+      "recovered": false
+    },
+    {
+      "id": "H02",
+      "category": "연주 느낌",
+      "command": "리드가 너무 기계 같아, 사람이 연주한 느낌으로 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "humanize",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "timing": 0.02,
+            "velocity": 10
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 사람이 친 것처럼 흔들었어요 (박자 ±0.02박 · 세기 ±10).",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "리드 트랙의 47개 음에 사람이 연주한 듯한 자연스러운 흔들림을 넣었어요. 박자는 ±0.02박, 세기는 ±10 범위로 흔들었고, 미리보기로 들어 보시고 적용하면 됩니다. 더 자연스럽게 하고 싶으면 \"많이\"로 흔들림을 키울 수 있어요.",
+      "seconds": 3.93,
+      "llm_calls": 2,
+      "input_tokens": 37933,
+      "cached_tokens": 37269,
+      "output_tokens": 335,
+      "recovered": false
+    },
+    {
+      "id": "H03",
+      "category": "연주 느낌",
+      "command": "마지막 4마디 점점 작게 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "velocity_ramp",
+          "args": {
+            "start": 1,
+            "end": 0.4,
+            "bars": [
+              13,
+              16
+            ]
+          },
+          "ok": true,
+          "summary": "Drums, Bass, Rhodes, Pad, Lead 트랙 94개 음을 점점 여리게 바꿨어요 (세기 100% → 40%).",
+          "changed_notes": 94,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "마지막 4마디(13~16마디)를 점점 작아지도록 바꿨어요. 세기가 100%에서 40%까지 줄어들어요. 드럼, 베이스, Rhodes, Pad, Lead 트랙 94개 음이 적용됐고, 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.67,
+      "llm_calls": 2,
+      "input_tokens": 37910,
+      "cached_tokens": 37255,
+      "output_tokens": 296,
+      "recovered": false
+    },
+    {
+      "id": "H04",
+      "category": "연주 느낌",
+      "command": "처음 4마디 Rhodes 점점 크게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "velocity_ramp",
+          "args": {
+            "bars": [
+              1,
+              4
+            ],
+            "start": 0.5,
+            "end": 1.0,
+            "track_ids": [
+              "t3"
+            ]
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙 16개 음을 점점 세게 바꿨어요 (세기 50% → 100%).",
+          "changed_notes": 16,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙의 1~4마디 음 16개를 세기 50%에서 100%까지 점점 세지도록 바꿨어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 4.69,
+      "llm_calls": 2,
+      "input_tokens": 37925,
+      "cached_tokens": 37256,
+      "output_tokens": 275,
+      "recovered": false
+    },
+    {
+      "id": "X01",
+      "category": "믹스",
+      "command": "패드 볼륨 좀 줄여줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_mix",
+          "args": {
+            "track_ids": [
+              "t4"
+            ],
+            "volume_offset": -12
+          },
+          "ok": true,
+          "summary": "Pad 볼륨 100 → 88(으)로 바꿨어요. 음 세기는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "패드 볼륨을 100에서 88로 조금 줄였어요. 음 세기는 그대로예요.",
+      "seconds": 2.32,
+      "llm_calls": 2,
+      "input_tokens": 37870,
+      "cached_tokens": 37254,
+      "output_tokens": 208,
+      "recovered": false
+    },
+    {
+      "id": "X02",
+      "category": "믹스",
+      "command": "리드를 왼쪽으로 조금 보내줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_mix",
+          "args": {
+            "track_ids": [
+              "t5"
+            ],
+            "pan": -20
+          },
+          "ok": true,
+          "summary": "Lead 팬 가운데 → 왼쪽 20(으)로 바꿨어요. 음 세기는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "리드(Lead) 트랙의 팬을 가운데에서 왼쪽으로 20만큼 옮겼어요. 음 세기는 그대로예요.",
+      "seconds": 2.54,
+      "llm_calls": 2,
+      "input_tokens": 37879,
+      "cached_tokens": 37257,
+      "output_tokens": 136,
+      "recovered": false
+    },
+    {
+      "id": "X03",
+      "category": "믹스",
+      "command": "Rhodes는 오른쪽으로 보내고 볼륨은 80으로 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "set_mix",
+          "args": {
+            "track_ids": [
+              "t3"
+            ],
+            "pan": 40,
+            "volume": 80
+          },
+          "ok": true,
+          "summary": "Rhodes 볼륨 100 → 80 · 팬 가운데 → 오른쪽 40(으)로 바꿨어요. 음 세기는 그대로예요.",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙을 오른쪽으로 40만큼 옮기고 볼륨을 80으로 맞췄어요. 음 세기는 그대로예요.",
+      "seconds": 2.46,
+      "llm_calls": 2,
+      "input_tokens": 37941,
+      "cached_tokens": 37270,
+      "output_tokens": 251,
+      "recovered": false
+    },
+    {
+      "id": "K01",
+      "category": "트랙",
+      "command": "멜로디를 스트링으로 한 옥타브 아래 겹쳐줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "duplicate_track",
+          "args": {
+            "track_id": "t5",
+            "octaves": -1,
+            "program": 48,
+            "name": "Lead Strings"
+          },
+          "ok": true,
+          "summary": "Lead 트랙을 복사해 새 트랙 Lead Strings(t6)을 만들었어요 (1옥타브 아래, 악기 48 String Ensemble 1). 음 47개.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "멜로디(Lead)를 한 옥타브 아래 스트링 앙상블로 겹쳐 새 트랙 Lead Strings를 만들었어요. 미리보기로 들어 보시고, 스트링이 원래 멜로디보다 커 보이면 볼륨을 조금 낮춰 드릴게요.",
+      "seconds": 3.79,
+      "llm_calls": 2,
+      "input_tokens": 37968,
+      "cached_tokens": 37267,
+      "output_tokens": 450,
+      "recovered": false
+    },
+    {
+      "id": "K02",
+      "category": "트랙",
+      "command": "베이스 트랙 하나 더 복사해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "duplicate_track",
+          "args": {
+            "track_id": "t2"
+          },
+          "ok": true,
+          "summary": "Bass 트랙을 복사해 새 트랙 Bass 2(t6)을 만들었어요. 음 61개.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Bass 트랙을 복사해서 Bass 2 트랙을 만들었어요. 음은 원본과 같은 61개예요. 같은 소리가 겹치니 원본보다 볼륨을 조금 낮추거나 옥타브나 악기를 바꿔 보는 것도 좋아요.",
+      "seconds": 2.62,
+      "llm_calls": 2,
+      "input_tokens": 37849,
+      "cached_tokens": 37256,
+      "output_tokens": 223,
+      "recovered": false
+    },
+    {
+      "id": "K03",
+      "category": "트랙",
+      "command": "Rhodes 코드에 어울리는 탑노트 추가해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "duplicate_track",
+          "args": {
+            "track_id": "t3",
+            "voice": "top",
+            "program": 73,
+            "octaves": 0,
+            "name": "Rhodes 탑노트"
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙을 복사해 새 트랙 Rhodes 탑노트(t6)을 만들었어요 (화음마다 맨 위 음만, 원래 음 92개 중, 악기 73 Flute). 음 23개.",
+          "changed_notes": 23,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 코드의 맨 위 음만 이은 탑노트 트랙을 만들었어요. 악기는 플룻으로 골랐고, 음 23개가 들어갔어요. 미리보기로 들어 보고 적용하거나, 악기나 옥타브를 바꿔 볼 수 있어요.",
+      "seconds": 9.63,
+      "llm_calls": 2,
+      "input_tokens": 38001,
+      "cached_tokens": 37263,
+      "output_tokens": 698,
+      "recovered": false
+    },
+    {
+      "id": "K04",
+      "category": "트랙",
+      "command": "Rhodes 코드에서 베이스 라인 뽑아줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "duplicate_track",
+          "args": {
+            "track_id": "t3",
+            "voice": "bottom",
+            "octaves": -1,
+            "program": 33,
+            "name": "Rhodes Bass Line"
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙을 복사해 새 트랙 Rhodes Bass Line(t6)을 만들었어요 (화음마다 맨 아래 음만, 원래 음 92개 중, 1옥타브 아래, 악기 33 Electric Bass (finger)). 음 23개.",
+          "changed_notes": 23,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙의 화음마다 가장 낮은 음만 뽑아 한 옥타브 내리고, 핑거 베이스 음색으로 \"Rhodes Bass Line\" 트랙을 만들었어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.82,
+      "llm_calls": 2,
+      "input_tokens": 38020,
+      "cached_tokens": 37262,
+      "output_tokens": 351,
+      "recovered": false
+    },
+    {
+      "id": "C06",
+      "category": "되묻기 · 정보",
+      "command": "새로운 멜로디 하나 만들어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "아직 새 멜로디를 지어내는 기능은 없어서 지금은 만들어 드릴 수 없어요. 대신 지금 있는 트랙으로 할 수 있는 건 있어요. Rhodes 트랙의 화음에서 가장 높은 음만 이은 탑노트 선율을 뽑아 새 트랙으로 만들 수 있고, Rhodes 화음에서 Bass 트랙처럼 가장 낮은 음만 모은 베이스 라인을 뽑을 수도 있어요. 어느 쪽으로 해 볼까요? 악기도 말씀해 주시면 거기에 맞춰 만들게요.",
+      "seconds": 2.71,
+      "llm_calls": 1,
+      "input_tokens": 18862,
+      "cached_tokens": 18858,
+      "output_tokens": 442,
+      "recovered": false
+    },
+    {
+      "id": "C07",
+      "category": "되묻기 · 정보",
+      "command": "드럼 패턴 새로 짜줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "드럼 패턴을 새로 짜는 기능은 아직 없어서 지금은 만들어 드릴 수 없어요. 대신 지금 드럼 트랙(Drums)으로 할 수 있는 것은 이렇습니다.\n\n- 드럼 킷을 바꿔 전체 질감을 바꾸기 (예: 로파이, 붐뱁, TR-808)\n- 하이햇에만 살짝 스윙을 넣어 그루브 살리기\n- 기존 1~4마디 패턴을 복사해서 반복하기\n- 세기를 마디별로 조절해 다이내믹 만들기\n\n어느 쪽으로 해 볼까요?",
+      "seconds": 2.38,
+      "llm_calls": 1,
+      "input_tokens": 18860,
+      "cached_tokens": 18856,
+      "output_tokens": 366,
+      "recovered": false
+    },
+    {
+      "id": "G01",
+      "category": "고른 부분",
+      "command": "여기 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": 1,
+            "track_ids": [
+              "t3"
+            ],
+            "beats": [
+              16,
+              32
+            ]
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙 16개 음을 1옥타브 올렸어요.",
+          "changed_notes": 16,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙에서 고른 부분(5~8마디)의 음 16개를 한 옥타브 올렸어요. 미리보기로 들어 보시고 적용하거나 취소하실 수 있어요.",
+      "seconds": 2.52,
+      "llm_calls": 2,
+      "input_tokens": 38656,
+      "cached_tokens": 37640,
+      "output_tokens": 296,
+      "recovered": false
+    },
+    {
+      "id": "G02",
+      "category": "고른 부분",
+      "command": "이 부분 점점 작게 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "velocity_ramp",
+          "args": {
+            "beats": [
+              32,
+              48
+            ],
+            "start": 1,
+            "end": 0.4
+          },
+          "ok": true,
+          "summary": "Drums, Bass, Rhodes, Pad 트랙 100개 음을 점점 여리게 바꿨어요 (세기 100% → 40%).",
+          "changed_notes": 100,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "9~12마디 구간의 드럼, 베이스, Rhodes, Pad 음 100개의 세기를 처음 100%에서 마지막 40%까지 점점 작아지도록 바꿨어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 5.21,
+      "llm_calls": 2,
+      "input_tokens": 38664,
+      "cached_tokens": 37634,
+      "output_tokens": 278,
+      "recovered": false
+    },
+    {
+      "id": "G03",
+      "category": "고른 부분",
+      "command": "이거 좀 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "track_ids": [
+              "t1"
+            ],
+            "beats": [
+              0,
+              64
+            ],
+            "pitches": [
+              42
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 114개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 114,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "드럼의 닫힌 하이햇 114개 음 세기를 70%로 줄여서 미리보기로 들어 볼 수 있어요. 적용하시려면 말씀해 주세요.",
+      "seconds": 3.18,
+      "llm_calls": 2,
+      "input_tokens": 38738,
+      "cached_tokens": 37656,
+      "output_tokens": 325,
+      "recovered": false
+    },
+    {
+      "id": "G04",
+      "category": "고른 부분",
+      "command": "여기 박자 정리해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "quantize",
+          "args": {
+            "track_ids": [
+              "t2"
+            ],
+            "beats": [
+              5,
+              12
+            ]
+          },
+          "ok": true,
+          "summary": "Chords 트랙 15개 음을 16분음표 격자에 맞췄어요.",
+          "changed_notes": 15,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Chords 트랙에서 고른 부분(2마디 2박부터 3마디 끝까지)의 음 15개를 16분음표 격자에 맞춰 정리했어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 3.06,
+      "llm_calls": 2,
+      "input_tokens": 38499,
+      "cached_tokens": 37573,
+      "output_tokens": 295,
+      "recovered": false
+    },
+    {
+      "id": "G05",
+      "category": "고른 부분",
+      "command": "베이스 2키 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개를 2반음 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 4.83,
+      "llm_calls": 2,
+      "input_tokens": 38613,
+      "cached_tokens": 37635,
+      "output_tokens": 264,
+      "recovered": false
+    },
+    {
+      "id": "C01",
+      "category": "되묻기 · 정보",
+      "command": "지금 무슨 트랙 있어?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "지금 곡 lofi_groove에는 트랙이 5개 있어요. 드럼(Drums)은 스탠다드 킷으로 킥, 스네어, 하이햇 등이 들어 있고, 베이스(Bass)는 핑거 베이스로 C2~A3 음역이에요. 건반(Rhodes)은 전자 피아노로 E3~G4 음역이고, 패드(Pad)는 따뜻한 신스 패드로 C3~E4에 깔려 있어요. 리드(Lead)는 사각파 신스 리드로 G4~A5 음역이에요.",
+      "seconds": 2.23,
+      "llm_calls": 1,
+      "input_tokens": 18859,
+      "cached_tokens": 18397,
+      "output_tokens": 374,
+      "recovered": false
+    },
+    {
+      "id": "C02",
+      "category": "되묻기 · 정보",
+      "command": "좀 더 좋게 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "어떤 부분을 어떻게 바꿀지 알려 주시면 바로 손볼게요. 지금 곡 기준으로 해볼 만한 편집은 이런 것들이에요.\n\n1. 하이햇에 살짝 스윙을 넣어서 그루브를 부드럽게 만들기\n2. 건반(Rhodes)과 베이스 박자를 격자에 맞춰 정리하기 (너무 딱딱하지 않게 강도를 조절할 수도 있어요)\n3. 패드를 조금 줄이거나 리드를 한 옥타브 낮춰 음역 균형 맞추기\n\n이 중에서 고르시거나, 원하는 느낌(따뜻하게, 더 리드미컬하게, 덜 복잡하게 등)을 말씀해 주세요.",
+      "seconds": 2.41,
+      "llm_calls": 1,
+      "input_tokens": 18857,
+      "cached_tokens": 18397,
+      "output_tokens": 346,
+      "recovered": false
+    },
+    {
+      "id": "C03",
+      "category": "되묻기 · 정보",
+      "command": "느낌 있게 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "어떤 방향으로 바꿀지 알려 주시면 바로 적용할게요. 지금 곡에 맞춰 할 수 있는 편집은 이 정도예요.\n\n1. 드럼에 살짝 스윙을 넣어 로파이 특유의 흔들림을 살리기\n2. 코드를 대리코드로 바꿔 색깔을 더하기 (재지하게 또는 색다르게 중에서 고르기)\n3. 패드 볼륨을 조금 줄이고 리드를 살짝 키워서 멜로디를 앞으로 빼기\n\n어떤 쪽이 끌리시나요?",
+      "seconds": 2.98,
+      "llm_calls": 1,
+      "input_tokens": 18858,
+      "cached_tokens": 18397,
+      "output_tokens": 454,
+      "recovered": false
+    },
+    {
+      "id": "C04",
+      "category": "되묻기 · 정보",
+      "command": "드럼 2키 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "드럼 트랙은 음을 옮길 수 없어서 2키 올리기는 적용하지 않았어요. 드럼 음 번호는 음높이가 아니라 킥, 스네어, 하이햇 같은 악기를 가리키기 때문이에요.\n\n대신 드럼 소리를 바꾸거나, 드럼이 아닌 Bass, Rhodes, Pad, Lead 트랙을 2키 올리는 방법은 어떨까요?",
+      "seconds": 2.59,
+      "llm_calls": 1,
+      "input_tokens": 18856,
+      "cached_tokens": 18397,
+      "output_tokens": 420,
+      "recovered": false
+    },
+    {
+      "id": "C05",
+      "category": "되묻기 · 정보",
+      "command": "스트링 트랙 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "스트링 트랙은 없어요. 지금 트랙은 Drums, Bass, Rhodes, Pad(따뜻한 신스 패드), Lead(신스 리드)예요. 이 중에서 올릴 트랙을 알려 주시겠어요?",
+      "seconds": 1.64,
+      "llm_calls": 1,
+      "input_tokens": 18864,
+      "cached_tokens": 18397,
+      "output_tokens": 233,
+      "recovered": false
+    },
+    {
+      "id": "A01",
+      "category": "화성 분석",
+      "command": "이 곡 무슨 키야?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "analyze_harmony",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 코드 15개",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "이 곡은 C major예요. 다른 후보로는 A minor와 E minor도 있지만, 조성 확실도는 높아요.",
+      "seconds": 1.94,
+      "llm_calls": 2,
+      "input_tokens": 38302,
+      "cached_tokens": 37250,
+      "output_tokens": 84,
+      "recovered": false
+    },
+    {
+      "id": "A02",
+      "category": "화성 분석",
+      "command": "코드 진행 알려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "analyze_harmony",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 코드 8개",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "곡 코드 진행은 C → G → Am → F이고, 1~4마디와 5~8마디에서 같은 진행이 두 번 반복돼요. 각 코드는 1마디 C, 2마디 G, 3마디 Am, 4마디 F, 그리고 5~8마디도 같은 순서예요.\n\n조성은 C major예요.",
+      "seconds": 2.54,
+      "llm_calls": 2,
+      "input_tokens": 37874,
+      "cached_tokens": 37188,
+      "output_tokens": 228,
+      "recovered": false
+    },
+    {
+      "id": "A03",
+      "category": "화성 분석",
+      "command": "9마디부터 12마디까지 코드 뭐야?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "analyze_harmony",
+          "args": {
+            "bars": [
+              9,
+              12
+            ]
+          },
+          "ok": true,
+          "summary": "조성 C major · 9~12마디 코드 4개",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "9~12마디의 코드는 Dm9 → G13 → Cmaj9 → A7이에요. 9마디 Dm9(ii7, 서브도미넌트), 10마디 G13(V7, 도미넌트), 11마디 Cmaj9(Imaj7, 토닉), 12마디 A7(V7/ii, 부속 딸림화음)입니다. 조성은 C major예요.",
+      "seconds": 2.09,
+      "llm_calls": 2,
+      "input_tokens": 38003,
+      "cached_tokens": 37258,
+      "output_tokens": 196,
+      "recovered": false
+    },
+    {
+      "id": "A04",
+      "category": "화성 분석",
+      "command": "이 곡 화성 분석해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "analyze_harmony",
+          "args": {},
+          "ok": true,
+          "summary": "조성 G major · 곡 전체 코드 8개",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "조성은 G major예요. 1~8마디 코드는 G → C → D7 → G → Em → Am → D7 → G 순서입니다. 1마디 G는 안정적인 토닉(I)이고, 2마디 C는 나아가는 서브도미넌트(IV), 3마디 D7은 긴장을 만드는 도미넌트(V7)예요. 4마디 G에서 한 번 쉬었다가, 5마디 Em(vi)과 6마디 Am(ii)을 거쳐 7마디 D7에서 다시 긴장을 쌓고 8마디 G로 마무리합니다.",
+      "seconds": 3.15,
+      "llm_calls": 2,
+      "input_tokens": 37639,
+      "cached_tokens": 37066,
+      "output_tokens": 364,
+      "recovered": false
+    },
+    {
+      "id": "A05",
+      "category": "화성 분석",
+      "command": "여기 코드 뭐야?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "analyze_harmony",
+          "args": {
+            "beats": [
+              44,
+              48
+            ]
+          },
+          "ok": true,
+          "summary": "조성 C major · 12마디 코드 1개",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "여기(12마디)는 A7 코드예요. 곡의 조성은 C major인데, A7은 다음 코드인 Dm(ii)으로 끌어당기는 부속 딸림화음(V7/ii) 역할을 해요.",
+      "seconds": 4.5,
+      "llm_calls": 2,
+      "input_tokens": 38659,
+      "cached_tokens": 37631,
+      "output_tokens": 349,
+      "recovered": false
+    },
+    {
+      "id": "R01",
+      "category": "리하모니",
+      "command": "코드 진행을 좀 더 재즈스럽게 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 32.0,
+                  "end": 36.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 36.0,
+                  "end": 40.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 40.0,
+                  "end": 44.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 44.0,
+                  "end": 48.0,
+                  "name": "A7",
+                  "roman": "V7/ii",
+                  "function": "부속"
+                },
+                {
+                  "start": 48.0,
+                  "end": 52.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 52.0,
+                  "end": 56.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 56.0,
+                  "end": 64.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 Fmaj9 → Dm9 (같은 기능)",
+                    "5마디 Fmaj9 → Dm9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 2.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 2.0,
+                      "end": 4.0,
+                      "name": "B7",
+                      "roman": "V7/iii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 18.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 18.0,
+                      "end": 20.0,
+                      "name": "B7",
+                      "roman": "V7/iii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 26.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 26.0,
+                      "end": 28.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 30.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 30.0,
+                      "end": 32.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 42.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 42.0,
+                      "end": 44.0,
+                      "name": "E7",
+                      "roman": "V7/VI",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 Fmaj9 → Fmaj9 · B7 (부속 딸림)",
+                    "5마디 Fmaj9 → Fmaj9 · B7 (부속 딸림)",
+                    "7마디 Dm9 → Dm9 · Db7 (트라이톤 대리)",
+                    "8마디 Cmaj9 → Cmaj9 · A7 (부속 딸림)",
+                    "10마디 G13 → Db7 (트라이톤 대리)",
+                    "11마디 Cmaj9 → Cmaj9 · E7 (부속 딸림)",
+                    "14마디 G13 → Db7 (트라이톤 대리)"
+                  ],
+                  "rubs": [
+                    "1마디 4.5박 멜로디 E ↔ B7 (반음)",
+                    "5마디 4.5박 멜로디 E ↔ B7 (반음)"
+                  ]
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "3마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "9마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "10마디 G13 → Bb7 (빌려온 화음)",
+                    "14마디 G13 → Bb7 (빌려온 화음)"
+                  ],
+                  "rubs": [
+                    "3마디 4.5박 멜로디 A ↔ Dm7b5 (반음)"
+                  ]
+                }
+              ],
+              "bars": null
+            }
+          },
+          "checks": []
+        }
+      ],
+      "reply": "조성은 C major예요. 재즈 느낌으로는 '재지하게'가 가장 맞고, 제안은 세 가지가 나왔어요.\n\n- 가볍게: 원래 기능은 그대로 두고 텐션만 더해요. Fmaj9를 Dm9로 바꾸는 정도라 변화가 작아요.\n- 재지하게: 코드 앞에 딸림7을 끼우고, 으뜸화음 앞에 트라이톤 대리(Db7)를 써요. 예를 들어 1마디는 Fmaj9 → B7 → Em9가 되고, 10마디 G13은 Db7로 바뀌어요. 1마디와 5마디에서 멜로디 E음과 B7이 반음으로 살짝 부딪혀요.\n- 색다르게: 반대 조에서 빌려온 화음을 써서 분위기를 바꿔요. 3마디와 9마디가 Dm7b5로, 10마디와 14마디가 Bb7로 바뀌어요. 3마디에서 멜로디 A음과 Dm7b5가 살짝 부딪혀요.\n\n화면의 카드를 눌러 코드 띠에서 바뀌는 부분을 비교해 보실 수 있어요. 들어 보시고 \"재지하게 제안으로 바꿔줘\"라고 하시거나 카드의 \"이걸로 바꾸기\"를 누르시면 미리보기로 들려드릴게요.",
+      "seconds": 5.12,
+      "llm_calls": 2,
+      "input_tokens": 38868,
+      "cached_tokens": 37264,
+      "output_tokens": 826,
+      "recovered": false
+    },
+    {
+      "id": "R02",
+      "category": "리하모니",
+      "command": "코드 좀 다른 걸로 바꿔 볼래?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "C",
+                  "roman": "I",
+                  "function": "T"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "G",
+                  "roman": "V",
+                  "function": "D"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Am",
+                  "roman": "vi",
+                  "function": "T"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "F",
+                  "roman": "IV",
+                  "function": "S"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "C",
+                  "roman": "I",
+                  "function": "T"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "G",
+                  "roman": "V",
+                  "function": "D"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Am",
+                  "roman": "vi",
+                  "function": "T"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "F",
+                  "roman": "IV",
+                  "function": "S"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G9",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "G9",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 C → Cmaj9 (텐션)",
+                    "2마디 G → G9 (텐션)",
+                    "3마디 Am → Am9 (텐션)",
+                    "4마디 F → Dm9 (같은 기능)",
+                    "5마디 C → Cmaj9 (텐션)",
+                    "6마디 G → G9 (텐션)",
+                    "7마디 Am → Am9 (텐션)",
+                    "8마디 F → Dm9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 2.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 2.0,
+                      "end": 4.0,
+                      "name": "D7",
+                      "roman": "V7/V",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 6.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 6.0,
+                      "end": 8.0,
+                      "name": "E7",
+                      "roman": "V7/vi",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 10.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 10.0,
+                      "end": 12.0,
+                      "name": "C7",
+                      "roman": "V7/IV",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 14.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 14.0,
+                      "end": 16.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 18.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 18.0,
+                      "end": 20.0,
+                      "name": "D7",
+                      "roman": "V7/V",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 22.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 22.0,
+                      "end": 24.0,
+                      "name": "E7",
+                      "roman": "V7/vi",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 26.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 26.0,
+                      "end": 28.0,
+                      "name": "C7",
+                      "roman": "V7/IV",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 30.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 30.0,
+                      "end": 32.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 C → Cmaj9 · D7 (부속 딸림)",
+                    "2마디 G → G13 · E7 (부속 딸림)",
+                    "3마디 Am → Am9 · C7 (부속 딸림)",
+                    "4마디 F → Fmaj9 · Db7 (트라이톤 대리)",
+                    "5마디 C → Cmaj9 · D7 (부속 딸림)",
+                    "6마디 G → G13 · E7 (부속 딸림)",
+                    "7마디 Am → Am9 · C7 (부속 딸림)",
+                    "8마디 F → Fmaj9 · Db7 (트라이톤 대리)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Bb",
+                      "roman": "bVII",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Fm6",
+                      "roman": "iv",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Bb",
+                      "roman": "bVII",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Fm6",
+                      "roman": "iv",
+                      "function": "차용"
+                    }
+                  ],
+                  "changes": [
+                    "2마디 G → Bb (빌려온 화음)",
+                    "4마디 F → Fm6 (빌려온 화음)",
+                    "6마디 G → Bb (빌려온 화음)",
+                    "8마디 F → Fm6 (빌려온 화음)"
+                  ],
+                  "rubs": []
+                }
+              ],
+              "bars": null
+            }
+          },
+          "checks": []
+        }
+      ],
+      "reply": "리하모니 제안을 3개 만들었어요. 화면의 카드에서 비교하고 골라 보세요.\n\n1. 가볍게: 원래 기능은 그대로 두고 텐션만 더해요. Cmaj9, G9, Am9, Dm9로 바뀌어 조금 더 풍성해요.\n2. 재지하게: 다음 코드로 끌어당기는 딸림7을 끼워요. D7, E7, C7이 들어가고 F 자리에는 Db7(트라이톤 대리)이 와서 재즈 느낌이 나요.\n3. 색다르게: 같은 으뜸음의 반대 조에서 화음을 빌려와요. G 자리에 Bb, F 자리에 Fm6가 와서 분위기가 어두워져요.\n\n카드의 \"이걸로 바꾸기\"를 누르거나 \"재지하게 제안으로 바꿔줘\"라고 말하면 미리보기로 들어 볼 수 있어요. 아직 아무것도 바뀌지 않았어요.",
+      "seconds": 3.98,
+      "llm_calls": 2,
+      "input_tokens": 38563,
+      "cached_tokens": 37200,
+      "output_tokens": 544,
+      "recovered": false
+    },
+    {
+      "id": "R03",
+      "category": "리하모니",
+      "command": "5마디부터 8마디까지 대리코드 추천해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {
+            "bars": [
+              5,
+              8
+            ]
+          },
+          "ok": true,
+          "summary": "조성 C major · 5~8마디 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "C",
+                  "roman": "I",
+                  "function": "T"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "G",
+                  "roman": "V",
+                  "function": "D"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Am",
+                  "roman": "vi",
+                  "function": "T"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "F",
+                  "roman": "IV",
+                  "function": "S"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "C",
+                  "roman": "I",
+                  "function": "T"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "G",
+                  "roman": "V",
+                  "function": "D"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Am",
+                  "roman": "vi",
+                  "function": "T"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "F",
+                  "roman": "IV",
+                  "function": "S"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G",
+                      "roman": "V",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "F",
+                      "roman": "IV",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "G9",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    }
+                  ],
+                  "changes": [
+                    "5마디 C → Cmaj9 (텐션)",
+                    "6마디 G → G9 (텐션)",
+                    "7마디 Am → Am9 (텐션)",
+                    "8마디 F → Dm9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G",
+                      "roman": "V",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "F",
+                      "roman": "IV",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 18.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 18.0,
+                      "end": 20.0,
+                      "name": "D7",
+                      "roman": "V7/V",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 22.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 22.0,
+                      "end": 24.0,
+                      "name": "E7",
+                      "roman": "V7/vi",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 26.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 26.0,
+                      "end": 28.0,
+                      "name": "C7",
+                      "roman": "V7/IV",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 30.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 30.0,
+                      "end": 32.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    }
+                  ],
+                  "changes": [
+                    "5마디 C → Cmaj9 · D7 (부속 딸림)",
+                    "6마디 G → G13 · E7 (부속 딸림)",
+                    "7마디 Am → Am9 · C7 (부속 딸림)",
+                    "8마디 F → Fmaj9 · Db7 (트라이톤 대리)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G",
+                      "roman": "V",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "F",
+                      "roman": "IV",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Bb",
+                      "roman": "bVII",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Fm6",
+                      "roman": "iv",
+                      "function": "차용"
+                    }
+                  ],
+                  "changes": [
+                    "6마디 G → Bb (빌려온 화음)",
+                    "8마디 F → Fm6 (빌려온 화음)"
+                  ],
+                  "rubs": []
+                }
+              ],
+              "bars": [
+                5,
+                8
+              ]
+            }
+          },
+          "checks": []
+        }
+      ],
+      "reply": "5~8마디에 대리코드 제안 3개가 나왔어요. 조성은 C major예요.\n\n1. 가볍게: 원래 기능은 그대로 두고 텐션만 더해요. Cmaj9 → G9 → Am9 → Dm9입니다.\n2. 재지하게: 다음 코드로 끌어당기는 딸림7을 끼워 넣어요. Cmaj9 → D7 → G13 → E7 → Am9 → C7 → Fmaj9 → Db7 순서이고, 마지막에 트라이톤 대리인 Db7이 나와요.\n3. 색다르게: 같은 으뜸음의 반대 조에서 빌려온 화음을 써서 분위기를 바꿔요. C → Bb → Am → Fm6입니다.\n\n화면의 카드를 누르면 코드 띠에서 바뀌는 코드를 비교할 수 있어요. \"이걸로 바꾸기\"를 누르거나 \"재지하게 제안으로 바꿔줘\"라고 말하면 미리보기로 들어 볼 수 있어요.",
+      "seconds": 4.46,
+      "llm_calls": 2,
+      "input_tokens": 38289,
+      "cached_tokens": 37200,
+      "output_tokens": 525,
+      "recovered": false
+    },
+    {
+      "id": "R04",
+      "category": "리하모니",
+      "command": "여기 코드 리하모니 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {
+            "beats": [
+              32,
+              48
+            ]
+          },
+          "ok": true,
+          "summary": "조성 C major · 9마디부터 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 32.0,
+                  "end": 36.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 36.0,
+                  "end": 40.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 40.0,
+                  "end": 44.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 44.0,
+                  "end": 48.0,
+                  "name": "A7",
+                  "roman": "V7/ii",
+                  "function": "부속"
+                },
+                {
+                  "start": 48.0,
+                  "end": 52.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 52.0,
+                  "end": 56.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 56.0,
+                  "end": 64.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "9마디 Dm9 → Fmaj9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 42.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 42.0,
+                      "end": 44.0,
+                      "name": "E7",
+                      "roman": "V7/VI",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "10마디 G13 → Db7 (트라이톤 대리)",
+                    "11마디 Cmaj9 → Cmaj9 · E7 (부속 딸림)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "9마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "10마디 G13 → Bb7 (빌려온 화음)"
+                  ],
+                  "rubs": []
+                }
+              ],
+              "bars": [
+                9,
+                12
+              ]
+            }
+          },
+          "checks": []
+        }
+      ],
+      "reply": "9~12마디에 대리코드 3개를 만들었어요. 조성은 C major예요.\n\n1. 가볍게: 같은 기능의 코드에 텐션만 더한 버전이에요. 9마디 Dm9가 Fmaj9로 바뀌어 원래 느낌이 살짝 풍성해져요.\n2. 재지하게: 10마디 G13이 Db7(트라이톤 대리)로 바뀌고, 11마디에 E7(부속 딸림)이 끼어 다음 으뜸화음으로 자연스럽게 끌려가요.\n3. 색다르게: 9마디가 Dm7b5, 10마디가 Bb7로 바뀌어 빌려온 화음 특유의 어두운 분위기가 나요.\n\n카드를 누르면 바뀌는 코드를 비교할 수 있고, \"이걸로 바꾸기\"를 누르거나 \"재지하게 제안으로 바꿔줘\"라고 말하면 미리보기로 들려 드릴게요.",
+      "seconds": 3.74,
+      "llm_calls": 2,
+      "input_tokens": 39068,
+      "cached_tokens": 37634,
+      "output_tokens": 555,
+      "recovered": false
+    },
+    {
+      "id": "B01",
+      "category": "만들기",
+      "command": "패드 하나 더 깔아줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "generate_chords",
+          "args": {
+            "pattern": "pad",
+            "name": "Pad 2"
+          },
+          "ok": true,
+          "summary": "새 트랙 Pad 2(t6)에 곡의 코드 15개를 패드로 깔았어요 · 폴리신스 패드 · 음역 E3~G4",
+          "changed_notes": 60,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "곡의 코드대로 패드를 하나 더 깔았어요. 새 트랙 이름은 Pad 2이고, 폴리신스 패드 소리에 음역은 E3~G4예요. 미리보기로 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 4.66,
+      "llm_calls": 2,
+      "input_tokens": 37880,
+      "cached_tokens": 37708,
+      "output_tokens": 326,
+      "recovered": false
+    },
+    {
+      "id": "B02",
+      "category": "만들기",
+      "command": "코드 좀 바닥에 깔아줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "generate_chords",
+          "args": {
+            "pattern": "pad"
+          },
+          "ok": true,
+          "summary": "새 트랙 Pad(t5)에 곡의 코드 8개를 패드로 깔았어요 · 따뜻한 패드 · 음역 B2~F4",
+          "changed_notes": 32,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "코드를 따라 \"Pad\" 트랙을 새로 만들어 바닥에 깔았어요. 악기는 따뜻한 패드이고 음역은 B2~F4예요. 미리보기로 들어 보고 적용하거나 취소하시면 됩니다.",
+      "seconds": 2.65,
+      "llm_calls": 2,
+      "input_tokens": 37739,
+      "cached_tokens": 37594,
+      "output_tokens": 230,
+      "recovered": false
+    },
+    {
+      "id": "B03",
+      "category": "만들기",
+      "command": "9마디부터 스트링으로 패드 깔아줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "generate_chords",
+          "args": {
+            "bars": [
+              9,
+              16
+            ],
+            "program": 48,
+            "pattern": "pad"
+          },
+          "ok": true,
+          "summary": "새 트랙 Pad 2(t6)에 곡의 코드 7개를 패드로 깔았어요 · 스트링 앙상블 · 음역 G3~A4",
+          "changed_notes": 28,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "9마디부터 16마디까지 곡의 코드를 따라 스트링 앙상블 패드를 새 트랙(Pad 2)에 깔았어요. 음역은 G3~A4이고, 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 2.46,
+      "llm_calls": 2,
+      "input_tokens": 37917,
+      "cached_tokens": 37722,
+      "output_tokens": 271,
+      "recovered": false
+    },
+    {
+      "id": "B04",
+      "category": "만들기",
+      "command": "화음을 낮게 깔아줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "generate_chords",
+          "args": {
+            "height": "low"
+          },
+          "ok": true,
+          "summary": "새 트랙 Pad(t3)에 곡의 코드 8개를 패드로 깔았어요 · 따뜻한 패드 · 음역 F#2~B3",
+          "changed_notes": 32,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "낮은 음역으로 곡의 코드를 따라 패드를 깔았어요. 새 트랙 이름은 Pad이고, 따뜻한 패드 소리이며 음역은 F#2~B3예요. 들어 보고 괜찮으면 적용해 주세요.",
+      "seconds": 2.47,
+      "llm_calls": 2,
+      "input_tokens": 37481,
+      "cached_tokens": 37338,
+      "output_tokens": 232,
+      "recovered": false
+    },
+    {
+      "id": "B05",
+      "category": "만들기",
+      "command": "Rhodes를 패드 소리로 겹쳐줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "duplicate_track",
+          "args": {
+            "track_id": "t3",
+            "name": "Rhodes Pad",
+            "program": 89
+          },
+          "ok": true,
+          "summary": "Rhodes 트랙을 복사해 새 트랙 Rhodes Pad(t6)을 만들었어요 (악기 89 Pad 2 (warm)). 음 92개.",
+          "changed_notes": 92,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "Rhodes 트랙을 따뜻한 패드 소리로 복사해 'Rhodes Pad' 트랙을 만들었어요. 음은 원래 Rhodes와 같고 소리만 패드로 바뀌었어요. 미리보기로 들어 보시고, 패드가 너무 크면 볼륨을 조금 낮출게요.",
+      "seconds": 4.33,
+      "llm_calls": 2,
+      "input_tokens": 37926,
+      "cached_tokens": 37920,
+      "output_tokens": 684,
+      "recovered": false
+    },
+    {
+      "id": "B06",
+      "category": "만들기",
+      "command": "빈 트랙 하나 추가해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "add_track",
+          "args": {
+            "name": "Track"
+          },
+          "ok": true,
+          "summary": "빈 트랙 Track(t6)을 만들었어요",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "빈 트랙 \"Track\"을 하나 추가했어요. 음은 넣지 않은 빈 트랙이고, 악기는 기본값이에요. 어떤 악기로 바꾸거나 이름을 바꿀까요?",
+      "seconds": 1.88,
+      "llm_calls": 2,
+      "input_tokens": 37816,
+      "cached_tokens": 37712,
+      "output_tokens": 131,
+      "recovered": false
+    },
+    {
+      "id": "B07",
+      "category": "만들기",
+      "command": "빈 드럼 트랙 하나 만들어줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "add_track",
+          "args": {
+            "drums": true
+          },
+          "ok": true,
+          "summary": "빈 드럼 트랙 Drums(t5)을 만들었어요 · 스탠다드 킷",
+          "changed_notes": 0,
+          "changed_settings": true,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "빈 드럼 트랙 Drums를 만들었어요. 스탠다드 킷으로 설정했고, 음은 넣지 않은 상태예요.",
+      "seconds": 1.98,
+      "llm_calls": 2,
+      "input_tokens": 37720,
+      "cached_tokens": 37714,
+      "output_tokens": 105,
+      "recovered": false
+    },
+    {
+      "id": "L01",
+      "category": "영어",
+      "command": "what key is this song in?",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [
+        {
+          "name": "analyze_harmony",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 코드 15개",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "The key is C major, with high certainty. A minor and E minor are the other possible readings, but the chords point clearly to C major.",
+      "seconds": 1.81,
+      "llm_calls": 2,
+      "input_tokens": 38356,
+      "cached_tokens": 37277,
+      "output_tokens": 71,
+      "recovered": false
+    },
+    {
+      "id": "L02",
+      "category": "영어",
+      "command": "raise the bass by 2 semitones",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "I raised the Bass track by 2 semitones, moving all 61 notes up. The change is in preview, so you can listen before applying it.",
+      "seconds": 2.2,
+      "llm_calls": 2,
+      "input_tokens": 37907,
+      "cached_tokens": 37282,
+      "output_tokens": 196,
+      "recovered": false
+    },
+    {
+      "id": "L03",
+      "category": "영어",
+      "command": "make the chords jazzier",
+      "passed": false,
+      "tools_ok": true,
+      "reason": "영어로 물었는데 한국어로 답함",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 32.0,
+                  "end": 36.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 36.0,
+                  "end": 40.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 40.0,
+                  "end": 44.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 44.0,
+                  "end": 48.0,
+                  "name": "A7",
+                  "roman": "V7/ii",
+                  "function": "부속"
+                },
+                {
+                  "start": 48.0,
+                  "end": 52.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 52.0,
+                  "end": 56.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 56.0,
+                  "end": 64.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 Fmaj9 → Dm9 (같은 기능)",
+                    "5마디 Fmaj9 → Dm9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 2.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 2.0,
+                      "end": 4.0,
+                      "name": "B7",
+                      "roman": "V7/iii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 18.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 18.0,
+                      "end": 20.0,
+                      "name": "B7",
+                      "roman": "V7/iii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 26.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 26.0,
+                      "end": 28.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 30.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 30.0,
+                      "end": 32.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 42.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 42.0,
+                      "end": 44.0,
+                      "name": "E7",
+                      "roman": "V7/VI",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 Fmaj9 → Fmaj9 · B7 (부속 딸림)",
+                    "5마디 Fmaj9 → Fmaj9 · B7 (부속 딸림)",
+                    "7마디 Dm9 → Dm9 · Db7 (트라이톤 대리)",
+                    "8마디 Cmaj9 → Cmaj9 · A7 (부속 딸림)",
+                    "10마디 G13 → Db7 (트라이톤 대리)",
+                    "11마디 Cmaj9 → Cmaj9 · E7 (부속 딸림)",
+                    "14마디 G13 → Db7 (트라이톤 대리)"
+                  ],
+                  "rubs": [
+                    "1마디 4.5박 멜로디 E ↔ B7 (반음)",
+                    "5마디 4.5박 멜로디 E ↔ B7 (반음)"
+                  ]
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "3마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "9마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "10마디 G13 → Bb7 (빌려온 화음)",
+                    "14마디 G13 → Bb7 (빌려온 화음)"
+                  ],
+                  "rubs": [
+                    "3마디 4.5박 멜로디 A ↔ Dm7b5 (반음)"
+                  ]
+                }
+              ],
+              "bars": null
+            }
+          },
+          "checks": []
+        }
+      ],
+      "reply": "I made three reharmonization suggestions, and the jazziest is \"jazzy\" (재지하게). It adds dominant 7th chords that lead into the next chord, such as B7 into Em9, and tritone substitutes like Db7 in place of G13. The changed chords are in bars 1, 5, 7, 8, 10, 11, and 14.\n\nThe other two are lighter. \"light\" (가볍게) only adds color tones and swaps Fmaj9 for Dm9. \"colorful\" (색다르게) borrows chords from the parallel minor, so it sounds moodier than jazzy.\n\nThe jazzy version has a possible clash: in bars 1 and 5, the melody's E sits against B7 a half step apart. The colorful version also has one spot where the melody's A runs against Dm7b5 in bar 3.\n\nThe suggestions are on screen as cards. Press \"이걸로 바꾸기\" on the one you like, or tell me \"jazzy 제안으로 바꿔줘\" and I'll apply it as a preview you can listen to.",
+      "seconds": 4.6,
+      "llm_calls": 2,
+      "input_tokens": 38896,
+      "cached_tokens": 37278,
+      "output_tokens": 704,
+      "recovered": false
+    },
+    {
+      "id": "L04",
+      "category": "영어",
+      "command": "make it sound better",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "편집 없음 (정답)",
+      "steps": [],
+      "reply": "Could you tell me what you'd like to change? Here are a few options:\n\n1. Add a light swing (about 55–58%) to the drums so the lofi groove feels looser.\n2. Soften the timing on the Rhodes with a partial quantize, so it doesn't feel stiff.\n3. Give the chords a richer sound with a reharmonization that keeps the lead melody intact.\n\nWhich of these sounds right, or would you like something else?",
+      "seconds": 2.13,
+      "llm_calls": 1,
+      "input_tokens": 18882,
+      "cached_tokens": 18397,
+      "output_tokens": 297,
+      "recovered": false
+    },
+    {
+      "id": "D01",
+      "category": "이어지는 대화",
+      "command": "베이스 2키 올려줘 → <적용> → 한 키 더 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "get_project_info",
+          "args": {},
+          "ok": true,
+          "summary": "84 BPM · 4/4박자 · 16마디 · 트랙 5개 (t1 Drums (드럼), t2 Bass, t3 Rhodes, t4 Pad, t5 Lead)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 1,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 1반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개를 2반음 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요. / 베이스 트랙의 음 61개를 1반음 올렸어요. 앞서 적용한 2반음에 더해져 지금은 총 3반음 올라간 상태예요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 7.19,
+      "llm_calls": 5,
+      "input_tokens": 47942,
+      "cached_tokens": 47339,
+      "output_tokens": 412,
+      "recovered": false
+    },
+    {
+      "id": "D02",
+      "category": "이어지는 대화",
+      "command": "베이스 2키 올려줘 → 멜로디도 똑같이",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 2,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 2반음 올렸어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개를 2반음 올렸어요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요. / Lead 트랙(멜로디) 47개 음을 2반음 올렸어요. 베이스와 함께 미리보기에 들어 있으니 들어 보고 적용하거나 취소하면 돼요.",
+      "seconds": 5.81,
+      "llm_calls": 4,
+      "input_tokens": 38132,
+      "cached_tokens": 37688,
+      "output_tokens": 232,
+      "recovered": false
+    },
+    {
+      "id": "D03",
+      "category": "이어지는 대화",
+      "command": "9마디부터 패드 약하게 → <적용> → 그 부분 패드 한 옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "bars": [
+              9,
+              16
+            ],
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": 1,
+            "bars": [
+              9,
+              16
+            ],
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 1옥타브 올렸어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "9마디부터 끝까지 Pad 트랙의 세기를 70%로 낮춰 미리보기로 만들었어요. 들어 보고 적용하거나 취소해 주세요. / 9마디부터 끝까지 Pad 트랙의 음을 한 옥타브 올려 미리보기로 만들었어요. 들어 보고 적용하거나 취소해 주세요.",
+      "seconds": 6.94,
+      "llm_calls": 4,
+      "input_tokens": 38046,
+      "cached_tokens": 37652,
+      "output_tokens": 302,
+      "recovered": false
+    },
+    {
+      "id": "D04",
+      "category": "이어지는 대화",
+      "command": "리드 7키 내려 → <적용> → 방금 거 반대로",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": -7,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 7반음 내렸어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 7,
+            "track_ids": [
+              "t5"
+            ]
+          },
+          "ok": true,
+          "summary": "Lead 트랙 47개 음을 7반음 올렸어요.",
+          "changed_notes": 47,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "리드(Lead) 트랙의 음 47개를 7반음 내렸어요. 미리보기로 들어 보고 적용하시면 됩니다. / 리드(Lead) 트랙의 음 47개를 7반음 올려 원래 높이로 되돌렸어요. 미리보기로 들어 보고 적용하시면 됩니다.",
+      "seconds": 6.6,
+      "llm_calls": 4,
+      "input_tokens": 37966,
+      "cached_tokens": 37603,
+      "output_tokens": 383,
+      "recovered": false
+    },
+    {
+      "id": "D05",
+      "category": "이어지는 대화",
+      "command": "하이햇 좀 약하게 → <취소> → 그럼 스네어를 20만큼 세게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "scale",
+            "value": 0.7,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              42,
+              46
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 116개 음의 세기를 70%로 줄였어요.",
+          "changed_notes": 116,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "adjust_velocity",
+          "args": {
+            "mode": "offset",
+            "value": 20,
+            "track_ids": [
+              "t1"
+            ],
+            "pitches": [
+              38
+            ]
+          },
+          "ok": true,
+          "summary": "Drums 트랙 28개 음의 세기를 20 높였어요.",
+          "changed_notes": 28,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "하이햇 음 116개의 세기를 70%로 줄였어요. 닫힌 하이햇과 열린 하이햇 모두 해당돼요. 미리보기로 들어 보시고, 더 줄이고 싶으면 말씀해 주세요. / 스네어 음 28개의 세기를 20만큼 높였어요. 미리보기로 들어 보시고, 마음에 들면 적용해 주세요. 하이햇은 앞서 취소돼서 아직 그대로예요.",
+      "seconds": 9.56,
+      "llm_calls": 4,
+      "input_tokens": 38079,
+      "cached_tokens": 37890,
+      "output_tokens": 408,
+      "recovered": false
+    },
+    {
+      "id": "D06",
+      "category": "이어지는 대화",
+      "command": "패드 한 옥타브 올려줘 → 아니 내려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": 1,
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 1옥타브 올렸어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "start_over",
+          "args": {},
+          "ok": true,
+          "summary": "미리보기를 버리고 마지막으로 저장한 상태에서 다시 시작해요.",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": -1,
+            "track_ids": [
+              "t4"
+            ]
+          },
+          "ok": true,
+          "summary": "Pad 트랙 24개 음을 1옥타브 내렸어요.",
+          "changed_notes": 24,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "패드 트랙을 한 옥타브 올렸어요. 음 24개가 모두 옮겨졌고, 미리보기로 들어 보고 적용하거나 취소할 수 있어요. / 패드 트랙을 한 옥타브 내렸어요. 음 24개가 모두 옮겨졌고, 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 8.04,
+      "llm_calls": 5,
+      "input_tokens": 47817,
+      "cached_tokens": 47025,
+      "output_tokens": 242,
+      "recovered": false
+    },
+    {
+      "id": "R01",
+      "category": "스스로 고치기",
+      "command": "베이스 30반음 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "shift_octave",
+          "args": {
+            "octaves": 2,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 2옥타브 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "transpose",
+          "args": {
+            "semitones": 6,
+            "track_ids": [
+              "t2"
+            ]
+          },
+          "ok": true,
+          "summary": "Bass 트랙 61개 음을 6반음 올렸어요.",
+          "changed_notes": 61,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "베이스 트랙의 음 61개를 30반음 올렸어요. 음역은 C4~A5 근처가 됐고, MIDI 범위 안이라 잘렸을 가능성은 없어요. 미리보기로 들어 보고 적용하거나 취소하세요.",
+      "seconds": 7.47,
+      "llm_calls": 2,
+      "input_tokens": 38021,
+      "cached_tokens": 37250,
+      "output_tokens": 774,
+      "recovered": false
+    },
+    {
+      "id": "R02",
+      "category": "스스로 고치기",
+      "command": "리드를 4옥타브 올려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [],
+      "reply": "리드를 4옥타브 올리면 가장 높은 음(A5)이 악기 음역 한계를 넘어서 할 수 없어요. 지금 리드는 G4~A5라서 최대 3옥타브까지 올릴 수 있고, 그러면 A7 근처까지 올라갑니다. 3옥타브 올릴까요, 아니면 다른 양으로 조정할까요?",
+      "seconds": 4.83,
+      "llm_calls": 1,
+      "input_tokens": 18859,
+      "cached_tokens": 18397,
+      "output_tokens": 436,
+      "recovered": false
+    },
+    {
+      "id": "R03",
+      "category": "스스로 고치기",
+      "command": "20마디부터 베이스 약하게",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [],
+      "reply": "곡은 16마디까지 있어서 20마디는 없어요. 베이스를 몇 마디부터 약하게 할지 다시 알려 주세요. 예를 들어 13마디부터 끝까지라면 \"13마디부터 베이스 약하게\"라고 하시면 됩니다.",
+      "seconds": 4.89,
+      "llm_calls": 1,
+      "input_tokens": 18858,
+      "cached_tokens": 18397,
+      "output_tokens": 232,
+      "recovered": false
+    },
+    {
+      "id": "H01",
+      "category": "리하모니",
+      "command": "코드 진행을 좀 더 재즈스럽게 바꿔줘 → 재지하게 제안으로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {},
+          "ok": true,
+          "summary": "조성 C major · 곡 전체 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "Fmaj9",
+                  "roman": "IVmaj7",
+                  "function": "S"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "Em9",
+                  "roman": "iii7",
+                  "function": "T"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 32.0,
+                  "end": 36.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 36.0,
+                  "end": 40.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 40.0,
+                  "end": 44.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                },
+                {
+                  "start": 44.0,
+                  "end": 48.0,
+                  "name": "A7",
+                  "roman": "V7/ii",
+                  "function": "부속"
+                },
+                {
+                  "start": 48.0,
+                  "end": 52.0,
+                  "name": "Dm9",
+                  "roman": "ii7",
+                  "function": "S"
+                },
+                {
+                  "start": 52.0,
+                  "end": 56.0,
+                  "name": "G13",
+                  "roman": "V7",
+                  "function": "D"
+                },
+                {
+                  "start": 56.0,
+                  "end": 64.0,
+                  "name": "Cmaj9",
+                  "roman": "Imaj7",
+                  "function": "T"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 Fmaj9 → Dm9 (같은 기능)",
+                    "5마디 Fmaj9 → Dm9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 2.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 2.0,
+                      "end": 4.0,
+                      "name": "B7",
+                      "roman": "V7/iii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 18.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 18.0,
+                      "end": 20.0,
+                      "name": "B7",
+                      "roman": "V7/iii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 26.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 26.0,
+                      "end": 28.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 30.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 30.0,
+                      "end": 32.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 42.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 42.0,
+                      "end": 44.0,
+                      "name": "E7",
+                      "roman": "V7/VI",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "1마디 Fmaj9 → Fmaj9 · B7 (부속 딸림)",
+                    "5마디 Fmaj9 → Fmaj9 · B7 (부속 딸림)",
+                    "7마디 Dm9 → Dm9 · Db7 (트라이톤 대리)",
+                    "8마디 Cmaj9 → Cmaj9 · A7 (부속 딸림)",
+                    "10마디 G13 → Db7 (트라이톤 대리)",
+                    "11마디 Cmaj9 → Cmaj9 · E7 (부속 딸림)",
+                    "14마디 G13 → Db7 (트라이톤 대리)"
+                  ],
+                  "rubs": [
+                    "1마디 4.5박 멜로디 E ↔ B7 (반음)",
+                    "5마디 4.5박 멜로디 E ↔ B7 (반음)"
+                  ]
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Em9",
+                      "roman": "iii7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 32.0,
+                      "end": 36.0,
+                      "name": "Dm7b5",
+                      "roman": "iiø7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 36.0,
+                      "end": 40.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 40.0,
+                      "end": 44.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 44.0,
+                      "end": 48.0,
+                      "name": "A7",
+                      "roman": "V7/ii",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 48.0,
+                      "end": 52.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 52.0,
+                      "end": 56.0,
+                      "name": "Bb7",
+                      "roman": "bVII7",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 56.0,
+                      "end": 64.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    }
+                  ],
+                  "changes": [
+                    "3마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "9마디 Dm9 → Dm7b5 (빌려온 화음)",
+                    "10마디 G13 → Bb7 (빌려온 화음)",
+                    "14마디 G13 → Bb7 (빌려온 화음)"
+                  ],
+                  "rubs": [
+                    "3마디 4.5박 멜로디 A ↔ Dm7b5 (반음)"
+                  ]
+                }
+              ],
+              "bars": null
+            }
+          },
+          "checks": []
+        },
+        {
+          "name": "apply_chords",
+          "args": {
+            "style": "재지하게"
+          },
+          "ok": true,
+          "summary": "Bass, Rhodes, Pad 트랙 59개 음을 재지하게 제안 코드로 바꿨어요 (1마디 Fmaj9 → Fmaj9 · B7 (부속 딸림), 5마디 Fmaj9 → Fmaj9 · B7 (부속 딸림), 7마디 Dm9 → Dm9 · Db7 (트라이톤 대리) 외 4곳)",
+          "changed_notes": 59,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "곡 전체(C major)에 대해 대리코드 제안 3개를 만들었어요. 아직 음은 그대로예요.\n\n- 가볍게(light): 같은 기능 안에서 텐션만 더해요. 1마디와 5마디의 Fmaj9가 Dm9로 바뀝니다.\n- 재지하게(jazzy): 다음 코드로 끌어당기는 딸림7을 넣고, 으뜸화음 앞에 트라이톤 대리를 써요. 1마디와 5마디는 B7이 앞에 붙고, 10마디 G13은 Db7로 바뀝니다. 멜로디와 살짝 부딪히는 곳이 있어요.\n- 색다르게(colorful): 반대 조에서 빌려온 화음을 써서 분위기를 바꿔요. 3마디 Dm9가 Dm7b5로, 10마디 G13이 Bb7로 바뀝니다. 이 곳도 멜로디와 살짝 부딪혀요.\n\n재즈 느낌을 원하면 재지하게 제안이 가장 가까워요. \"재지하게 제안으로 바꿔줘\"라고 하시면 건반과 베이스를 새 코드로 옮겨 미리보기로 들려 드릴게요. 멜로디와 드럼은 그대로 둡니다. / 재지하게 제안으로 바꿨어요. 건반(Rhodes)·패드·베이스를 새 코드로 옮겼고, 멜로디(Lead)와 드럼은 그대로예요. 1·5마디 Fmaj9 앞에 B7이 붙고, 8·11마디 Cmaj9 앞에는 A7, E7이 붙어 다음 코드로 끌어당겨요. 7마디 Dm9는 Db7 트라이톤 대리로 바뀌고, 10·14마디 G13은 Db7로 바뀌어요. 멜로디와 살짝 부딪히는 곳이 있으니 들어 보면서 확인해 주세요.",
+      "seconds": 6.97,
+      "llm_calls": 4,
+      "input_tokens": 39078,
+      "cached_tokens": 38564,
+      "output_tokens": 494,
+      "recovered": false
+    },
+    {
+      "id": "H02",
+      "category": "리하모니",
+      "command": "5마디부터 8마디까지 대리코드 추천해줘 → 세 번째 걸로 바꿔줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "suggest_reharmonization",
+          "args": {
+            "bars": [
+              5,
+              8
+            ]
+          },
+          "ok": true,
+          "summary": "조성 C major · 5~8마디 리하모니 제안 3개 (가볍게 · 재지하게 · 색다르게)",
+          "changed_notes": 0,
+          "changed_settings": false,
+          "view": {
+            "reharm": {
+              "base": [
+                {
+                  "start": 0.0,
+                  "end": 4.0,
+                  "name": "C",
+                  "roman": "I",
+                  "function": "T"
+                },
+                {
+                  "start": 4.0,
+                  "end": 8.0,
+                  "name": "G",
+                  "roman": "V",
+                  "function": "D"
+                },
+                {
+                  "start": 8.0,
+                  "end": 12.0,
+                  "name": "Am",
+                  "roman": "vi",
+                  "function": "T"
+                },
+                {
+                  "start": 12.0,
+                  "end": 16.0,
+                  "name": "F",
+                  "roman": "IV",
+                  "function": "S"
+                },
+                {
+                  "start": 16.0,
+                  "end": 20.0,
+                  "name": "C",
+                  "roman": "I",
+                  "function": "T"
+                },
+                {
+                  "start": 20.0,
+                  "end": 24.0,
+                  "name": "G",
+                  "roman": "V",
+                  "function": "D"
+                },
+                {
+                  "start": 24.0,
+                  "end": 28.0,
+                  "name": "Am",
+                  "roman": "vi",
+                  "function": "T"
+                },
+                {
+                  "start": 28.0,
+                  "end": 32.0,
+                  "name": "F",
+                  "roman": "IV",
+                  "function": "S"
+                }
+              ],
+              "suggestions": [
+                {
+                  "style": "가볍게",
+                  "feel": "같은 기능 코드 · 텐션만 더해 원래 느낌 그대로 조금 더 풍성하게",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G",
+                      "roman": "V",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "F",
+                      "roman": "IV",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "G9",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Dm9",
+                      "roman": "ii7",
+                      "function": "S"
+                    }
+                  ],
+                  "changes": [
+                    "5마디 C → Cmaj9 (텐션)",
+                    "6마디 G → G9 (텐션)",
+                    "7마디 Am → Am9 (텐션)",
+                    "8마디 F → Dm9 (같은 기능)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "재지하게",
+                  "feel": "다음 코드로 끌어당기는 딸림7을 끼우고, 으뜸화음 앞은 트라이톤 대리",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G",
+                      "roman": "V",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "F",
+                      "roman": "IV",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 18.0,
+                      "name": "Cmaj9",
+                      "roman": "Imaj7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 18.0,
+                      "end": 20.0,
+                      "name": "D7",
+                      "roman": "V7/V",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 22.0,
+                      "name": "G13",
+                      "roman": "V7",
+                      "function": "D"
+                    },
+                    {
+                      "start": 22.0,
+                      "end": 24.0,
+                      "name": "E7",
+                      "roman": "V7/vi",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 26.0,
+                      "name": "Am9",
+                      "roman": "vi7",
+                      "function": "T"
+                    },
+                    {
+                      "start": 26.0,
+                      "end": 28.0,
+                      "name": "C7",
+                      "roman": "V7/IV",
+                      "function": "부속"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 30.0,
+                      "name": "Fmaj9",
+                      "roman": "IVmaj7",
+                      "function": "S"
+                    },
+                    {
+                      "start": 30.0,
+                      "end": 32.0,
+                      "name": "Db7",
+                      "roman": "subV7",
+                      "function": "D"
+                    }
+                  ],
+                  "changes": [
+                    "5마디 C → Cmaj9 · D7 (부속 딸림)",
+                    "6마디 G → G13 · E7 (부속 딸림)",
+                    "7마디 Am → Am9 · C7 (부속 딸림)",
+                    "8마디 F → Fmaj9 · Db7 (트라이톤 대리)"
+                  ],
+                  "rubs": []
+                },
+                {
+                  "style": "색다르게",
+                  "feel": "같은 으뜸음의 반대 조에서 빌려온 화음으로 분위기를 바꿈",
+                  "chords": [
+                    {
+                      "start": 0.0,
+                      "end": 4.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 4.0,
+                      "end": 8.0,
+                      "name": "G",
+                      "roman": "V",
+                      "function": "D"
+                    },
+                    {
+                      "start": 8.0,
+                      "end": 12.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 12.0,
+                      "end": 16.0,
+                      "name": "F",
+                      "roman": "IV",
+                      "function": "S"
+                    },
+                    {
+                      "start": 16.0,
+                      "end": 20.0,
+                      "name": "C",
+                      "roman": "I",
+                      "function": "T"
+                    },
+                    {
+                      "start": 20.0,
+                      "end": 24.0,
+                      "name": "Bb",
+                      "roman": "bVII",
+                      "function": "차용"
+                    },
+                    {
+                      "start": 24.0,
+                      "end": 28.0,
+                      "name": "Am",
+                      "roman": "vi",
+                      "function": "T"
+                    },
+                    {
+                      "start": 28.0,
+                      "end": 32.0,
+                      "name": "Fm6",
+                      "roman": "iv",
+                      "function": "차용"
+                    }
+                  ],
+                  "changes": [
+                    "6마디 G → Bb (빌려온 화음)",
+                    "8마디 F → Fm6 (빌려온 화음)"
+                  ],
+                  "rubs": []
+                }
+              ],
+              "bars": [
+                5,
+                8
+              ]
+            }
+          },
+          "checks": []
+        },
+        {
+          "name": "apply_chords",
+          "args": {
+            "style": "색다르게",
+            "bars": [
+              5,
+              8
+            ]
+          },
+          "ok": true,
+          "summary": "Chords, Bass 트랙 20개 음을 색다르게 제안 코드로 바꿨어요 (6마디 G → Bb (빌려온 화음), 8마디 F → Fm6 (빌려온 화음))",
+          "changed_notes": 20,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "5~8마디에 대리코드 제안 3개를 만들었어요. 조성은 C major예요. 아직 음은 그대로이고, 화면 카드에서 코드 띠로 비교해 볼 수 있어요.\n\n1. 가볍게: 기능은 그대로 두고 텐션만 더한 진행이에요. Cmaj9 → G9 → Am9 → Dm9입니다.\n2. 재지하게: 딸림7을 끼워 다음 코드로 끌어당기는 진행이에요. Cmaj9 → D7 → G13 → E7 → Am9 → C7 → Fmaj9 → Db7입니다.\n3. 색다르게: 반대 조에서 빌려온 화음으로 분위기를 바꿔요. C → Bb → Am → Fm6입니다.\n\n\"이걸로 바꾸기\"를 누르거나 \"재지하게 제안으로 바꿔줘\"처럼 말하면 미리보기로 들어 볼 수 있어요. / 5~8마디를 세 번째 제안인 색다르게 진행으로 바꿨어요. 6마디는 G에서 Bb(빌려온 화음)로, 8마디는 F에서 Fm6로 바뀌었고, 건반과 베이스 음이 새 코드에 맞춰 옮겨졌어요. 멜로디와 드럼은 그대로예요. 지금 들어 볼 수 있어요.",
+      "seconds": 10.11,
+      "llm_calls": 4,
+      "input_tokens": 38494,
+      "cached_tokens": 38151,
+      "output_tokens": 493,
+      "recovered": false
+    },
+    {
+      "id": "H03",
+      "category": "리하모니",
+      "command": "코드를 재즈스럽게 바로 바꿔서 들려줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "apply_chords",
+          "args": {
+            "style": "재지하게"
+          },
+          "ok": true,
+          "summary": "Chords, Bass 트랙 106개 음을 재지하게 제안 코드로 바꿨어요 (1마디 C → Cmaj9 · D7 (부속 딸림), 2마디 G → G13 · E7 (부속 딸림), 3마디 Am → Am9 · C7 (부속 딸림) 외 5곳)",
+          "changed_notes": 106,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "재즈 느낌의 대리코드로 바꿨어요. 1~8마디 코드가 Cmaj9 → D7, G13 → E7, Am9 → C7, Fmaj9 → Db7 순으로 바뀌고, 이 진행이 두 번 반복돼요. 건반과 베이스만 새 코드를 따르고 멜로디와 드럼은 그대로예요. 지금은 미리보기 상태라 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 4.33,
+      "llm_calls": 2,
+      "input_tokens": 38060,
+      "cached_tokens": 37203,
+      "output_tokens": 687,
+      "recovered": false
+    },
+    {
+      "id": "N01",
+      "category": "만들기",
+      "command": "패드 하나 깔아줘 → 다른 버전으로 해줘",
+      "passed": true,
+      "tools_ok": true,
+      "reason": "정답 (마지막 상태가 같음)",
+      "steps": [
+        {
+          "name": "generate_chords",
+          "args": {
+            "pattern": "pad"
+          },
+          "ok": true,
+          "summary": "새 트랙 Pad 2(t6)에 곡의 코드 15개를 패드로 깔았어요 · 폴리신스 패드 · 음역 E3~G4",
+          "changed_notes": 60,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        },
+        {
+          "name": "generate_chords",
+          "args": {
+            "track_id": "t6",
+            "version": 2,
+            "pattern": "pad"
+          },
+          "ok": true,
+          "summary": "Pad 2(t6) 트랙을 곡의 코드 15개로 다시 깔았어요 · 폴리신스 패드 · 음역 E3~A4 · 버전 2",
+          "changed_notes": 60,
+          "changed_settings": false,
+          "view": null,
+          "checks": []
+        }
+      ],
+      "reply": "곡의 코드를 따라 \"Pad 2\" 트랙에 패드를 깔았어요. 폴리신스 패드 소리이고 음역은 E3~G4예요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요. / Pad 2 트랙의 패드를 다른 버전(v2)으로 다시 깔았어요. 소리는 폴리신스 패드 그대로이고 음역은 E3~A4예요. 미리보기로 들어 보고 적용하거나 취소할 수 있어요.",
+      "seconds": 4.3,
+      "llm_calls": 4,
+      "input_tokens": 38332,
+      "cached_tokens": 37775,
+      "output_tokens": 224,
+      "recovered": false
+    }
+  ]
+}

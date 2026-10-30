@@ -270,7 +270,7 @@ def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
         "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix", "duplicate_track", "set_drum_sound",
-        "analyze_harmony", "suggest_reharmonization", "apply_chords", "generate_chords",
+        "analyze_harmony", "suggest_reharmonization", "apply_chords", "generate_chords", "add_track",
     }
     specs = tool_specs()
     for spec in specs:

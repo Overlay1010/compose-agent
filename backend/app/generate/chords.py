@@ -7,14 +7,17 @@
   폴리신스 패드, 그 밖(건반 · 로파이 · 피아노)은 따뜻한 패드. 이미 같은 소리가 있으면 다른 패드.
   템포로는 고르지 않는다 (150 BPM 피아노 왈츠에 신스 패드가 깔렸다)
 - 세기: 원래 곡보다 조금 작게 (뒤에 깔리게)
+- 다른 버전: version마다 첫 코드를 다른 모양(촘촘하게 · 넓게 · 높게 · 4도로 벌려)으로 짜고, 거기서부터 이어 간다
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import product
+from random import Random
 from statistics import mean, median
 
+from app.generate.check import playable
 from app.harmony import ChordSpan, analyze
 from app.harmony.analyze import melody_ids
 from app.harmony.reharm import INTERVALS
@@ -30,6 +33,7 @@ DRIFT = 5  # 반음. 보이싱 가운데가 음역 가운데에서 이만큼 넘
 SOFTER = 0.75  # 원래 곡 세기에 곱한다
 CLUSTER = 6  # 반음 붙은 두 음의 벌점 (움직임 반음 수로)
 HEIGHT_SHIFT = {"low": -7, "mid": 0, "high": 7}
+SHAPES = [(-7, -3, 2, 6), (-10, -3, 4, 9), (-4, 0, 5, 9), (-12, -5, 0, 7)]  # 버전마다 첫 코드를 짤 모양 (음역 가운데에서 반음)
 
 WARM_PAD, POLYSYNTH_PAD, STRINGS = 89, 90, 48
 OTHER_PADS = [91, 88, 95]  # 콰이어 · 뉴에이지 · 스윕 패드 (이미 같은 소리가 있을 때)
@@ -41,7 +45,7 @@ class PadPlan:
     program: int
     low: int  # 실제로 쓴 가장 낮은 · 높은 음
     high: int
-    chords: int  # 패드를 놓은 코드 수
+    chords: list[ChordSpan] = field(default_factory=list)  # 패드를 놓은 코드 (검사에도 쓴다)
 
 
 def pad_program(project: Project) -> int:
@@ -115,9 +119,18 @@ def lead(prev: list[int], chord: ChordSpan, low: int, high: int) -> list[int]:
     return sorted(best[1]) if best else sorted(revoice(prev, chord))
 
 
-def voicings(chords: list[ChordSpan], low: int, high: int, center: int) -> list[list[int]]:
+def shape(version: int) -> list[int]:
+    """version번째 첫 코드 모양. 모양을 다 쓰면 조금씩 흔들어 새 모양을 만든다."""
+    base = SHAPES[(version - 1) % len(SHAPES)]
+    if version <= len(SHAPES):
+        return list(base)
+    rng = Random(version)
+    return [x + rng.choice((-2, -1, 1, 2)) for x in base]
+
+
+def voicings(chords: list[ChordSpan], low: int, high: int, center: int, version: int = 1) -> list[list[int]]:
     """코드마다 4음. 앞 코드에서 가장 덜 움직이게 잇고, 가운데에서 너무 멀어지면 다시 가운데에서. 음역 [low, high] 안."""
-    seed = [center - 7, center - 3, center + 2, center + 6]
+    seed = [center + x for x in shape(version)]
     out: list[list[int]] = []
     prev: list[int] = seed
     for c in chords:
@@ -129,22 +142,30 @@ def voicings(chords: list[ChordSpan], low: int, high: int, center: int) -> list[
     return out
 
 
-def pad_notes(project: Project, start: float = 0.0, end: float | None = None, height: str | None = None) -> tuple[list[Note], PadPlan]:
-    """[start, end) 박에 곡의 코드대로 패드 음. 코드가 없는 구간(N.C.)은 비운다."""
+def pad_notes(
+    project: Project, start: float = 0.0, end: float | None = None, height: str | None = None,
+    program: int | None = None, version: int = 1,
+) -> tuple[list[Note], PadPlan]:
+    """[start, end) 박에 곡의 코드대로 패드 음. 코드가 없는 구간(N.C.)은 비운다. program이 없으면 곡 편성에 맞춰 고른다."""
+    program = pad_program(project) if program is None else program
     a = analyze(project)
     end = a.chords[-1].end if end is None and a.chords else (end or 0.0)
     chords = [c for c in a.chords if c.root is not None and c.end > start + 1e-6 and c.start < end - 1e-6]
     if not chords:
-        return [], PadPlan(pad_program(project), 0, 0, 0)
+        return [], PadPlan(program, 0, 0)
     low, high = pad_window(project, start, end)
     shift = HEIGHT_SHIFT.get(height or "mid", 0)
     low, high = max(LOW - 7, low + shift), min(HIGH + 7, high + shift)
+    floor, ceil = playable(program)  # 고른 악기로 낼 수 있는 높이 안에서만 (보이싱이 GAP만큼 넘칠 수 있어 그만큼 안쪽)
+    low, high = max(low, floor + GAP), min(high, ceil - GAP)
+    if high - low < 12:
+        low, high = max(floor + GAP, min(low, ceil - GAP - 12)), min(ceil - GAP, max(high, floor + GAP + 12))
     center = (low + high) // 2
     played = [n.velocity for t in project.tracks if not t.is_drum for n in t.notes]
     velocity = max(35, min(90, round(median(played) * SOFTER))) if played else 64
     notes = []
-    for c, voicing in zip(chords, voicings(chords, low, high, center)):
+    for c, voicing in zip(chords, voicings(chords, low, high, center, version)):
         s, e = max(c.start, start), min(c.end, end)
         notes += [Note(pitch=p, start=round(s, 4), duration=round(e - s, 4), velocity=velocity) for p in voicing]
     pitches = [n.pitch for n in notes]
-    return notes, PadPlan(pad_program(project), min(pitches), max(pitches), len(chords))
+    return notes, PadPlan(program, min(pitches), max(pitches), chords)

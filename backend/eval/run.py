@@ -103,9 +103,12 @@ def run_conversation(llm: LLM, conv: Conversation) -> dict:
 
     final = store.working_copy(pid)
     want = expected_state(original if conv.base == "original" else before_last, conv.expect)
-    passed = notes_of(final) == notes_of(want)
+    broken = [c for st in steps if st.ok for c in st.checks]
+    passed = notes_of(final) == notes_of(want) and not broken
     if passed:
         reason = "정답 (마지막 상태가 같음)"
+    elif broken:
+        reason = "만든 음이 규칙에 걸림: " + ", ".join(broken[:5])
     else:
         diff = [tid for tid, notes in notes_of(final).items() if notes != notes_of(want).get(tid)]
         reason = "마지막 상태가 다름: " + ", ".join(diff) + " · 실행: " + "; ".join(

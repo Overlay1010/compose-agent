@@ -1,4 +1,4 @@
-"""정답 있는 명령 88개.
+"""정답 있는 명령 90개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -229,7 +229,7 @@ CASES: list[Case] = [
          selection={"track_ids": None, "beats": [32, 48], "pitches": None}, note="고른 부분 = 9~12마디"),
     # ---------- 만들기: 곡의 코드로 패드 깔기 (악기 · 음역은 말이 없으면 비워 둬야 곡에 맞춰 고른다) ----------
     case("B01", "만들기", "lofi_groove", "패드 하나 더 깔아줘",
-         [Call("generate_chords", {"pattern": "pad", "program": None, "height": None, "bars": None})],
+         [Call("generate_chords", {"pattern": OneOf(frozenset({None, "pad"})), "program": None, "height": None, "bars": None})],
          note="Pad 트랙이 이미 있어도 복제가 아니라 곡의 코드로 새로"),
     case("B02", "만들기", "fl_style_loose", "코드 좀 바닥에 깔아줘", [Call("generate_chords", {"program": None, "bars": None})]),
     case("B03", "만들기", "lofi_groove", "9마디부터 스트링으로 패드 깔아줘",
@@ -238,6 +238,8 @@ CASES: list[Case] = [
     case("B05", "만들기", "lofi_groove", "Rhodes를 패드 소리로 겹쳐줘",
          [Call("duplicate_track", {"track_id": "t3", "program": OneOf(frozenset(range(88, 96)))})],
          note="트랙을 말하면 복제 겹치기 (패드 깔기 아님)"),
+    case("B06", "만들기", "lofi_groove", "빈 트랙 하나 추가해줘", [Call("add_track", {"drums": OneOf(frozenset({None, False}))})]),
+    case("B07", "만들기", "fl_style_loose", "빈 드럼 트랙 하나 만들어줘", [Call("add_track", {"drums": True})]),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
     case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
     case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
@@ -246,4 +248,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 88 and len({c.id for c in CASES}) == 88
+assert len(CASES) == 90 and len({c.id for c in CASES}) == 90

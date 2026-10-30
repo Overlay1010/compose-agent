@@ -89,6 +89,7 @@ class ToolResult(BaseModel):
     summary: str = Field(description="채팅 화면에 보여 줄 한 줄 요약")
     data: dict[str, Any] | None = Field(default=None, description="읽기 도구가 돌려주는 정보")
     view: dict[str, Any] | None = Field(default=None, description="화면에만 보내는 정보 (LLM에는 안 감 — 예: 리하모니 제안 코드 목록)")
+    checks: list[str] = Field(default_factory=list, description="만들기 도구: 만든 음 검사에서 걸린 것 (app/generate/check.py). 비어야 정상")
 
 
 @dataclass(frozen=True)

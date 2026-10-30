@@ -65,6 +65,10 @@ CONVERSATIONS: list[Conversation] = [
                  (("apply_chords", {"style": "색다르게", "bars": [5, 8]}),), note="번호 = 직전 제안 순서, 범위도 제안 때와 같게"),
     Conversation("H03", "리하모니", "fl_style_loose", ("코드를 재즈스럽게 바로 바꿔서 들려줘",),
                  (("apply_chords", {"style": "재지하게"}),), note="처음부터 바꿔 달라고 분명히 말함 → 제안 없이 바로"),
+    # ---------- 만들기: 다른 버전 (새 트랙을 또 쌓지 않고 같은 트랙을 다시) ----------
+    Conversation("N01", "만들기", "lofi_groove", ("패드 하나 깔아줘", "다른 버전으로 해줘"),
+                 (("generate_chords", {}), ("generate_chords", {"track_id": "t6", "version": 2})),
+                 note="트랙이 하나만 늘고, 그 트랙이 버전 2 보이싱"),
 ]
 
 assert len({c.id for c in CONVERSATIONS}) == len(CONVERSATIONS)

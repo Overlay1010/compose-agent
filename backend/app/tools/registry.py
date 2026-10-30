@@ -35,7 +35,7 @@ from app.tools.instrument import SetInstrumentArgs, set_instrument
 from app.tools.mix import SetMixArgs, set_mix
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
-from app.tools.generate import GenerateChordsArgs, generate_chords
+from app.tools.generate import AddTrackArgs, GenerateChordsArgs, add_track, generate_chords
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
@@ -156,9 +156,16 @@ TOOLS: dict[str, Tool] = {
         Tool(
             "generate_chords",
             "곡의 코드(분석 결과)를 따라 새 트랙에 화음을 깐다. pattern pad = 코드마다 길게 누르는 패드. "
-            "악기 · 음역은 말이 없으면 곡에 맞춰 고른다. 결과에 새 트랙 id가 나온다.",
+            "악기 · 음역은 말이 없으면 곡에 맞춰 고른다. 결과에 새 트랙 id와 버전이 나온다. "
+            "\"다른 버전\"은 track_id(만든 트랙)와 version(앞 버전 + 1)으로 같은 트랙을 다시 만든다.",
             GenerateChordsArgs,
             generate_chords,
+        ),
+        Tool(
+            "add_track",
+            "음이 없는 빈 트랙을 하나 만든다 (악기 · 드럼 킷은 고를 수 있음). 음을 지어 넣지는 않는다.",
+            AddTrackArgs,
+            add_track,
         ),
         Tool(
             "set_drum_sound",

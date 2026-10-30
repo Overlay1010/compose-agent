@@ -141,6 +141,9 @@ def score(case: Case, steps: list[ToolStep], melodic: set[str], reply: str = "")
     s = _score_edits(case, steps, melodic)
     if not s.passed:
         return s
+    broken = [c for st in steps if st.ok for c in st.checks]
+    if broken:
+        return Score(False, True, "만든 음이 규칙에 걸림: " + ", ".join(broken[:5]))
     unread = [t for t in case.reads if not any(st.name == t and st.ok for st in steps)]
     if unread:
         return Score(False, False, "불러야 할 도구를 안 부름: " + ", ".join(unread))

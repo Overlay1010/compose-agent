@@ -106,6 +106,7 @@ class ToolStep(BaseModel):
     changed_notes: int = 0
     changed_settings: bool = False  # 템포처럼 음표 말고 곡 설정이 바뀜
     view: dict[str, Any] | None = None  # 화면에만 보내는 도구 결과 (리하모니 제안 카드)
+    checks: list[str] = Field(default_factory=list)  # 만든 음 검사에서 걸린 것 (평가에서 하나라도 있으면 실패)
 
     @property
     def changed(self) -> bool:
@@ -151,7 +152,7 @@ def _run_call(draft: Project, name: str, raw_args: str) -> tuple[Project, ToolSt
 
     step = ToolStep(
         name=name, args=args, ok=True, summary=result.summary,
-        changed_notes=result.changed_notes, changed_settings=result.changed_settings, view=result.view,
+        changed_notes=result.changed_notes, changed_settings=result.changed_settings, view=result.view, checks=result.checks,
     )
     content: dict[str, Any] = {"ok": True, "summary": result.summary, "changed_notes": result.changed_notes}
     if result.data is not None:
