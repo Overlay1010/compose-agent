@@ -29,7 +29,7 @@ def concrete(call: Call) -> dict:
         elif isinstance(v, Pitches):
             out[k] = sorted(v.must)
         elif isinstance(v, OneOf):
-            out[k] = sorted(v.values)[0]
+            out[k] = sorted(v.values, key=lambda x: (x is not None, str(x)))[0]  # None(비워 둠)이 있으면 그것부터
         else:
             out[k] = v
     return {k: v for k, v in out.items() if v is not None}

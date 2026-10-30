@@ -29,6 +29,7 @@ VOICES = 4
 LOW, HIGH = 45, 79  # 패드가 머무를 바깥 한계 (A2 ~ G5)
 GAP = 2  # 반음. 베이스 · 멜로디와 이만큼은 떨어진다
 NARROW = 10  # 반음. 빈 곳이 이보다 좁으면 멜로디 아래쪽에 붙여 놓는다
+BASS_BELOW = 48  # 음 높이 가운데값이 이보다 낮은 화음 트랙은 베이스로 본다 (C3)
 DRIFT = 5  # 반음. 보이싱 가운데가 음역 가운데에서 이만큼 넘게 끌려가면 다시 가운데에서 짠다
 SOFTER = 0.75  # 원래 곡 세기에 곱한다
 CLUSTER = 6  # 반음 붙은 두 음의 벌점 (움직임 반음 수로)
@@ -76,8 +77,11 @@ def pad_window(project: Project, start: float, end: float) -> tuple[int, int]:
         return [n.pitch for n in t.notes if n.start < end and n.start + n.duration > start]
 
     low, high = LOW, HIGH
-    if len(harmonic) > 1:  # 베이스 트랙이 따로 있다 (가장 낮은 화음 트랙)
-        bass = min(harmonic, key=lambda t: sum(n.pitch for n in t.notes) / len(t.notes))
+    # 베이스 트랙: 베이스 악기이거나 실제로 낮게 치는 화음 트랙. 그냥 가장 낮은 트랙으로 고르면 이미 깐 패드를 베이스로 보고
+    # 그 위에 깔아서 "낮은 패드"가 원래 패드보다 높게 나왔다 (Alarma: 패드 G3~G4 위에 C4~G5)
+    basses = [t for t in harmonic if 32 <= heard_program(t) <= 39 or median(n.pitch for n in t.notes) < BASS_BELOW]
+    if len(harmonic) > 1 and basses:
+        bass = min(basses, key=lambda t: median(n.pitch for n in t.notes))
         if pitches := heard(bass):
             low = max(low, _percentile(pitches, 0.9) + GAP)
     tune = [p for t in pitched if t.id in melody for p in heard(t)]

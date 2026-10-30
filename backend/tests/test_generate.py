@@ -175,3 +175,12 @@ def test_add_track_makes_an_empty_track():
     assert (t.id, t.name, t.is_drum, t.program) == ("t4", "Drums", True, 25) and "TR-808" in r.summary
     r = run_tool(r.project, "add_track", {"program": 73})
     assert r.project.tracks[-1].name == "Track 2" and "플룻" in r.summary
+
+
+def test_existing_pad_is_not_taken_for_the_bass():
+    # 베이스 없이 패드만 있는 곡에 "낮은 패드"를 더 깔면 기존 패드 위가 아니라 그 아래쪽에 (기존 패드를 베이스로 보던 버그)
+    p = song(C, AM, F, G)
+    p = p.model_copy(update={"tracks": [p.tracks[0]]})  # 건반만
+    first = pad_of(p)[1]
+    r, low = pad_of(pad_of(p)[0].project, height="low")
+    assert sum(n.pitch for n in low.notes) / len(low.notes) < sum(n.pitch for n in first.notes) / len(first.notes)
