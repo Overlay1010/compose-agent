@@ -35,7 +35,9 @@ from app.tools.instrument import SetInstrumentArgs, set_instrument
 from app.tools.mix import SetMixArgs, set_mix
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
-from app.tools.generate import AddTrackArgs, GenerateChordsArgs, add_track, generate_chords
+from app.tools.generate import (
+    AddTrackArgs, GenerateBasslineArgs, GenerateChordsArgs, add_track, generate_bassline, generate_chords,
+)
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
@@ -161,6 +163,15 @@ TOOLS: dict[str, Tool] = {
             "\"다른 버전\"은 track_id(만든 트랙)와 version(앞 버전 + 1)으로 같은 트랙을 다시 만든다.",
             GenerateChordsArgs,
             generate_chords,
+        ),
+        Tool(
+            "generate_bassline",
+            "곡의 코드(분석 결과)나 사용자가 말한 진행(progression)을 따라 새 트랙에 베이스라인을 만든다. "
+            "코드가 바뀌면 근음, 드럼 킥이 있으면 킥에 맞춰 치고, 다음 코드로 이어 주는 음을 넣는다. "
+            "style로 근음 · 근음+5음 · 옥타브 · 워킹. 결과에 새 트랙 id와 버전이 나온다. "
+            "\"다른 버전\"은 track_id(만든 트랙)와 version(앞 버전 + 1)으로 같은 트랙을 다시 만든다.",
+            GenerateBasslineArgs,
+            generate_bassline,
         ),
         Tool(
             "add_track",

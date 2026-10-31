@@ -50,6 +50,7 @@ class PadPlan:
     low: int  # 실제로 쓴 가장 낮은 · 높은 음
     high: int
     chords: list[ChordSpan] = field(default_factory=list)  # 패드를 놓은 코드 (검사에도 쓴다)
+    feel: str = ""  # 쓴 리듬 (끊어 치기 · 아르페지오)
 
 
 def pad_program(project: Project) -> int:
@@ -157,6 +158,9 @@ STAB_RHYTHMS = [
     ((0, 0.75), (1.5, 0.75), (3, 0.5)),  # 3-3-2
 ]
 ARP_STYLES = [("up", 0.5), ("updown", 0.5), ("up", 0.25), ("updown", 0.25)]  # 아르페지오: (순서, 한 음 길이 박)
+# 결과 요약에 적을 리듬 (LLM이 짐작해 말하지 않게)
+STAB_NAMES = ["박마다", "뒷박", "당겨서", "3-3-2"]
+ARP_NAMES = ["8분음표 올라가기", "8분음표 오르내리기", "16분음표 올라가기", "16분음표 오르내리기"]
 ACCENT = 8  # 끊어 치기에서 마디 첫 박을 이만큼 세게
 STAB_SOFTER = 0.85  # 끊어 치기는 패드보다 덜 줄인다 (짧게 치는 소리라 묻힌다)
 
@@ -217,6 +221,21 @@ def place(progression: list[str], start: float, end: float, beats: float) -> lis
     return out
 
 
+def follow(
+    project: Project, start: float, end: float | None, progression: list[str] | None, bars_per_chord: float = 1.0,
+) -> tuple[list[ChordSpan], float]:
+    """따라갈 코드와 끝 박. progression(직접 말한 진행)이 있으면 곡 길이만큼 되풀이하고(곡이 한 바퀴보다 짧으면 한 바퀴),
+    없으면 곡의 코드(분석)에서 [start, end)에 걸친 것 (N.C. 빼고). 반주 · 베이스 생성기가 같이 쓴다."""
+    if progression:
+        beats = bars_per_chord * project.beats_per_bar
+        if end is None:
+            end = max(song_end(project), start + len(progression) * beats)
+        return place(progression, start, end, beats), end
+    a = analyze(project)
+    end = a.chords[-1].end if end is None and a.chords else (end or 0.0)
+    return [c for c in a.chords if c.root is not None and c.end > start + 1e-6 and c.start < end - 1e-6], end
+
+
 def song_end(project: Project) -> float:
     """곡 끝 박 (마디 단위로 올림). 음이 없으면 0."""
     last = max((n.start + n.duration for t in project.tracks for n in t.notes), default=0.0)
@@ -274,15 +293,7 @@ def chord_notes(
     progression의 모르는 코드 이름은 ValueError."""
     program = comp_program(project, pattern) if program is None else program
     bpb = project.beats_per_bar
-    if progression:
-        beats = bars_per_chord * bpb
-        if end is None:
-            end = max(song_end(project), start + len(progression) * beats)
-        chords = place(progression, start, end, beats)
-    else:
-        a = analyze(project)
-        end = a.chords[-1].end if end is None and a.chords else (end or 0.0)
-        chords = [c for c in a.chords if c.root is not None and c.end > start + 1e-6 and c.start < end - 1e-6]
+    chords, end = follow(project, start, end, progression, bars_per_chord)
     if not chords:
         return [], PadPlan(program, 0, 0)
     low, high = pad_window(project, start, end)
@@ -309,7 +320,9 @@ def chord_notes(
             s, e = max(c.start, start), min(c.end, end)
             notes += [Note(pitch=p, start=round(s, 4), duration=round(e - s, 4), velocity=velocity) for p in voicing]
     pitches = [n.pitch for n in notes]
-    return notes, PadPlan(program, min(pitches), max(pitches), chords)
+    names = {"stab": STAB_NAMES, "arpeggio": ARP_NAMES}.get(pattern)
+    feel = f"{names[(version - 1) % len(names)]}" if names else ""
+    return notes, PadPlan(program, min(pitches), max(pitches), chords, feel)
 
 
 def pad_notes(

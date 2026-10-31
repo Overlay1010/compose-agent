@@ -1,4 +1,4 @@
-"""정답 있는 명령 94개.
+"""정답 있는 명령 98개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -248,6 +248,15 @@ CASES: list[Case] = [
          [Call("generate_chords", {"pattern": "stab", "progression": ["C", "Am", "F", "G"], "program": Range(0, 1)})]),
     case("B11", "만들기", "waltz_3_4", "Dm7 G7 Cmaj7 진행을 한 코드에 두 마디씩 하프 아르페지오로 깔아줘",
          [Call("generate_chords", {"pattern": "arpeggio", "progression": ["Dm7", "G7", "Cmaj7"], "bars_per_chord": 2, "program": 46})]),
+    # 베이스라인 (패드 · 코드 트랙을 복제해 흉내 내지 않고 generate_bassline, 말이 없으면 style · program은 비워 둬)
+    case("B12", "만들기", "waltz_3_4", "베이스 깔아줘",
+         [Call("generate_bassline", {"style": OneOf(frozenset({None, "root"})), "progression": None, "program": None})]),
+    case("B13", "만들기", "fl_style_loose", "워킹 베이스 만들어줘", [Call("generate_bassline", {"style": "walking"})]),
+    case("B14", "만들기", "lofi_groove", "Am F C G 진행으로 신스 베이스 넣어줘",
+         [Call("generate_bassline", {"progression": ["Am", "F", "C", "G"], "program": Range(38, 39)})]),
+    case("B15", "만들기", "waltz_3_4", "베이스도 멋있게 깔아줄래?",
+         [Call("generate_bassline", {"style": OneOf(frozenset({None, "root"})), "program": None})],
+         note="만들 것이 분명하면 \"멋있게\"가 붙어도 되묻지 말고 기본값으로 (직접 써 보고 찾음)"),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
     case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
     case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
@@ -256,4 +265,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 94 and len({c.id for c in CASES}) == 94
+assert len(CASES) == 98 and len({c.id for c in CASES}) == 98

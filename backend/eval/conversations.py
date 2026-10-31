@@ -72,6 +72,9 @@ CONVERSATIONS: list[Conversation] = [
     Conversation("N02", "만들기", "fl_style_loose", ("코드를 끊어서 치는 반주 깔아줘", "다른 버전으로"),
                  (("generate_chords", {"pattern": "stab"}), ("generate_chords", {"pattern": "stab", "track_id": "t5", "version": 2})),
                  note="다시 만들 때도 무늬(stab)를 그대로 — 빠뜨리면 패드로 바뀐다"),
+    Conversation("N03", "만들기", "waltz_3_4", ("베이스라인 만들어줘", "다른 버전으로 해줘"),
+                 (("generate_bassline", {}), ("generate_bassline", {"track_id": "t3", "version": 2})),
+                 note="베이스도 같은 트랙을 버전 2(다른 리듬)로"),
 ]
 
 assert len({c.id for c in CONVERSATIONS}) == len(CONVERSATIONS)

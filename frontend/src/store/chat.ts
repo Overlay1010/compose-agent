@@ -58,6 +58,7 @@ const TOOL_LABELS: Record<string, string> = {
   suggest_reharmonization: '리하모니 제안',
   apply_chords: '제안대로 코드 바꾸기',
   generate_chords: '코드 깔기',
+  generate_bassline: '베이스 만들기',
   add_track: '트랙 추가',
   start_over: '미리보기 버리고 다시 시작',
 }
