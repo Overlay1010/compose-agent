@@ -1,4 +1,4 @@
-"""만들기 도구 (v0.3): add_track · generate_chords.
+"""만들기 도구 (v0.3): add_track · generate_chords (패드 · 끊어 치기 · 아르페지오, 곡의 코드 또는 말한 진행).
 
 곡의 코드(v0.2 분석)를 따라 새 트랙에 화음을 깐다. 음은 app/generate의 규칙이 만들고, LLM은 무늬 · 악기 · 음역 · 범위만 고른다.
 만든 음은 app/generate/check.py로 한 번 더 검사해 결과(checks)에 적는다.
@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.generate.chords import pad_notes
+from app.generate.chords import chord_notes
 from app.generate.check import check
 from app.models.project import Project, Track
 from app.tools.base import Bar, ToolError, ToolResult
@@ -21,6 +21,8 @@ from app.tools.tracks import free_name, new_track_id
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 EPS = 1e-6
 TRIES = 8  # 다른 버전이 지금 음과 같게 나오면 버전을 올려 이만큼 더 해 본다
+PATTERN_KO = {"pad": "패드", "stab": "끊어 치기", "arpeggio": "아르페지오"}
+TRACK_NAMES = {"pad": "Pad", "stab": "Chords", "arpeggio": "Arp"}
 
 
 def _note_name(pitch: int) -> str:
@@ -52,15 +54,23 @@ def add_track(project: Project, args: AddTrackArgs) -> ToolResult:
 class GenerateChordsArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    pattern: Literal["pad"] = Field(default="pad", description="pad = 코드마다 화음을 길게 누르기 (바닥에 깔리는 패드)")
+    pattern: Literal["pad", "stab", "arpeggio"] = Field(
+        default="pad",
+        description="pad = 코드마다 길게 누르기 (바닥에 깔리는 패드) · stab = 리듬으로 끊어 치기 (반주 · 컴핑) · arpeggio = 한 음씩 펼치기",
+    )
+    progression: list[str] | None = Field(
+        default=None, min_length=1, max_length=16,
+        description='사용자가 말한 코드 진행 (예: ["C", "Am", "F", "G"]). 말한 그대로 적어. 없으면 비워 둬 — 곡의 코드를 따른다',
+    )
+    bars_per_chord: Literal[0.5, 1, 2, 4] = Field(default=1, description="progression에서 한 코드의 마디 수 (\"반 마디씩\" = 0.5)")
     program: int | None = Field(
         default=None, ge=0, le=127,
-        description="악기(General MIDI). 말이 없으면 비워 둬 — 곡 편성에 맞춰 고른다 (따뜻한 패드 89 · 폴리신스 90 · 스트링 48 …)",
+        description="악기(General MIDI). 말이 없으면 비워 둬 — 곡 편성 · 무늬에 맞춰 고른다 (패드 89 · 스트링 48 · 피아노 0 · 전자 피아노 4 …)",
     )
     height: Literal["low", "mid", "high"] | None = Field(
         default=None, description="음역. 말이 없으면 비워 둬 — 베이스와 멜로디 사이 빈 곳. low · high는 거기서 반 옥타브쯤 아래 · 위",
     )
-    name: str | None = Field(default=None, max_length=40, description='새 트랙 이름. 없으면 "Pad"')
+    name: str | None = Field(default=None, max_length=40, description='새 트랙 이름. 없으면 무늬대로 "Pad" · "Chords" · "Arp"')
     bars: tuple[Bar, Bar] | None = Field(default=None, description="[시작, 끝] 마디, 끝 포함. 없으면 곡 전체")
     beats: tuple[float, float] | None = Field(default=None, description="[시작, 끝) 박 — 화면에서 고른 부분. bars와 함께 쓰지 마")
     track_id: str | None = Field(
@@ -98,13 +108,25 @@ def generate_chords(project: Project, args: GenerateChordsArgs) -> ToolResult:
     lo, hi = start - EPS, (end if end is not None else float("inf")) - EPS
     old = sorted((n.pitch, n.start) for n in target.notes if lo <= n.start < hi) if target else []
     for version in range(args.version, args.version + TRIES):
-        notes, plan = pad_notes(song, start, end, args.height, program, version)
+        try:
+            notes, plan = chord_notes(
+                song, start, end, args.height, program, version, args.pattern, args.progression, args.bars_per_chord,
+            )
+        except ValueError as e:
+            raise ToolError(
+                f"모르는 코드 이름이에요: {e}. \"C · Am7 · F#m7b5 · Bbmaj7 · C/E\"처럼 적어 주세요.", code="unknown_chord",
+            ) from None
         if sorted((n.pitch, n.start) for n in notes) != old:
             break
     if not notes:
-        raise ToolError("그 범위에서 읽을 코드가 없어요 (드럼만 있거나 음이 없음). 코드가 있는 곡이나 범위에서 해 주세요.", code="no_chords")
+        raise ToolError(
+            "그 범위에서 읽을 코드가 없어요 (드럼만 있거나 음이 없음). 진행을 말해 주면(예: C – Am – F – G) 그대로 깔 수 있어요.",
+            code="no_chords",
+        )
     checks = check(notes, plan.program, chords=plan.chords, starts=(start,))
     sound = f"{display_name(plan.program)} · 음역 {_note_name(plan.low)}~{_note_name(plan.high)}" + (f" · 버전 {version}" if version > 1 else "")
+    what = f"{PATTERN_KO[args.pattern]}로"
+    source = f"진행 {' – '.join(args.progression)}" if args.progression else "곡의 코드"
     if target is not None:
         kept = [n for n in target.notes if not lo <= n.start < hi]
         track = target.model_copy(update={
@@ -114,15 +136,15 @@ def generate_chords(project: Project, args: GenerateChordsArgs) -> ToolResult:
         return ToolResult(
             project=project.model_copy(update={"tracks": [track if t is target else t for t in project.tracks]}),
             changed_notes=len(notes),
-            summary=f"{track.name}({track.id}) 트랙을 곡의 코드 {len(plan.chords)}개로 다시 깔았어요 · {sound}",
+            summary=f"{track.name}({track.id}) 트랙을 {source}(코드 {len(plan.chords)}개) {what} 다시 깔았어요 · {sound}",
             checks=checks,
         )
     new_id = new_track_id(project)
-    name = args.name or free_name(project, "Pad")
+    name = args.name or free_name(project, TRACK_NAMES[args.pattern])
     track = Track(id=new_id, name=name, program=plan.program, program_set=True, notes=notes)
     return ToolResult(
         project=project.model_copy(update={"tracks": [*project.tracks, track]}),
         changed_notes=len(notes),
-        summary=f"새 트랙 {name}({new_id})에 곡의 코드 {len(plan.chords)}개를 패드로 깔았어요 · {sound}",
+        summary=f"새 트랙 {name}({new_id})에 {source}(코드 {len(plan.chords)}개)를 {what} 깔았어요 · {sound}",
         checks=checks,
     )

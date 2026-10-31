@@ -155,7 +155,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "generate_chords",
-            "곡의 코드(분석 결과)를 따라 새 트랙에 화음을 깐다. pattern pad = 코드마다 길게 누르는 패드. "
+            "곡의 코드(분석 결과)나 사용자가 말한 진행(progression)을 따라 새 트랙에 화음을 깐다. "
+            "pattern pad = 길게 누르는 패드, stab = 리듬으로 끊어 치는 반주, arpeggio = 한 음씩 펼치기. "
             "악기 · 음역은 말이 없으면 곡에 맞춰 고른다. 결과에 새 트랙 id와 버전이 나온다. "
             "\"다른 버전\"은 track_id(만든 트랙)와 version(앞 버전 + 1)으로 같은 트랙을 다시 만든다.",
             GenerateChordsArgs,

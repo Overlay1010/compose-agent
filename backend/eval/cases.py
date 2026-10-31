@@ -1,4 +1,4 @@
-"""정답 있는 명령 90개.
+"""정답 있는 명령 94개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -240,6 +240,14 @@ CASES: list[Case] = [
          note="트랙을 말하면 복제 겹치기 (패드 깔기 아님)"),
     case("B06", "만들기", "lofi_groove", "빈 트랙 하나 추가해줘", [Call("add_track", {"drums": OneOf(frozenset({None, False}))})]),
     case("B07", "만들기", "fl_style_loose", "빈 드럼 트랙 하나 만들어줘", [Call("add_track", {"drums": True})]),
+    # 반주 무늬 · 말한 진행 (진행을 말하지 않았으면 progression은 비워 둬야 곡의 코드를 따른다)
+    case("B08", "만들기", "lofi_groove", "코드를 리듬 있게 끊어서 쳐 주는 트랙 하나 만들어줘",
+         [Call("generate_chords", {"pattern": "stab", "progression": None, "program": None})]),
+    case("B09", "만들기", "fl_style_loose", "아르페지오 깔아줘", [Call("generate_chords", {"pattern": "arpeggio", "progression": None, "program": None})]),
+    case("B10", "만들기", "lofi_groove", "C – Am – F – G 진행으로 피아노 반주 깔아줘",
+         [Call("generate_chords", {"pattern": "stab", "progression": ["C", "Am", "F", "G"], "program": Range(0, 1)})]),
+    case("B11", "만들기", "waltz_3_4", "Dm7 G7 Cmaj7 진행을 한 코드에 두 마디씩 하프 아르페지오로 깔아줘",
+         [Call("generate_chords", {"pattern": "arpeggio", "progression": ["Dm7", "G7", "Cmaj7"], "bars_per_chord": 2, "program": 46})]),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
     case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
     case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
@@ -248,4 +256,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 90 and len({c.id for c in CASES}) == 90
+assert len(CASES) == 94 and len({c.id for c in CASES}) == 94

@@ -1,7 +1,7 @@
 import pytest
 
 from app.generate.check import check, playable
-from app.generate.chords import pad_notes, pad_program
+from app.generate.chords import comp_program, pad_notes, pad_program, parse_chord
 from app.harmony import analyze
 from app.harmony.reharm import INTERVALS
 from app.models.project import Note, Project, Track
@@ -184,3 +184,113 @@ def test_existing_pad_is_not_taken_for_the_bass():
     first = pad_of(p)[1]
     r, low = pad_of(pad_of(p)[0].project, height="low")
     assert sum(n.pitch for n in low.notes) / len(low.notes) < sum(n.pitch for n in first.notes) / len(first.notes)
+
+
+# ---------- 끊어 치기 · 아르페지오 · 말한 진행 ----------
+
+DRUMS_ONLY = Project(id="p", tracks=[Track(id="t1", name="Drums", is_drum=True, notes=[Note(pitch=36, start=i, duration=0.25) for i in range(16)])])
+
+
+def chord_tones(chord):
+    return {(chord.root + i) % 12 for i in INTERVALS[chord.quality]}
+
+
+def test_stab_strikes_the_chord_in_a_rhythm():
+    p = song(C, AM, F, G)
+    r, stab = pad_of(p, pattern="stab")
+    assert (stab.name, stab.program) == ("Chords", 0) and r.checks == []  # 건반 편성 → 전자 피아노인데 Keys가 이미 Rhodes라 피아노
+    groups = by_start(stab)
+    assert [g[0].start for g in groups[:4]] == [0, 1, 2, 3] and all(n.duration == 0.5 for n in stab.notes)  # 버전 1: 박마다
+    assert groups[0][0].velocity > groups[1][0].velocity  # 마디 첫 박을 세게
+    for chord in analyze(p).chords:
+        hits = [g for g in groups if chord.start <= g[0].start < chord.end]
+        assert len(hits) == 4 and all({n.pitch % 12 for n in g} <= chord_tones(chord) for g in hits)
+
+
+def test_stab_versions_change_the_rhythm_and_fit_three_four():
+    p = song(C, AM, F, G)
+    _, offbeat = pad_of(p, pattern="stab", version=2)
+    assert {n.start % 4 for n in offbeat.notes} == {0.5, 1.5, 2.5, 3.5}  # 뒷박
+    waltz = song(C, AM, F, G, beats=3, ts=(3, 4))
+    _, stab = pad_of(waltz, pattern="stab")
+    assert {n.start % 3 for n in stab.notes} == {0, 1, 2}  # 3/4는 마디 안에 드는 박만
+
+
+def test_arpeggio_plays_one_chord_tone_at_a_time():
+    p = song(C, AM, F, G)
+    r, arp = pad_of(p, pattern="arpeggio")
+    assert arp.name == "Arp" and r.checks == []
+    starts = [n.start for n in arp.notes]
+    assert starts == [i * 0.5 for i in range(32)]  # 8분음표로 한 음씩, 겹치지 않게
+    for chord in analyze(p).chords:
+        mine = [n for n in arp.notes if chord.start <= n.start < chord.end]
+        assert {n.pitch % 12 for n in mine} <= chord_tones(chord)
+        assert [n.pitch for n in mine[:4]] == sorted(n.pitch for n in mine[:4])  # 버전 1: 아래에서 위로
+    _, updown = pad_of(p, pattern="arpeggio", version=2)
+    first = [n.pitch for n in updown.notes if n.start < 4]
+    assert first[:6] == first[:4] + first[2:0:-1]  # 버전 2: 오르내리기
+
+
+def test_progression_on_a_drum_loop_gets_a_root_underneath():
+    # 드럼만 있는 루프에 "C – Am7 – Fmaj7 – G7": 한 마디씩, 곡 길이(4마디)만큼. 베이스가 없으니 맨 아래에 근음
+    r, pad = pad_of(DRUMS_ONLY, progression=["C", "Am7", "Fmaj7", "G7"])
+    assert r.checks == [] and "C – Am7 – Fmaj7 – G7" in r.summary
+    for g, root in zip(by_start(pad), (0, 9, 5, 7)):
+        assert g[0].pitch % 12 == root
+    # 반 마디씩이면 곡 길이 안에서 되풀이
+    r, stab = pad_of(DRUMS_ONLY, pattern="stab", progression=["Dm7", "G7"], bars_per_chord=0.5)
+    lowest = {g[0].start: g[0].pitch % 12 for g in by_start(stab)}
+    assert [s for s, pc in sorted(lowest.items()) if pc == 2] == [0, 1, 4, 5, 8, 9, 12, 13]  # 박마다, Dm7은 반 마디씩 되풀이
+
+
+def test_progression_overrides_the_song_chords_in_the_range():
+    r, pad = pad_of(song(C, AM, F, G), progression=["Dm7", "G7", "Cmaj7", "A7"], bars=[2, 3])
+    assert {n.start for n in pad.notes} == {4, 8} and r.checks == []
+    assert {n.pitch % 12 for n in pad.notes if n.start == 4} <= {2, 5, 9, 0}  # 2마디부터 Dm7
+
+
+def test_progression_rejects_unknown_chord_names():
+    with pytest.raises(ToolError) as e:
+        run_tool(DRUMS_ONLY, "generate_chords", {"progression": ["C", "Hm"]})
+    assert e.value.code == "unknown_chord"
+    with pytest.raises(ToolError):
+        run_tool(DRUMS_ONLY, "generate_chords", {})  # 진행도 코드도 없으면 진행을 말해 달라고
+
+
+@pytest.mark.parametrize("text,want", [
+    ("C", (0, "", None)), ("Am7", (9, "m7", None)), ("F#m7b5", (6, "m7b5", None)), ("Bbmaj7", (10, "maj7", None)),
+    ("C/E", (0, "", 4)), ("Ebm", (3, "m", None)), ("CM7", (0, "maj7", None)), ("Bø", (11, "m7b5", None)), ("G7sus4", (7, "7sus4", None)),
+])
+def test_parse_chord(text, want):
+    assert parse_chord(text) == want
+
+
+def test_comp_sound_fits_the_band():
+    def band(*programs, kit=None):
+        tracks = [Track(id=f"t{i}", name="x", program=prog, program_set=True) for i, prog in enumerate(programs, 1)]
+        if kit is not None:
+            tracks.append(Track(id="d", name="Drums", is_drum=True, program=kit))
+        return Project(id="p", tracks=tracks)
+
+    assert comp_program(band(0, 33), "stab") == 4 and comp_program(band(0, 33), "arpeggio") == 4  # 건반 → 전자 피아노
+    assert comp_program(band(4, 38), "arpeggio") == 11  # 로파이(Rhodes 있음, 신스 베이스만) → 비브라폰, 톱니파 리드 아님
+    assert comp_program(band(80, 38, kit=25), "arpeggio") == 81  # 신스 리드 · 808 킷 → 톱니파 리드
+    assert comp_program(band(81, 38), "arpeggio") == 4  # 톱니파 리드가 이미 있으면 다음 후보
+    assert comp_program(band(40, 42), "stab") == 0 and comp_program(band(40, 42), "arpeggio") == 46  # 현악 → 피아노 · 하프
+
+
+@pytest.mark.parametrize("pattern", ["stab", "arpeggio"])
+@pytest.mark.parametrize("name", [n.removesuffix(".mid") for n in make_samples.SAMPLES])
+def test_comp_on_every_sample_passes_the_checks(name, pattern):
+    try:
+        r, track = pad_of(project(name), pattern=pattern)
+    except ToolError:
+        return
+    assert r.checks == [], r.checks[:5]
+
+
+def test_redo_keeps_the_pattern_and_moves_to_the_next_rhythm():
+    r, stab = pad_of(song(C, AM, F, G), pattern="stab")
+    again, redone = pad_of(r.project, pattern="stab", track_id=stab.id, version=2)
+    assert redone.id == stab.id and len(again.project.tracks) == 3
+    assert {n.start % 1 for n in redone.notes} == {0.5}
