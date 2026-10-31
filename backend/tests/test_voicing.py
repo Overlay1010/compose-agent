@@ -1,6 +1,6 @@
 from app.harmony import ChordSpan, analyze
 from app.harmony.reharm import suggest
-from app.harmony.voicing import apply_progression, bass_note, fill_tone, revoice
+from app.harmony.voicing import apply_progression, bass_note, fill_tone, revoice, untangle
 from app.models.project import Note, Project, Track
 
 from tests.test_harmony import song
@@ -113,3 +113,22 @@ def test_melody_line_in_a_chord_track_keeps_its_passing_tones():
     p = Project(id="p", tracks=[Track(id="t1", name="Keys", notes=keys)])
     out, _ = apply_progression(p, [chord("Eb", 3, "", 0, 4)], [chord("Ebmaj9", 3, "maj9", 0, 4)])
     assert [n.pitch for n in sorted(out.tracks[0].notes, key=lambda n: n.start) if n.pitch > 90] == [98, 96, 94, 93]
+
+
+def test_moved_notes_never_overlap_the_same_pitch():
+    # 길게 누른 E3 위에서 펼친 음이 E3로 옮겨지면 앞 음을 그 자리에서 끊는다 (MIDI에서 앞 음의 끝이 뒤 음을 끊지 않게)
+    held, moved = Note(pitch=52, start=0, duration=4), Note(pitch=52, start=0.5, duration=0.5)
+    out = untangle([held, moved], before={(52, 0, 4)})
+    assert [(n.start, n.duration) for n in out] == [(0, 0.5), (0.5, 0.5)]
+    # 시작도 같으면 짧은 쪽을 버리고, 원래 곡에 있던 겹침은 그대로
+    assert len(untangle([held, Note(pitch=52, start=0, duration=1)], before={(52, 0, 4)})) == 1
+    assert len(untangle([held, moved], before={(52, 0, 4), (52, 0.5, 0.5)})) == 2
+
+
+def test_passing_note_moved_onto_a_held_tone_does_not_overlap_it():
+    # Em(E G B를 누름) 위로 반 박 지나가는 F4를 Cmaj7로 바꾸면 F가 E와 반음으로 부딪혀 E4로 옮겨진다 → 누르던 E4는 거기서 끊는다
+    keys = [Note(pitch=p, start=0, duration=4) for p in (40, 64, 67, 71)] + [Note(pitch=65, start=0.5, duration=0.5)]
+    p = Project(id="p", tracks=[Track(id="t1", name="Keys", notes=keys)])
+    out, _ = apply_progression(p, [chord("Em", 4, "m")], [chord("Cmaj7", 0, "maj7")])
+    e4 = sorted((n.start, n.duration) for n in out.tracks[0].notes if n.pitch == 64)
+    assert e4 == [(0, 0.5), (0.5, 0.5)]

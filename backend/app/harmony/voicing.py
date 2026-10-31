@@ -240,6 +240,25 @@ def _add(notes: list[Note], origin: list[int], stroke: list[int], pitch: int | N
     origin.append(-1)
 
 
+def untangle(notes: list[Note], before: set[tuple[int, float, float]]) -> list[Note]:
+    """같은 높이 음이 겹치면 앞 음을 뒤 음 시작에서 끊는다 (같은 건반을 다시 누르듯). 시작도 같으면 짧은 쪽을 버린다.
+    펼친 음 · 윗선율이 새 코드 음으로 옮겨지며 길게 누르던 화음 음과 같은 높이가 됐다 (Alarma E3 4박 위에 E3 반 박) —
+    MIDI에서는 앞 음의 끝이 뒤 음까지 끊는다. 둘 다 원래 음이면(before) 원래 곡 그대로 둔다."""
+    out: list[Note] = []
+    for n in sorted(notes, key=lambda n: (n.pitch, n.start, -n.duration)):
+        prev = out[-1] if out and out[-1].pitch == n.pitch else None
+        if prev is None or n.start >= prev.start + prev.duration - 1e-3:
+            out.append(n)
+        elif {(prev.pitch, prev.start, prev.duration), (n.pitch, n.start, n.duration)} <= before:
+            out.append(n)
+        elif n.start - prev.start < MIN_PIECE:
+            continue
+        else:
+            out[-1] = prev.model_copy(update={"duration": round(n.start - prev.start, 4)})
+            out.append(n)
+    return out
+
+
 def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSpan]) -> tuple[Project, dict[str, int]]:
     """(새 프로젝트, 트랙 이름별 바뀐 음 수). 원래 project는 고치지 않는다."""
     segs = segments(base, new)
@@ -326,6 +345,7 @@ def apply_progression(project: Project, base: list[ChordSpan], new: list[ChordSp
             else:
                 joined.append(n)
         before = {(n.pitch, n.start, n.duration) for n in track.notes}
+        joined = untangle(joined, before)
         changed = sum((n.pitch, n.start, n.duration) not in before for n in joined)
         if changed:
             track.notes = sorted(joined, key=lambda n: (n.start, n.pitch))
