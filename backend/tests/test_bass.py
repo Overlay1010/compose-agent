@@ -116,3 +116,13 @@ def test_no_chords_no_bass():
 def test_bass_on_every_sample_passes_the_checks(name, style):
     r, _ = bass_of(project(name), style=style)
     assert r.checks == [], r.checks[:5]
+
+
+def test_bars_without_kicks_still_get_a_rhythm():
+    # 드럼 없는 인트로(1~4마디) 뒤 5마디부터 킥: 인트로도 쿵 - 따 쿵으로 (마디마다 2박 하나만 치고 쉬지 않게)
+    p = song(C, AM, F, G, C, AM, F, G)
+    p = with_kicks(p.model_copy(update={"tracks": [p.tracks[0]]}), [b * 4 + o for b in range(4, 8) for o in (0, 2)])
+    r, bass = bass_of(p)
+    assert r.checks == []
+    assert sorted({n.start % 4 for n in bass.notes if n.start < 16}) == [0, 1.5, 2.5]  # 인트로: 정해 둔 리듬
+    assert sorted({n.start % 4 for n in bass.notes if n.start >= 16}) == [0, 2]  # 킥 자리

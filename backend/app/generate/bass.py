@@ -172,11 +172,16 @@ def bass_notes(
     options: list[list[tuple[float, float]] | None] = ([None] if kicks else []) + [list(r) for r in BASS_RHYTHMS]
     pick = [list(WALK)] if style == "walking" else options
     rhythm = pick[(version - 1) % len(pick)]
+    bar_range = range(int(start // bpb), math.ceil(end / bpb))
     if rhythm is None:
-        hits = [(h, min(LONGEST, nxt - h)) for h, nxt in zip(kicks, [*kicks[1:], end])]
+        # 킥이 없는 마디(드럼 없는 인트로)는 첫 리듬으로 채운다 — 비워 두면 마디마다 2박 하나만 치고 쉬었다
+        empty = [b for b in bar_range if not any(b * bpb - 1e-6 <= h < (b + 1) * bpb - 1e-6 for h in kicks)]
+        fill = [b * bpb + o for b in empty for o, _ in BASS_RHYTHMS[0] if o < bpb - 1e-6 and start - 1e-6 <= b * bpb + o < end - 1e-6]
+        starts = sorted([*kicks, *fill])
+        hits = [(h, min(LONGEST, nxt - h)) for h, nxt in zip(starts, [*starts[1:], end])]
     else:
         bar_rhythm = [(o, d) for o, d in rhythm if o < bpb - 1e-6]
-        hits = [(b * bpb + o, d) for b in range(int(start // bpb), math.ceil(end / bpb)) for o, d in bar_rhythm]
+        hits = [(b * bpb + o, d) for b in bar_range for o, d in bar_rhythm]
 
     played = [n.velocity for t in project.tracks if not t.is_drum for n in t.notes]
     velocity = max(60, min(110, round(median(played)))) if played else 90
