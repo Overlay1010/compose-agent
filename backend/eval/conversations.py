@@ -79,8 +79,13 @@ CONVERSATIONS: list[Conversation] = [
                  (("generate_bassline", {}), ("set_instrument", {"track_ids": ["t3"], "program": 36})),
                  note="만든 베이스의 소리만 바꾸기 — 다시 만들지 않고 악기만 (결과는 같은 음 + 슬랩)"),
     Conversation("N05", "만들기", "waltz_3_4", ("드럼 깔아줘", "다른 버전으로 해줘"),
-                 (("generate_drums", {}), ("generate_drums", {"track_id": "t3", "version": 2})),
-                 note="드럼도 같은 트랙을 버전 2(다른 패턴)로"),
+                 (("generate_drums", {}), ("generate_drums", {"track_ids": ["t3", "t4", "t5"], "version": 2})),
+                 note="나눠 만든 드럼(Kick · Snare · Hats, 3/4라 Drum FX 없음) 전체를 같은 버전 2로 — 트랙이 늘지 않는다"),
+    Conversation("N06", "만들기", "lofi_groove", ("트랩 드럼 깔아줘", "킥만 다른 버전으로 해줘", "하이햇만 909 킷으로 바꿔줘"),
+                 (("generate_drums", {"style": "trap"}), ("generate_drums", {"track_id": "t6", "version": 2}),
+                  ("set_instrument", {"track_ids": ["t8"], "program": 26})),
+                 note="한 부분(Kick t6)만 버전 2로, 그다음 Hats(t8)의 킷만 — 다른 부분 트랙은 그대로. "
+                      "처음부터 다시 만들면(start_over) 스네어 · 햇도 버전 2가 되어 틀림 (브라우저에서 \"하이햇만 다시\"에 그렇게 했다)"),
 ]
 
 assert len({c.id for c in CONVERSATIONS}) == len(CONVERSATIONS)

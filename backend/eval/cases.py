@@ -1,4 +1,4 @@
-"""정답 있는 명령 101개.
+"""정답 있는 명령 102개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -263,6 +263,7 @@ CASES: list[Case] = [
     case("B16", "만들기", "waltz_3_4", "드럼 깔아줘", [Call("generate_drums", {"style": None, "density": None})]),
     case("B17", "만들기", "fl_style_loose", "하이햇 촘촘한 하우스 비트 하나 더 만들어줘",
          [Call("generate_drums", {"style": "house", "density": "high", "track_id": None})]),
+    case("B19", "만들기", "waltz_3_4", "킥만 깔아줘", [Call("generate_drums", {"parts": ["kick"]})]),
     case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
          [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
@@ -273,4 +274,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 101 and len({c.id for c in CASES}) == 101
+assert len(CASES) == 102 and len({c.id for c in CASES}) == 102

@@ -1,6 +1,6 @@
 import pytest
 
-from app.generate.drums import CLAP, CRASH, HAT, KICK, PALETTES, SNARE, TOMS, auto_style
+from app.generate.drums import CLAP, CRASH, HAT, KICK, PALETTES, PARTS, SNARE, TOMS, auto_style
 from app.models.project import Note, Project, Track
 from app.tools import ToolError, run_tool
 from app.tools.drums import DRUM_SOUNDS
@@ -10,6 +10,8 @@ from tests.test_reharm import AM, C, F, G, project
 
 
 def drums_of(p, **args):
+    """한 트랙으로 (패턴 테스트용). 나누기는 split 테스트에서 따로 본다."""
+    args.setdefault("split", False)
     r = run_tool(p, "generate_drums", args)
     return r, r.project.tracks[-1]
 
@@ -113,3 +115,57 @@ def test_redo_rejects_a_pitched_track():
 def test_drums_on_every_sample_pass_the_checks(name, style):
     r, _ = drums_of(project(name), **({"style": style} if style else {}))
     assert r.checks == [], r.checks[:5]
+
+
+# ---------- 소리별 트랙으로 나누기 (기본) ----------
+
+def new_drums(r, before):
+    return [t for t in r.project.tracks if t.id not in {x.id for x in before.tracks}]
+
+
+def test_default_splits_into_one_track_per_part():
+    p = eight_bars()
+    r = run_tool(p, "generate_drums", {"style": "trap", "version": 3})
+    made = new_drums(r, p)
+    assert [t.name for t in made] == ["Kick", "Snare", "Hats", "Drum FX"] and all(t.is_drum for t in made) and r.checks == []
+    for t, part in zip(made, ("kick", "snare", "hats", "fx")):
+        assert {n.pitch for n in t.notes} <= PARTS[part] and set(t.drum_sounds) <= PARTS[part]  # 그 부분의 음 · 소리만
+    whole = drums_of(p, style="trap", version=3)[1]
+    assert sorted((n.pitch, n.start) for t in made for n in t.notes) == sorted((n.pitch, n.start) for n in whole.notes)
+
+
+def test_only_the_parts_asked_for():
+    p = eight_bars()
+    made = new_drums(run_tool(p, "generate_drums", {"parts": ["kick"]}), p)
+    assert [t.name for t in made] == ["Kick"] and {n.pitch for n in made[0].notes} == {KICK}
+
+
+def test_redo_one_part_leaves_the_others():
+    p = eight_bars()
+    r = run_tool(p, "generate_drums", {"style": "trap"})
+    made = {t.name: t for t in new_drums(r, p)}
+    again = run_tool(r.project, "generate_drums", {"track_id": made["Hats"].id, "density": "high"})
+    after = {t.id: t for t in again.project.tracks}
+    assert sorted(n.start for n in after[made["Hats"].id].notes if n.start < 4) == [i * 0.25 for i in range(16)]  # 촘촘하게
+    assert all(after[t.id].notes == t.notes for name, t in made.items() if name != "Hats")
+    assert after[made["Hats"].id].program == 25  # 스타일 말이 없어도 그 트랙 킷(808)에서 트랩으로
+
+
+def test_redo_all_parts_uses_one_version_and_kit():
+    # 3/4는 햇 패턴이 두 버전에서 같다 — 트랙마다 따로 정하면 햇만 다음 소리 조합(다른 킷)으로 넘어갔다
+    p = song(C, AM, F, G, beats=3, ts=(3, 4))
+    r = run_tool(p, "generate_drums", {})
+    made = new_drums(r, p)
+    assert [t.name for t in made] == ["Kick", "Snare", "Hats"]  # 3/4는 필인 · 크래시가 없어 Drum FX를 만들지 않는다
+    again = run_tool(r.project, "generate_drums", {"track_ids": [t.id for t in made], "version": 2})
+    redone = [t for t in again.project.tracks if t.id in {m.id for m in made}]
+    assert len({t.program for t in redone}) == 1 and again.summary.count("버전 2") == 3
+
+
+def test_each_part_track_can_take_its_own_kit():
+    p = eight_bars()
+    r = run_tool(p, "generate_drums", {"style": "pop"})
+    hats = next(t for t in new_drums(r, p) if t.name == "Hats")
+    changed = run_tool(r.project, "set_instrument", {"track_ids": [hats.id], "program": 26})
+    programs = {t.name: t.program for t in changed.project.tracks if t.is_drum}
+    assert programs["Hats"] == 26 and programs["Kick"] == 0  # 햇만 909 킷

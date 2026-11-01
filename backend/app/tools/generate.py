@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.generate.bass import AUTO_SOUNDS, bass_notes
 from app.generate.chords import chord_notes, song_end
-from app.generate.drums import SWING_GRID, drum_notes
+from app.generate.drums import KIT_STYLES, PART_NAMES, PARTS, SWING_GRID, DrumPlan, drum_notes, track_part
 from app.generate.check import check
 from app.models.project import Note, Project, Track
 from app.tools.base import Bar, ToolError, ToolResult
@@ -198,16 +198,22 @@ class GenerateDrumsArgs(BaseModel):
     style: Literal["lofi", "boombap", "house", "trap", "pop", "rock"] | None = Field(
         default=None, description="장르. 말이 없으면 비워 둬 — 곡의 템포 · 편성 · 지금 드럼 킷에 맞춰 고른다",
     )
+    parts: list[Literal["kick", "snare", "hats", "fx"]] | None = Field(
+        default=None, description="만들 부분. kick · snare(클랩 포함) · hats(라이드 포함) · fx(탐 필인 · 크래시). "
+        "\"킥만 · 하이햇만\"처럼 말했을 때만, 아니면 비워 둬 (전부)",
+    )
+    split: bool = Field(default=True, description="부분마다 따로 트랙 (Kick · Snare · Hats · Drum FX). \"드럼 한 트랙으로\"면 false")
     density: Literal["low", "mid", "high"] | None = Field(
         default=None, description="하이햇 밀도. low = 단순하게(4분), high = 촘촘하게(16분). 말이 없으면 비워 둬",
     )
     fills: bool = Field(default=True, description="4마디마다 필인과 다음 마디 첫 박 크래시. \"필인 없이\"면 false")
     swing: float | None = Field(default=None, ge=50, le=75, description="8분음표 스윙 %. 말이 없으면 비워 둬 (로파이 57 · 붐뱁 54, 나머지 정박)")
-    name: str | None = Field(default=None, max_length=40, description='새 트랙 이름. 없으면 "Drums"')
+    name: str | None = Field(default=None, max_length=40, description='새 트랙 이름 (한 트랙일 때). 없으면 "Drums" · 부분 이름')
     bars: tuple[Bar, Bar] | None = Field(default=None, description="[시작, 끝] 마디, 끝 포함. 없으면 곡 전체")
     beats: tuple[float, float] | None = Field(default=None, description="[시작, 끝) 박 — 화면에서 고른 부분. bars와 함께 쓰지 마")
-    track_id: str | None = Field(
-        default=None, description="다시 만들 드럼 트랙 (\"다른 버전\"). 주면 새 트랙 대신 이 트랙의 그 범위를 바꾼다. 처음 만들 때는 비워 둬",
+    track_id: str | None = Field(default=None, description="다시 만들 드럼 트랙 하나 (\"하이햇만 다시\" = Hats 트랙). 처음 만들 때는 비워 둬")
+    track_ids: list[str] | None = Field(
+        default=None, description="다시 만들 드럼 트랙 여러 개 (나눠 만든 드럼 전체를 \"다른 버전\"으로 = 그 트랙들 모두)",
     )
     version: int = Field(default=1, ge=1, le=99, description="버전 번호. 처음은 1, \"다른 버전\"이면 앞 결과의 버전 + 1 (패턴 · 소리 조합이 바뀐다)")
 
@@ -222,62 +228,114 @@ class GenerateDrumsArgs(BaseModel):
         return self
 
 
+def _drum_detail(plan: DrumPlan, version: int, sounds: dict[int, str] | None = None) -> str:
+    """결과에 적을 소리 · 리듬. sounds: 그 트랙에 들어간 소리만 (Hats 트랙이면 햇 소리만)."""
+    mixed = " · ".join(DRUM_SOUNDS[s][0] for s in (plan.palette.sounds if sounds is None else sounds).values())
+    sound = f"{kit_name(plan.palette.kit)} 킷" + (f" + {mixed}" if mixed else "")
+    feel = [f"패턴 {plan.pattern}", DENSITY_KO[plan.density]]
+    feel.append(f"필인 {plan.fills}번" if plan.fills else "필인 없음")
+    if plan.swing != 50:
+        feel.append(f"스윙 {plan.swing:g}%")
+    return f"{sound} · {' · '.join(feel)}" + (f" · 버전 {version}" if version > 1 else "")
+
+
+def _lanes_of(part: str | None) -> set[int] | None:
+    return PARTS[part] if part else None
+
+
+def _keep(notes: list[Note], lanes: set[int] | None) -> list[Note]:
+    return [n for n in notes if lanes is None or n.pitch in lanes]
+
+
+def _sounds(plan: DrumPlan, lanes: set[int] | None) -> dict[int, str]:
+    return {k: v for k, v in plan.palette.sounds.items() if lanes is None or k in lanes}
+
+
 def generate_drums(project: Project, args: GenerateDrumsArgs) -> ToolResult:
+    """새로: 부분마다 따로 트랙(기본) 또는 한 트랙. 다시: 고른 드럼 트랙마다 그 트랙의 부분(Kick이면 킥만)을 다시 만든다."""
     bpb = project.beats_per_bar
     start, end = 0.0, song_end(project) or 4 * bpb  # 곡에 음이 없으면 4마디
     if args.bars:
         start, end = (args.bars[0] - 1) * bpb, args.bars[1] * bpb
     elif args.beats:
         start, end = args.beats
-    target = None
-    if args.track_id is not None:
-        target = next((t for t in project.tracks if t.id == args.track_id), None)
-        if target is None or not target.is_drum:
-            valid = ", ".join(f"{t.id}({t.name})" for t in project.tracks if t.is_drum) or "없음"
-            raise ToolError(f"다시 만들 수 있는 드럼 트랙이 아니에요: {args.track_id}. 드럼 트랙: {valid}", code="unknown_track")
-    song = project.model_copy(update={"tracks": [t for t in project.tracks if t is not target]})
-    lo, hi = start - EPS, end - EPS
-    old = sorted((n.pitch, n.start) for n in target.notes if lo <= n.start < hi) if target else []
-    for version in range(args.version, args.version + TRIES):
-        notes, plan = drum_notes(song, start, end, args.style, args.density, args.fills, args.swing, version)
-        # 패턴이 같아도 킷 · 소리 조합이 다르면 다른 버전 (버전 3 = 패턴 A + 다른 소리)
-        same_sound = target is not None and (plan.palette.kit, plan.palette.sounds) == (target.program, target.drum_sounds)
-        if sorted((n.pitch, n.start) for n in notes) != old or not same_sound:
-            break
-    if not notes:
-        raise ToolError("그 범위에 드럼을 깔 자리가 없어요.", code="empty_range")
-    swing = (plan.swing, SWING_GRID) if plan.swing != 50 else None
-    checks = check(notes, plan.palette.kit, drums=True, swing=swing, starts=(start,))
-    mixed = " · ".join(DRUM_SOUNDS[s][0] for s in plan.palette.sounds.values())
-    sound = f"{kit_name(plan.palette.kit)} 킷" + (f" + {mixed}" if mixed else "")
-    feel = [f"패턴 {plan.pattern}", DENSITY_KO[plan.density]]
-    feel.append(f"필인 {plan.fills}번" if plan.fills else "필인 없음")
-    if plan.swing != 50:
-        feel.append(f"스윙 {plan.swing:g}%")
-    detail = f"{sound} · {' · '.join(feel)}" + (f" · 버전 {version}" if version > 1 else "")
-    style = DRUM_STYLES[plan.style] + ("" if abs(bpb - 4) < 1e-6 else f" ({project.time_signature[0]}/{project.time_signature[1]} 기본 패턴)")
+    ids = [*([args.track_id] if args.track_id else []), *(args.track_ids or [])]
+    targets = []
+    for tid in dict.fromkeys(ids):
+        t = next((x for x in project.tracks if x.id == tid), None)
+        if t is None or not t.is_drum:
+            valid = ", ".join(f"{x.id}({x.name})" for x in project.tracks if x.is_drum) or "없음"
+            raise ToolError(f"다시 만들 수 있는 드럼 트랙이 아니에요: {tid}. 드럼 트랙: {valid}", code="unknown_track")
+        targets.append(t)
+    style_ko = lambda plan: DRUM_STYLES[plan.style] + (  # noqa: E731
+        "" if abs(bpb - 4) < 1e-6 else f" ({project.time_signature[0]}/{project.time_signature[1]} 기본 패턴)")
     bars_n = math.ceil(end / bpb - 1e-9) - int(start // bpb)
-    if target is not None:
-        kept = [n for n in target.notes if not lo <= n.start < hi]
-        track = target.model_copy(update={
-            "notes": sorted([*kept, *notes], key=lambda n: (n.start, n.pitch)), "program": plan.palette.kit,
-            "program_set": True, "drum_sounds": dict(plan.palette.sounds), **({"name": args.name} if args.name else {}),
-        })
+    lo, hi = start - EPS, end - EPS
+    checks: list[str] = []
+
+    def swing_of(plan: DrumPlan):
+        return (plan.swing, SWING_GRID) if plan.swing != 50 else None
+
+    if targets:
+        # 다시 만들기: 그 트랙들을 뺀 곡으로. 스타일 말이 없으면 그 트랙의 킷에서 (로파이 킷 → 로파이)
+        song = project.model_copy(update={"tracks": [t for t in project.tracks if t not in targets]})
+        tracks = {t.id: t for t in project.tracks}
+        lines, changed = [], 0
+        style = args.style or next((KIT_STYLES[t.program] for t in targets if t.program in KIT_STYLES), None)
+        lanes_of = {t.id: _lanes_of(track_part(t.notes)) for t in targets}
+
+        def same(target, every, plan) -> bool:
+            lanes = lanes_of[target.id]
+            old = sorted((n.pitch, n.start) for n in target.notes if lo <= n.start < hi)
+            new = sorted((n.pitch, n.start) for n in _keep(every, lanes))
+            return new == old and (plan.palette.kit, _sounds(plan, lanes)) == (target.program, target.drum_sounds)
+
+        # 모든 트랙이 같은 버전 — 한 트랙이라도 지금과 다르면 그 버전 (패턴이 같아도 킷 · 소리 조합이 다르면 다른 버전).
+        # 트랙마다 따로 정했더니 3/4에서 햇만 다음 소리 조합으로 넘어가 킷이 섞였다
+        for version in range(args.version, args.version + TRIES):
+            every, plan = drum_notes(song, start, end, style, args.density, args.fills, args.swing, version)
+            if not all(same(t, every, plan) for t in targets):
+                break
+        for target in targets:
+            lanes = lanes_of[target.id]
+            notes, sounds = _keep(every, lanes), _sounds(plan, lanes)
+            checks += check(notes, plan.palette.kit, drums=True, swing=swing_of(plan), starts=(start,))
+            kept = [n for n in target.notes if not lo <= n.start < hi]
+            tracks[target.id] = target.model_copy(update={
+                "notes": sorted([*kept, *notes], key=lambda n: (n.start, n.pitch)), "program": plan.palette.kit,
+                "program_set": True, "drum_sounds": sounds, **({"name": args.name} if args.name and len(targets) == 1 else {}),
+            })
+            changed += len(notes)
+            lines.append(f"{target.name}({target.id}) 트랙을 {style_ko(plan)} 드럼 {bars_n}마디로 다시 깔았어요 · {_drum_detail(plan, version, sounds)}")
         return ToolResult(
-            project=project.model_copy(update={"tracks": [track if t is target else t for t in project.tracks]}),
-            changed_notes=len(notes), changed_settings=True,
-            summary=f"{track.name}({track.id}) 트랙을 {style} 드럼 {bars_n}마디로 다시 깔았어요 · {detail}",
-            checks=checks,
+            project=project.model_copy(update={"tracks": [tracks[t.id] for t in project.tracks]}),
+            changed_notes=changed, changed_settings=True, summary=" / ".join(lines), checks=checks,
         )
-    new_id = new_track_id(project)
-    name = args.name or free_name(project, "Drums")
-    track = Track(
-        id=new_id, name=name, is_drum=True, program=plan.palette.kit, program_set=True,
-        drum_sounds=dict(plan.palette.sounds), notes=notes,
-    )
+
+    every, plan = drum_notes(project, start, end, args.style, args.density, args.fills, args.swing, args.version)
+    wanted = set(args.parts or PARTS)
+    groups = [(p, PARTS[p]) for p in PARTS if p in wanted] if args.split else [(None, set().union(*(PARTS[p] for p in wanted)))]
+    out = project
+    made = []
+    for part, lanes in groups:
+        notes = _keep(every, lanes)
+        if not notes:  # 비는 부분(3/4의 필인 · 크래시 등)은 트랙을 만들지 않는다
+            continue
+        new_id = new_track_id(out)
+        default = PART_NAMES[part] if part else "Drums"
+        name = args.name if args.name and len(groups) == 1 else free_name(out, default)
+        track = Track(id=new_id, name=name, is_drum=True, program=plan.palette.kit, program_set=True,
+                      drum_sounds=_sounds(plan, lanes), notes=notes)
+        out = out.model_copy(update={"tracks": [*out.tracks, track]})
+        checks += check(notes, plan.palette.kit, drums=True, swing=swing_of(plan), starts=(start,))
+        made.append(track)
+    if not made:
+        raise ToolError("그 범위에 드럼을 깔 자리가 없어요.", code="empty_range")
+    names = " · ".join(f"{t.name}({t.id})" for t in made)
+    what = f"새 드럼 트랙 {len(made)}개 {names}" if len(made) > 1 else f"새 드럼 트랙 {names}"
     return ToolResult(
-        project=project.model_copy(update={"tracks": [*project.tracks, track]}),
-        changed_notes=len(notes),
-        summary=f"새 드럼 트랙 {name}({new_id})에 {style} 드럼 {bars_n}마디를 깔았어요 · {detail}",
+        project=out, changed_notes=sum(len(t.notes) for t in made),
+        summary=f"{what}에 {style_ko(plan)} 드럼 {bars_n}마디를 깔았어요 · {_drum_detail(plan, args.version)}"
+        + (" · 트랙마다 드럼 킷을 따로 고를 수 있어요" if len(made) > 1 else ""),
         checks=checks,
     )

@@ -92,6 +92,27 @@ PALETTES: dict[str, list[Palette]] = {
     "rock": [Palette(16), Palette(0), Palette(8)],
 }
 
+# 드럼을 소리별 트랙으로 나눌 때의 묶음 (레인 = GM 음 번호). 킷마다 소리가 달라서, 나누면 트랙마다 다른 킷을 고를 수 있다
+# (킥은 808, 스네어는 붐뱁, 햇은 909 …). "드럼을 한 트랙씩"이라는 요청
+PARTS: dict[str, set[int]] = {
+    "kick": {35, 36},
+    "snare": {37, 38, 39, 40},  # 스네어 · 림 · 클랩
+    "hats": {42, 44, 46, 51, 53, 59},  # 닫힌 · 페달 · 열린 햇, 라이드
+    "fx": {41, 43, 45, 47, 48, 50, 49, 52, 55, 57},  # 탐 (필인) · 크래시
+}
+PART_NAMES = {"kick": "Kick", "snare": "Snare", "hats": "Hats", "fx": "Drum FX"}
+
+
+def part_of(pitch: int) -> str | None:
+    return next((p for p, lanes in PARTS.items() if pitch in lanes), None)
+
+
+def track_part(notes: list[Note]) -> str | None:
+    """트랙 음이 한 묶음에만 있으면 그 묶음 (나눠 만든 트랙), 여러 묶음이면 None (드럼 전체)."""
+    parts = {part_of(n.pitch) for n in notes}
+    return next(iter(parts)) if len(parts) == 1 and None not in parts else None
+
+
 SWING = {"lofi": 57.0, "boombap": 54.0}  # 8분음표 스윙 퍼센트 (나머지는 정박)
 SWING_GRID = 0.5  # 박. 8분음표
 ELECTRONIC_KITS = {24, 25, 26}
