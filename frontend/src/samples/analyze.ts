@@ -31,6 +31,8 @@ export interface SampleMeta {
   drum: DrumRole | null
   /** 분석 규칙 버전. ANALYSIS_VERSION과 다르면 다시 분석한다 (samples/library.ts) */
   v: number
+  /** 루프만: 녹음된 리듬 (치는 자리 · 세기 · 열림). 하이햇 트랙으로 옮길 때 쓴다 (backend groove_from_loop) */
+  groove?: Groove | null
   /** 기준음 · 종류를 어디서 알았는지 (화면 표시 · 사용자가 고쳤는지) */
   rootFrom: 'name' | 'audio' | 'user' | null
   kindFrom: 'name' | 'audio' | 'user'
@@ -49,7 +51,14 @@ export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
 export const PLAYABLE: SampleKind[] = ['bass', 'keys', 'pluck', 'pad', 'lead', 'bell']
 
 /** 분석 규칙을 바꾸면 올린다 → 이미 넣은 샘플도 다음에 열 때 다시 분석 (2: 드럼 역할 · 최대 크기, 3: 루프를 드럼보다 먼저) */
-export const ANALYSIS_VERSION = 3
+export const ANALYSIS_VERSION = 4 // 4: 루프의 리듬(groove)
+
+/** 루프에 녹음된 리듬. hits: [루프 안 박, 세기 1~127, 열림(오래 울림) 1 · 아님 0] — 격자에 맞추지 않은 그대로 */
+export interface Groove {
+  bpm: number
+  beats: number
+  hits: [beat: number, velocity: number, open: 0 | 1][]
+}
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 export const noteName = (pitch: number) => `${NOTE_NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
@@ -259,6 +268,60 @@ function fft(re: Float32Array, im: Float32Array) {
 }
 
 /** 소리가 새로 시작하는 곳 수 (50ms 안에 두 배 넘게 커짐) — 프레이즈가 녹음된 루프를 원샷과 가른다 */
+const GROOVE_HOP_S = 0.005
+const MAX_HITS = 128
+
+/** 이름의 템포: "140 BPM" · "BPM140" · 맨 숫자 60~200 ("Hat Loop 140") */
+export function bpmFromName(name: string): number | null {
+  const t = name.toLowerCase()
+  const m = t.match(/(\d{2,3}) ?bpm|bpm ?(\d{2,3})/)
+  const n = Number(m?.[1] ?? m?.[2] ?? t.split(/[^0-9]+/).find((x) => Number(x) >= 60 && Number(x) <= 200))
+  return n >= 60 && n <= 200 ? n : null
+}
+
+/**
+ * 루프의 리듬 읽기. 치는 자리(소리가 갑자기 커지는 곳) · 세기(그 타격의 최대 크기) · 열림(150ms 넘게 울림)을 재고,
+ * 템포는 이름에서, 없으면 파일 길이가 1 · 2 · 4 · 8 · 16마디라고 보고 85~170 BPM에 드는 것으로 (한 옥타브라 하나로 정해진다).
+ */
+export function grooveOf(data: Float32Array, rate: number, name: string): Groove | null {
+  const hop = Math.max(1, Math.round(rate * GROOVE_HOP_S))
+  const env = new Float32Array(Math.ceil(data.length / hop))
+  for (let f = 0; f < env.length; f++) {
+    let sum = 0
+    const end = Math.min(data.length, (f + 1) * hop)
+    for (let i = f * hop; i < end; i++) sum += data[i] * data[i]
+    env[f] = Math.sqrt(sum / Math.max(1, end - f * hop))
+  }
+  let peak = 0
+  for (const v of env) peak = Math.max(peak, v)
+  if (peak < 1e-4) return null
+  // 파일이 소리로 바로 시작하면 "커지는 순간"이 없어 첫 타를 놓쳤다 — 처음부터 크면 그것도 타격
+  const starts: number[] = env[0] >= peak * 0.08 ? [0] : []
+  for (let f = 1; f < env.length; f++) {
+    let low = env[f - 1]
+    for (let j = Math.max(0, f - 4); j < f; j++) low = Math.min(low, env[j])
+    if (env[f] >= peak * 0.08 && env[f] > 1.6 * low + 1e-6 && (!starts.length || f - starts[starts.length - 1] >= 8)) starts.push(f)
+  }
+  if (starts.length < 2) return null
+  const seconds = data.length / rate
+  const named = bpmFromName(name)
+  const bars = [1, 2, 4, 8, 16].find((b) => (b * 240) / seconds >= 85 && (b * 240) / seconds < 170)
+  const bpm = named ?? (bars ? Math.round(((bars * 240) / seconds) * 10) / 10 : null)
+  if (!bpm) return null
+  let beats = (seconds * bpm) / 60
+  if (Math.abs(beats / 4 - Math.round(beats / 4)) < 0.05) beats = Math.round(beats / 4) * 4 // 마디 단위로 잘린 루프
+  const hits: Groove['hits'] = starts.slice(0, MAX_HITS).map((f, k) => {
+    const next = starts[k + 1] ?? env.length
+    let top = env[f]
+    for (let j = f; j < Math.min(next, f + 8); j++) top = Math.max(top, env[j])
+    let ring = f
+    while (ring < next && env[ring] > top * 0.3) ring++
+    const open: 0 | 1 = (ring - f) * GROOVE_HOP_S > 0.15 ? 1 : 0
+    return [round((f * hop * bpm) / 60 / rate, 3), Math.max(1, Math.min(127, Math.round(30 + 97 * (top / peak)))), open]
+  })
+  return { bpm, beats: round(beats, 3), hits: hits.filter(([b]) => b < beats - 1e-3) }
+}
+
 function onsets(env: Float32Array, peak: number): number {
   let count = 0
   let lastAt = -100
@@ -345,5 +408,6 @@ export function analyze(id: string, file: string, folder: string, data: Float32A
     else kind = 'keys'
   }
   const drum = kind === 'drum' ? (drumFromName(name) ?? drumFromName(folder) ?? drumFromSound(brightness, length)) : null
-  return { ...base, kind, kindFrom, root, rootFrom, length: round(length), sustained, brightness, gain, drum }
+  const groove = kind === 'loop' ? grooveOf(data, rate, name) : null
+  return { ...base, kind, kindFrom, root, rootFrom, length: round(length), sustained, brightness, gain, drum, groove }
 }

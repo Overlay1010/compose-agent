@@ -39,7 +39,7 @@ from app.tools.generate import (
     AddTrackArgs, GenerateBasslineArgs, GenerateChordsArgs, GenerateDrumsArgs, add_track, generate_bassline, generate_chords,
     generate_drums,
 )
-from app.tools.samples import UseSampleArgs, use_sample
+from app.tools.samples import GrooveFromLoopArgs, UseSampleArgs, groove_from_loop, use_sample
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
@@ -121,6 +121,13 @@ TOOLS: dict[str, Tool] = {
             "음역에 어울리는 샘플을 골라 이유 · 다른 후보와 함께 알려 준다. \"내 샘플 · 샘플팩 · 내 소리로\"일 때 쓴다 (GM 악기는 set_instrument).",
             UseSampleArgs,
             use_sample,
+        ),
+        Tool(
+            "groove_from_loop",
+            "사용자 샘플팩의 루프(하이햇 · 드럼 루프)에 녹음된 리듬 — 치는 자리 · 세기 · 열린 햇 — 을 하이햇 MIDI로 옮겨 곡 길이만큼 되풀이한다. "
+            "격자에 맞추지 않아 루프의 그루브가 그대로 남는다. \"내 루프 리듬으로 · 루프처럼 · 이 루프 그루브로 하이햇\"일 때.",
+            GrooveFromLoopArgs,
+            groove_from_loop,
         ),
         Tool(
             "delete_notes",

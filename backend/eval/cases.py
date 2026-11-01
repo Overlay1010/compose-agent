@@ -1,4 +1,4 @@
-"""정답 있는 명령 111개.
+"""정답 있는 명령 112개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from app.tools.samples import SampleInfo
+from app.tools.samples import Groove, SampleInfo
 from eval.spec import ALL, Call, Case, Has, OneOf, Pitches, Range
 
 HATS = Pitches(frozenset({42, 44, 46}), frozenset({42}))
@@ -61,6 +61,8 @@ PACK = [
     _pack("Pluck E4", "pluck", 64, 0.6, brightness=0.6), _pack("Bell A5", "bell", 81, 3.0, brightness=0.9),
     _pack("Keys Chord Cmin", "chord", 60, 2.0), _pack("Melody Loop 140 Am", "loop", 57, 6.9), _pack("Kick 01", "drum", None, 0.4, drum="kick"),
     _pack("Snare Tight", "drum", None, 0.3, drum="snare"), _pack("Closed Hat 02", "drum", None, 0.1, drum="hat"),
+    _pack("Trap Hat Loop 140", "loop", None, 3.4).model_copy(update={"groove": Groove(
+        bpm=140, beats=8, hits=[(i * 0.5, 115 if i % 2 == 0 else 80, 0) for i in range(16)])}),
 ]
 
 
@@ -304,6 +306,8 @@ CASES: list[Case] = [
     case("U07", "내 샘플", "lofi_groove", "킥만 내 샘플로 바꿔줘",
          [Call("use_sample", {"track_ids": ["t1"], "pitches": Pitches(frozenset({35, 36}), frozenset({36}))})], samples=True,
          note="한 트랙 드럼에서 한 소리만 = pitches"),
+    case("U08", "내 샘플", "lofi_groove", "내 하이햇 루프 리듬으로 하이햇 깔아줘", [Call("groove_from_loop", {"track_id": None})], samples=True,
+         note="루프의 리듬을 하이햇 MIDI로 (새 Hats 트랙)"),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
     case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
     case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
@@ -312,4 +316,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 111 and len({c.id for c in CASES}) == 111
+assert len(CASES) == 112 and len({c.id for c in CASES}) == 112

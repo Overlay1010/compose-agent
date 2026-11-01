@@ -165,10 +165,10 @@ export const useSamples = create<LibraryState>((set, get) => ({
 
 export const sampleMeta = (id: string) => useSamples.getState().samples.find((s) => s.id === id)
 
-/** 서버에 보내는 이름표 (backend app/tools/samples.py SampleInfo) — 소리 파일은 보내지 않는다 */
+/** 서버에 보내는 이름표 (backend app/tools/samples.py SampleInfo) — 소리 파일은 보내지 않는다. 루프는 리듬(치는 자리 · 세기)도 */
 export const sampleInfos = () =>
-  useSamples.getState().samples.map(({ id, name, kind, root, length, sustained, brightness, drum }) => ({
-    id, name, kind, root, length, sustained, brightness, drum: drum ?? null,
+  useSamples.getState().samples.map(({ id, name, kind, root, length, sustained, brightness, drum, groove }) => ({
+    id, name, kind, root, length, sustained, brightness, drum: drum ?? null, groove: kind === 'loop' ? (groove ?? null) : null,
   }))
 
 /** 예전 규칙으로 분석한 샘플(ANALYSIS_VERSION이 다름)을 다시 분석한다. 사용자가 고친 종류 · 드럼 역할 · 기준음은 그대로 */

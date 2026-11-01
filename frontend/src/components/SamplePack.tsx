@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import { DRUM_ROLE_NAMES, KIND_NAMES, PLAYABLE, noteName, type DrumRole, type SampleKind, type SampleMeta } from '../samples/analyze'
 import { sampleBuffer, useSamples, type ImportResult } from '../samples/library'
 import { useSamplePack } from '../store/samplePack'
+import { useChat } from '../store/chat'
+import { useProject } from '../store/project'
 
 // 내 샘플팩 창: 원샷 폴더 · 파일 넣기, 자동 분석 결과(종류 · 기준음) 보기 · 고치기 · 들어 보기.
 // 파일은 이 브라우저에만 저장된다 (samples/library.ts).
@@ -210,8 +212,24 @@ function SampleRow({
       />
       )}
       <span className="sample-meta">
-        {meta.length.toFixed(1)}초 · {brightWord(meta.brightness)}
-        {meta.sustained ? ' · 길게 끌림' : ''}
+        {meta.kind === 'loop' && meta.groove ? (
+          <button
+            className="groove"
+            onClick={() => {
+              useSamplePack.getState().setOpen(false)
+              void useChat.getState().send(`'${meta.name}' 루프 리듬으로 하이햇 깔아줘`, false)
+            }}
+            disabled={!useProject.getState().project}
+            title={`이 루프의 치는 자리 · 세기를 그대로 하이햇 MIDI로 (${meta.groove.bpm} BPM · ${meta.groove.hits.length}타)`}
+          >
+            이 리듬으로 하이햇
+          </button>
+        ) : (
+          <>
+            {meta.length.toFixed(1)}초 · {brightWord(meta.brightness)}
+            {meta.sustained ? ' · 길게 끌림' : ''}
+          </>
+        )}
       </span>
       <button className="icon" onClick={onRemove} aria-label={`${meta.name} 지우기`} title="지우기">
         ×

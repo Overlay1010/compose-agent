@@ -212,3 +212,45 @@ def test_drum_sample_endpoint(client):
     assert next(t for t in r.json()["project"]["tracks"] if t["id"] == "t1")["drum_samples"] == {"36": {"id": "kick-01", "name": "Kick 01"}}
     r = client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sample", json={"pitch": 36, "sample": None})
     assert r.json()["note"] == "Drums 킥에서 내 샘플을 빼고 킷 소리로 돌렸어요"
+
+
+# ---------- 루프 리듬 → 하이햇 ----------
+
+from app.tools.samples import Groove  # noqa: E402
+
+# 140 BPM 2마디 하이햇 루프: 8분음표, 뒷박을 살짝 당겨 치고(0.49) 약하게, 마지막에 열린 햇
+HAT_LOOP = info("Hat Loop 140", "loop", None, length=3.4).model_copy(update={"groove": Groove(
+    bpm=140, beats=8, hits=[(round(i * 0.5 - (0.01 if i % 2 else 0), 3), 80 if i % 2 else 115, 1 if i == 15 else 0) for i in range(16)],
+)})
+
+
+def test_groove_from_loop_makes_a_hats_track_with_the_loop_feel(lofi):
+    with library([*PACK, HAT_LOOP]):
+        r = run_tool(lofi, "groove_from_loop", {"sample": "hat loop"})
+    hats = r.project.tracks[-1]
+    assert hats.is_drum and hats.name == "Hats" and r.changed_notes == len(hats.notes)
+    starts = sorted(n.start for n in hats.notes)
+    assert starts[:3] == [0.0, 0.49, 1.0] and len(hats.notes) == 16 * 8  # 16마디 곡 = 2마디 루프 8번, 당겨 친 0.49 그대로
+    assert {n.velocity for n in hats.notes} == {80, 115} and sum(n.pitch == 46 for n in hats.notes) == 8
+    assert "8번 되풀이" in r.summary and "격자에 맞추지 않음" in r.summary
+
+
+def test_groove_into_an_existing_drum_track_replaces_only_the_hats(lofi):
+    with library([HAT_LOOP]):
+        r = run_tool(lofi, "groove_from_loop", {"track_id": "t1", "bars": [1, 4]})  # 리듬 있는 루프가 하나뿐이라 이름 없이
+    before, after = track(lofi, "Drums"), track(r.project, "Drums")
+    assert [n for n in after.notes if n.pitch not in (42, 44, 46)] == [n for n in before.notes if n.pitch not in (42, 44, 46)]
+    assert sorted(n.start for n in after.notes if n.pitch in (42, 46) and n.start < 16)[:2] == [0.0, 0.49]
+    assert [n for n in after.notes if n.start >= 16 and n.pitch in (42, 46)] == [n for n in before.notes if n.start >= 16 and n.pitch in (42, 46)]
+
+
+def test_groove_needs_a_loop_and_asks_when_there_are_several(lofi):
+    with library(PACK), pytest.raises(ToolError) as e:
+        run_tool(lofi, "groove_from_loop", {})
+    assert e.value.code == "no_loops"
+    other = HAT_LOOP.model_copy(update={"id": "other", "name": "Shaker Loop 90"})
+    with library([HAT_LOOP, other]), pytest.raises(ToolError) as e:
+        run_tool(lofi, "groove_from_loop", {})
+    assert e.value.code == "ambiguous_sample" and "Shaker Loop 90" in e.value.message
+    with library([HAT_LOOP]):
+        assert "Hat Loop 140(루프 · 리듬 140 BPM)" in system_prompt(lofi)

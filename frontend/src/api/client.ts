@@ -139,6 +139,7 @@ export interface SampleInfo {
   sustained: boolean
   brightness: number
   drum: string | null
+  groove: { bpm: number; beats: number; hits: [number, number, number][] } | null
 }
 
 /** 화면에서 드럼 레인 하나의 소리를 내 샘플로 (null이면 그 레인의 샘플을 빼고 킷 소리로). 바로 새 버전 */

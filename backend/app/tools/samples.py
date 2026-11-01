@@ -17,10 +17,13 @@ from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.project import Project, SampleRef, Track
-from app.tools.base import ToolError, ToolResult
+from app.models.project import Note, Project, SampleRef, Track
+from app.generate.chords import song_end
+from app.generate.drums import HIT, _untangle
+from app.tools.base import Bar, ToolError, ToolResult
 from app.tools.drums import ROLE_NAMES, ROLES
 from app.tools.instrument import display_name, heard_program
+from app.tools.tracks import free_name, new_track_id
 
 Kind = Literal["bass", "keys", "pluck", "pad", "lead", "bell", "chord", "loop", "drum", "other"]
 KIND_KO = {
@@ -28,6 +31,14 @@ KIND_KO = {
     "chord": "코드 원샷", "loop": "루프", "drum": "드럼", "other": "기타 소리",
 }
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+
+class Groove(BaseModel):
+    """루프에 녹음된 리듬 (frontend/src/samples/analyze.ts grooveOf). hits: [루프 안 박, 세기, 열림 1 · 아님 0]."""
+
+    bpm: float = Field(gt=0, le=400)
+    beats: float = Field(gt=0, le=256)
+    hits: list[tuple[float, int, int]] = Field(max_length=128)
 
 
 class SampleInfo(BaseModel):
@@ -43,6 +54,7 @@ class SampleInfo(BaseModel):
     drum: Literal["kick", "snare", "clap", "hat", "openhat", "tom", "crash", "ride", "perc"] | None = Field(
         default=None, description="드럼 원샷이면 역할 (킥 · 스네어 · 클랩 · 닫힌 햇 · 열린 햇 · 탐 · 크래시 · 라이드 · 퍼커션)"
     )
+    groove: Groove | None = Field(default=None, description="루프만: 녹음된 리듬")
 
 
 # 명령 한 번 동안 쓰는 샘플 목록. 도구는 Project만 받으므로 따로 둔다 (app/agent/session.py가 채운다)
@@ -390,7 +402,93 @@ def kinds_text(samples: tuple[SampleInfo, ...] | list[SampleInfo]) -> str:
 
 def library_text(samples: tuple[SampleInfo, ...] | list[SampleInfo], limit: int = 40) -> str:
     """시스템 프롬프트에 넣을 샘플팩 한 줄 요약 + 이름 일부 (전부 넣으면 토큰이 너무 많다)."""
-    kind = lambda s: DRUM_KO.get(s.drum or "", "드럼") if s.kind == "drum" else KIND_KO[s.kind]  # noqa: E731
+    def kind(s: SampleInfo) -> str:
+        if s.kind == "drum":
+            return DRUM_KO.get(s.drum or "", "드럼")
+        return KIND_KO[s.kind] + (f" · 리듬 {s.groove.bpm:g} BPM" if s.groove else "")
     names = ", ".join(f"{s.name}({kind(s)})" for s in list(samples)[:limit])
     more = f" 외 {len(samples) - limit}개" if len(samples) > limit else ""
     return f"원샷 {len(samples)}개 — {kinds_text(samples)}\n- 이름: {names}{more}"
+
+
+# ---------- 루프 리듬 → 하이햇 ----------
+
+class GrooveFromLoopArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sample: str | None = Field(default=None, description="루프 이름 일부 또는 id. 리듬이 있는 루프가 하나뿐이면 비워 둬도 된다")
+    track_id: str | None = Field(
+        default=None, description="이 드럼 트랙의 하이햇을 루프 리듬으로 바꾼다 (Hats 트랙 · 드럼 트랙). 없으면 새 Hats 트랙을 만든다",
+    )
+    bars: tuple[Bar, Bar] | None = Field(default=None, description="[시작, 끝] 마디, 끝 포함. 없으면 곡 전체")
+
+
+HAT_LANES = {42, 44, 46}
+
+
+def groove_from_loop(project: Project, args: GrooveFromLoopArgs) -> ToolResult:
+    """루프에 녹음된 리듬(치는 자리 · 세기 · 열림)을 하이햇 MIDI로 옮겨 곡 길이만큼 되풀이한다.
+    격자에 맞추지 않는다 — 루프의 밀고 당기는 맛이 그 어긋남에 있다 ("하이햇이 규칙처럼만 나온다"는 말에서)."""
+    loops = [s for s in current_library() if s.kind == "loop" and s.groove and s.groove.hits]
+    if not loops:
+        raise ToolError(
+            "리듬을 읽은 루프가 샘플팩에 없어요. 하이햇 · 드럼 루프 파일(이름에 Loop나 BPM이 있거나 여러 번 치는 소리)을 넣으면 쓸 수 있다고 알려 주세요.",
+            code="no_loops",
+        )
+    pool = tuple(_match(args.sample, tuple(loops))) if args.sample else tuple(loops)
+    if not pool:
+        names = ", ".join(s.name for s in loops[:8])
+        raise ToolError(f"'{args.sample}' 이름의 리듬 있는 루프가 없어요. 리듬을 읽은 루프: {names}", code="unknown_sample")
+    if len(pool) > 1 and not args.sample:
+        names = ", ".join(s.name for s in pool[:8])
+        raise ToolError(f"리듬 있는 루프가 여럿이에요: {names}. 어느 루프로 할지 사용자에게 물어봐 주세요.", code="ambiguous_sample")
+    loop = pool[0]
+    groove = loop.groove
+    assert groove is not None
+
+    bpb = project.beats_per_bar
+    target = None
+    if args.track_id is not None:
+        target = next((t for t in project.tracks if t.id == args.track_id), None)
+        if target is None or not target.is_drum:
+            valid = ", ".join(f"{t.id}({t.name})" for t in project.tracks if t.is_drum) or "없음"
+            raise ToolError(f"하이햇을 바꿀 수 있는 드럼 트랙이 아니에요: {args.track_id}. 드럼 트랙: {valid}", code="unknown_track")
+    if args.bars:
+        start, end = (args.bars[0] - 1) * bpb, args.bars[1] * bpb
+    else:
+        start, end = 0.0, song_end(project) or groove.beats
+    reps = 0
+    notes: list[Note] = []
+    at = start
+    while at < end - 1e-6:
+        for beat, velocity, open_ in groove.hits:
+            t = round(at + beat, 4)
+            if t < end - 1e-6:
+                notes.append(Note(pitch=46 if open_ else 42, start=t, duration=round(min(1.0 if open_ else HIT, end - t), 4),
+                                  velocity=max(1, min(127, velocity))))
+        at += groove.beats
+        reps += 1
+    notes = _untangle(notes)
+    if not notes:
+        raise ToolError("그 범위에 하이햇을 깔 자리가 없어요.", code="empty_range")
+
+    opens = sum(n.pitch == 46 for n in notes)
+    vels = [n.velocity for n in notes]
+    loop_bars = groove.beats / bpb
+    detail = (f"'{loop.name}' 루프({groove.bpm:g} BPM · {loop_bars:g}마디)의 리듬 {len(groove.hits)}타를 {reps}번 되풀이 · "
+              f"열린 햇 {opens}타 · 세기 {min(vels)}~{max(vels)} · 루프의 밀고 당기는 타이밍을 그대로 (격자에 맞추지 않음)")
+    if target is not None:
+        kept = [n for n in target.notes if not (n.pitch in HAT_LANES and start - 1e-6 <= n.start < end - 1e-6)]
+        track = target.model_copy(update={"notes": sorted([*kept, *notes], key=lambda n: (n.start, n.pitch))})
+        tracks = [track if t.id == target.id else t for t in project.tracks]
+        return ToolResult(project=project.model_copy(update={"tracks": tracks}), changed_notes=len(notes),
+                          summary=f"{target.name}({target.id}) 트랙의 하이햇을 {detail}.")
+    kit = next((t.program for t in project.tracks if t.is_drum), 0)
+    track = Track(id=new_track_id(project), name=free_name(project, "Hats"), is_drum=True, program=kit, program_set=True, notes=notes)
+    return ToolResult(project=project.model_copy(update={"tracks": [*project.tracks, track]}), changed_notes=len(notes),
+                      summary=f"새 드럼 트랙 {track.name}({track.id})에 {detail}. {SOUND_NOTE}")
+
+
+# 리듬만 옮기고 소리는 킷이다 — "루프 소리 자체로 들으려면 '하이햇 내 샘플로'"라고 틀리게 안내해서 둘을 나눠 적는다
+SOUND_NOTE = ("소리는 킷 하이햇이에요. 하이햇 원샷이 있으면 \"하이햇 내 샘플로\"로 원샷 소리로 바꿀 수 있지만, "
+              "그건 루프 소리 자체가 아니에요 (루프에서 옮긴 건 리듬뿐).")
