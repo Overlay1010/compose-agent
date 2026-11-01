@@ -280,6 +280,7 @@ const OPEN_HAT = 46
 const MY_DRUM_PEAK = 0.9
 // 탐 샘플 하나로 탐 레인 여섯을 낮은 탐 → 높은 탐으로 (내장 탐처럼 재생 속도로)
 const MY_TOM_RATES: Record<number, number> = { 41: 0.8, 43: 0.87, 45: 0.94, 47: 1, 48: 1.07, 50: 1.15 }
+const MY_DRUM_CUT = 0.02 // 초. 같은 레인을 다시 쳐서 앞 소리를 끊을 때 딸깍 소리가 나지 않게 줄이는 시간
 
 class SampledDrumVoice implements Voice {
   output = new Tone.Gain()
@@ -296,6 +297,8 @@ class SampledDrumVoice implements Voice {
   private laneGain = new Map<number, number>()
   /** 레인(음 번호) → 내 샘플 소리 · 크기 · 속도 */
   private mine = new Map<number, { buffer: Tone.ToneAudioBuffer; gain: number; rate: number }>()
+  /** 레인 → 지금 울리는 내 샘플 소리 (같은 레인을 다시 치면 끊는다) */
+  private ringing = new Map<number, Tone.ToneBufferSource>()
 
   constructor(track: Track) {
     this.kit = kitOf(track.program)
@@ -308,11 +311,11 @@ class SampledDrumVoice implements Voice {
     this.bus.chain(...this.fx, this.output)
     // 잔향은 울림(IR)을 만드는 데 시간이 걸려서 샘플과 함께 기다린다
     const fxReady = Promise.all(this.fx.map((n) => (n instanceof Tone.Reverb ? n.ready : null)))
-    // 내 샘플을 고른 레인 (이 브라우저에 없는 샘플은 킷 소리 그대로)
+    // 내 샘플을 고른 레인. 이 브라우저에 없거나 드럼 원샷이 아닌 샘플(다시 분석해 루프로 바뀐 것)은 킷 소리 그대로
     const mineReady = Promise.all(
       Object.entries(track.drum_samples ?? {}).map(async ([lane, ref]) => {
         const meta = sampleMeta(ref.id)
-        const raw = meta ? await sampleBuffer(ref.id) : null
+        const raw = meta?.kind === 'drum' ? await sampleBuffer(ref.id) : null
         if (!meta || !raw) return
         const pitch = Number(lane)
         this.mine.set(pitch, { buffer: new Tone.ToneAudioBuffer(raw), gain: MY_DRUM_PEAK / Math.max(meta.peak ?? 1, 0.05), rate: MY_TOM_RATES[pitch] ?? 1 })
@@ -345,11 +348,24 @@ class SampledDrumVoice implements Voice {
     // 한 번 치고 버리는 소스라서 같은 시각에 겹쳐 울려도 문제없다
     // 이 드럼과 같은 오디오 공간(context)에 만든다. 음원 내보내기(Tone.Offline)는 녹음 중에 전역 context를
     // 원래대로 되돌리므로, 전역 기본값으로 만들면 녹음용 노드에 연결하지 못한다
-    const src = new Tone.ToneBufferSource({ url: mine ? mine.buffer : this.buffers.get(file), context: this.bus.context }).connect(this.bus)
+    const src = new Tone.ToneBufferSource({
+      url: mine ? mine.buffer : this.buffers.get(file),
+      context: this.bus.context,
+      fadeOut: mine ? MY_DRUM_CUT : 0,
+    }).connect(this.bus)
     src.playbackRate.value = rate
+    // 내 샘플은 같은 레인을 다시 치면 앞 소리를 끊는다 (FPC "cut itself"처럼). 내장 소리는 짧아서 괜찮지만
+    // 내 샘플은 길 수 있다 — 하이햇 루프를 원샷으로 넣었을 때 칠 때마다 몇 초짜리 패턴이 겹쳐 계속 울렸다
+    if (mine) {
+      this.ringing.get(pitch)?.stop(time)
+      this.ringing.set(pitch, src)
+    }
     src.onended = () => {
       if (this.openHat === src) this.openHat = null
-      src.dispose()
+      if (this.ringing.get(pitch) === src) this.ringing.delete(pitch)
+      // 끊은 소리(stop)는 지우지 않는다: 음원 내보내기(Tone.Offline)에서는 stop의 타이머가 녹음보다 먼저 돌아,
+      // 여기서 dispose하면 소리가 나기 전에 지워졌다 (끊는 레인이 통째로 무음). 실시간 재생에서는 Tone.js가 정리한다
+      if (!mine) src.dispose()
     }
     src.start(time, 0, undefined, Math.pow(velocity / 127, 1.5) * gain * (this.laneGain.get(pitch) ?? 1))
     if (pitch === OPEN_HAT) this.openHat = src
@@ -357,6 +373,8 @@ class SampledDrumVoice implements Voice {
 
   releaseAll() {
     this.openHat = null
+    for (const s of this.ringing.values()) s.stop()
+    this.ringing.clear()
     this.synth?.releaseAll()
   }
 

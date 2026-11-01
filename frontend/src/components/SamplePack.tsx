@@ -113,7 +113,7 @@ export function SamplePack() {
           </p>
           <p className="hint">
             이름과 소리로 종류(베이스 · 패드 · 건반 · 플럭 · 리드 · 벨)와 기준음을 알아내요. 틀리면 아래에서 고칠 수 있어요.
-            드럼 원샷은 역할(킥 · 스네어 · 햇 …)을 알아내 드럼 레인 소리로 써요. 코드 원샷 · 멜로디 루프는 아직 악기로 못 써요.
+            드럼 원샷은 역할(킥 · 스네어 · 햇 …)을 알아내 드럼 레인 소리로 써요. 코드 원샷 · 루프는 아직 악기로 못 써요.
           </p>
           <input ref={folder} type="file" hidden multiple {...{ webkitdirectory: '' }} onChange={(e) => void put([...(e.target.files ?? [])]).then(() => (e.target.value = ''))} />
           <input ref={files} type="file" hidden multiple accept=".wav,.mp3,.ogg,.flac,.m4a,audio/*" onChange={(e) => void put([...(e.target.files ?? [])]).then(() => (e.target.value = ''))} />

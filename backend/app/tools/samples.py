@@ -25,7 +25,7 @@ from app.tools.instrument import display_name, heard_program
 Kind = Literal["bass", "keys", "pluck", "pad", "lead", "bell", "chord", "loop", "drum", "other"]
 KIND_KO = {
     "bass": "베이스", "keys": "건반", "pluck": "플럭", "pad": "패드", "lead": "리드", "bell": "벨",
-    "chord": "코드 원샷", "loop": "멜로디 루프", "drum": "드럼", "other": "기타 소리",
+    "chord": "코드 원샷", "loop": "루프", "drum": "드럼", "other": "기타 소리",
 }
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -114,7 +114,7 @@ def role_of(track: Track) -> Role | None:
     return "pluck" if avg < 0.5 else "lead"
 
 
-# 역할마다 어울리는 샘플 종류 (1 = 딱 맞음). 없는 종류(코드 원샷 · 멜로디 루프 · 드럼 · 기타 소리)는 고르지 않는다
+# 역할마다 어울리는 샘플 종류 (1 = 딱 맞음). 없는 종류(코드 원샷 · 루프 · 드럼 · 기타 소리)는 고르지 않는다
 # (음 하나를 높이고 낮춰 연주하는 방식이라, 화음이나 프레이즈가 녹음된 샘플을 쓰면 음이 겹쳐 들린다)
 FIT: dict[Role, dict[str, float]] = {
     "bass": {"bass": 1.0},
@@ -348,7 +348,7 @@ def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
             role = role_of(t)
             errors.append(
                 f"{t.name}({ROLE_KO.get(role or '', '이 트랙')})에 어울리는 샘플이 샘플팩에 없어요 "
-                f"(있는 종류: {kinds_text(samples)}). 음 하나짜리 원샷만 쓸 수 있어요 (코드 원샷 · 멜로디 루프는 아직 못 써요)."
+                f"(있는 종류: {kinds_text(samples)}). 음 하나짜리 원샷만 쓸 수 있어요 (코드 원샷 · 루프는 아직 못 써요)."
             )
             continue
         best = picks[0]

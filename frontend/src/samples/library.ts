@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { KIND_NAMES, analyze, drumFromName, type SampleMeta } from './analyze'
+import { ANALYSIS_VERSION, KIND_NAMES, analyze, drumFromName, type SampleMeta } from './analyze'
 
 // 내 샘플팩: 사용자가 넣은 원샷 파일과 분석한 이름표를 이 브라우저(IndexedDB)에만 저장한다.
 // 서버 · 저장소에는 올리지 않는다 (남의 샘플이라 라이선스상 퍼뜨리면 안 되고, 크기도 크다).
@@ -140,7 +140,7 @@ export const useSamples = create<LibraryState>((set, get) => ({
     const meta: SampleMeta = {
       ...row.meta,
       ...patch,
-      ...('kind' in patch ? { kindFrom: 'user' as const } : {}),
+      ...('kind' in patch || 'drum' in patch ? { kindFrom: 'user' as const } : {}), // 드럼 역할도 종류의 일부
       ...('root' in patch ? { rootFrom: 'user' as const } : {}),
     }
     // 드럼으로 바꿨는데 역할이 없으면 이름으로 짐작한 역할부터 (화면에서 바로 고칠 수 있게)
@@ -171,16 +171,16 @@ export const sampleInfos = () =>
     id, name, kind, root, length, sustained, brightness, drum: drum ?? null,
   }))
 
-/** 예전에 넣은 샘플(드럼 역할 · 최대 크기가 없던 때)을 다시 분석한다. 사용자가 고친 종류 · 기준음은 그대로 */
+/** 예전 규칙으로 분석한 샘플(ANALYSIS_VERSION이 다름)을 다시 분석한다. 사용자가 고친 종류 · 드럼 역할 · 기준음은 그대로 */
 async function upgrade(rows: Stored[]) {
-  const old = rows.filter((r) => r.meta.peak === undefined || r.meta.drum === undefined)
+  const old = rows.filter((r) => r.meta.v !== ANALYSIS_VERSION)
   for (const row of old) {
     try {
       const buffer = await decode(await row.blob.arrayBuffer())
       const fresh = analyze(row.meta.id, `${row.meta.name}.wav`, row.meta.folder, mono(buffer), buffer.sampleRate)
       const meta: SampleMeta = {
         ...fresh,
-        ...(row.meta.kindFrom === 'user' ? { kind: row.meta.kind, kindFrom: 'user' as const } : {}),
+        ...(row.meta.kindFrom === 'user' ? { kind: row.meta.kind, drum: row.meta.drum ?? null, kindFrom: 'user' as const } : {}),
         ...(row.meta.rootFrom === 'user' ? { root: row.meta.root, rootFrom: 'user' as const } : {}),
       }
       if (meta.kind !== 'drum') meta.drum = null

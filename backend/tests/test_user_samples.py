@@ -59,7 +59,7 @@ def test_recommend_matches_role_and_range(lofi):
     assert pad.index(next(p for p in pad if p.sample.name == "Short Pad A3")) > 0  # 짧은 패드는 뒤로
     keys = recommend(track(lofi, "Rhodes"), tempo, PACK)
     assert keys[0].sample.kind == "keys"
-    # 코드 원샷 · 멜로디 루프 · 드럼은 음 하나짜리 악기가 아니라 어느 역할에도 안 고른다
+    # 코드 원샷 · 루프 · 드럼은 음 하나짜리 악기가 아니라 어느 역할에도 안 고른다
     for t in lofi.tracks:
         assert not {p.sample.kind for p in recommend(t, tempo, PACK)} & {"chord", "loop", "drum"}
 

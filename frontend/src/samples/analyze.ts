@@ -29,6 +29,8 @@ export interface SampleMeta {
   peak: number
   /** 드럼 원샷이면 역할, 아니면 null */
   drum: DrumRole | null
+  /** 분석 규칙 버전. ANALYSIS_VERSION과 다르면 다시 분석한다 (samples/library.ts) */
+  v: number
   /** 기준음 · 종류를 어디서 알았는지 (화면 표시 · 사용자가 고쳤는지) */
   rootFrom: 'name' | 'audio' | 'user' | null
   kindFrom: 'name' | 'audio' | 'user'
@@ -36,7 +38,7 @@ export interface SampleMeta {
 
 export const KIND_NAMES: Record<SampleKind, string> = {
   bass: '베이스', keys: '건반', pluck: '플럭', pad: '패드', lead: '리드', bell: '벨',
-  chord: '코드 원샷', loop: '멜로디 루프', drum: '드럼', other: '기타 소리',
+  chord: '코드 원샷', loop: '루프', drum: '드럼', other: '기타 소리',
 }
 
 export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
@@ -46,15 +48,19 @@ export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
 /** 음 하나를 높이고 낮춰 악기로 쓸 수 있는 종류 (코드 원샷 · 루프는 음이 겹쳐 들린다) */
 export const PLAYABLE: SampleKind[] = ['bass', 'keys', 'pluck', 'pad', 'lead', 'bell']
 
+/** 분석 규칙을 바꾸면 올린다 → 이미 넣은 샘플도 다음에 열 때 다시 분석 (2: 드럼 역할 · 최대 크기, 3: 루프를 드럼보다 먼저) */
+export const ANALYSIS_VERSION = 3
+
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 export const noteName = (pitch: number) => `${NOTE_NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
 
 // ---------- 이름 ----------
 
-// 앞에 있을수록 먼저 (드럼 · 루프 · 코드를 먼저 걸러야 "Bass Loop"가 베이스 원샷이 되지 않는다)
+// 앞에 있을수록 먼저 (루프 · 드럼 · 코드를 먼저 걸러야 "Bass Loop"가 베이스 원샷이 되지 않는다).
+// 루프가 드럼보다 먼저: "Hi Hat Loop 140"을 하이햇 원샷으로 보면 칠 때마다 몇 초짜리 패턴이 통째로 겹쳐 울렸다
 const KIND_WORDS: [SampleKind, RegExp][] = [
-  ['drum', /kick|snare|clap|bass ?drum|\bdrums?\b|hi ?hats?|\bhats?\b|open ?hh|\bhh\b|\boh\b|cymbal|crash|\bride\b|\bperc|\btoms?\b|\brim\b|shaker|\bsnap\b|\bkck\b|\bsd\b|\bbd\b/],
   ['loop', /loop|\bmelod(y|ic)\b|\briff\b|phrase|\b\d{2,3} ?bpm\b|\bbpm ?\d{2,3}\b/],
+  ['drum', /kick|snare|clap|bass ?drum|\bdrums?\b|hi ?hats?|\bhats?\b|open ?hh|\bhh\b|\boh\b|cymbal|crash|\bride\b|\bperc|\btoms?\b|\brim\b|shaker|\bsnap\b|\bkck\b|\bsd\b|\bbd\b/],
   ['chord', /chord|\b[a-g](#|b)?(maj|min|m7|maj7|dim|sus\d?|add9|m9|7)\b|\b(maj|min|minor|major)\b/],
   ['bass', /808|bass|\bsub\b|reese/],
   ['pad', /\bpad|atmo|ambien|drone|string|choir|texture|swell/],
@@ -277,7 +283,7 @@ export function analyze(id: string, file: string, folder: string, data: Float32A
   const peak = env[peakFrame]
   let top = 0
   for (let i = 0; i < data.length; i++) top = Math.max(top, Math.abs(data[i]))
-  const base = { id, name, folder, gain: 1, peak: round(top, 3), rootFrom: null, kindFrom: 'audio' } as const
+  const base = { id, name, folder, gain: 1, peak: round(top, 3), v: ANALYSIS_VERSION, rootFrom: null, kindFrom: 'audio' } as const
   if (peak < 1e-4) return { ...base, kind: 'other', root: null, length: 0, sustained: false, brightness: 0, drum: null }
 
   let lastFrame = peakFrame
@@ -321,10 +327,16 @@ export function analyze(id: string, file: string, folder: string, data: Float32A
   // 파일 이름이 폴더보다 구체적이다 ("One Shots" 폴더 안의 "Melody Loop"는 루프)
   let kind = kindFromName(name) ?? kindFromName(folder)
   let kindFrom: SampleMeta['kindFrom'] = 'name'
+  // 소리가 여러 번 새로 시작하는 긴 파일은 패턴이 녹음된 루프 (이름에 loop · bpm이 없어도 — 예: Drums 폴더의 "Hat 03")
+  const phrase = length > 2 && onsets(env, peak) >= 4
+  if (kind === 'drum' && phrase) {
+    kind = 'loop'
+    kindFrom = 'audio'
+  }
   if (!kind) {
     kindFrom = 'audio'
-    if (root === null) kind = length < 1 ? 'drum' : 'other'
-    else if (length > 3 && onsets(env, peak) >= 4) kind = 'loop'
+    if (phrase && (root === null || length > 3)) kind = 'loop' // 음이 있는 소리는 더 길 때만 (떨림이 있는 패드를 루프로 보지 않게)
+    else if (root === null) kind = length < 1 ? 'drum' : 'other'
     else if (root < 48 && length < 0.6) kind = 'drum' // 낮고 짧게 끝나는 소리는 베이스 원샷보다 킥 (808 · 베이스는 꼬리가 길다)
     else if (root < 48) kind = 'bass'
     else if (sustained) kind = 'pad'

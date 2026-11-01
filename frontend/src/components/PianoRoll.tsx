@@ -12,7 +12,7 @@ import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
 import { useReharm } from '../store/reharm'
 import { sampleInfos, sampleMeta, useSamples } from '../samples/library'
-import { DRUM_ROLE_NAMES, type DrumRole } from '../samples/analyze'
+import { DRUM_ROLE_NAMES, KIND_NAMES, type DrumRole } from '../samples/analyze'
 import { trackColor } from '../theme'
 import { ChordStrip, KeyBadge } from './ChordStrip'
 import { EmptyState } from './EmptyState'
@@ -877,13 +877,16 @@ function SoundPicker({ track, pitch }: { track: Track; pitch: number }) {
   const options = samples
     .filter((s) => s.kind === 'drum' && s.drum && fits.includes(s.drum) && s.id !== mine?.id)
     .sort((a, b) => fits.indexOf(a.drum!) - fits.indexOf(b.drum!) || a.name.localeCompare(b.name))
+  // 고른 샘플을 못 쓰는 경우 (재생은 킷 소리): 이 브라우저에 없음 · 드럼 원샷이 아님(다시 분석해 루프로 바뀜)
+  const meta = mine ? sampleMeta(mine.id) : undefined
+  const unusable = !mine ? '' : !meta ? '이 브라우저에 없음' : meta.kind !== 'drum' ? `${KIND_NAMES[meta.kind]}라 원샷으로 못 씀` : ''
   return (
     <select
-      className={mine && !sampleMeta(mine.id) ? 'lane-sound missing' : 'lane-sound'}
+      className={unusable ? 'lane-sound missing' : 'lane-sound'}
       value={mine ? `sample:${mine.id}` : picked ?? 'default'}
       disabled={busy || sending}
       aria-label={`${DRUM_NAMES[pitch] ?? pitch} 소리`}
-      title={mine && !sampleMeta(mine.id) ? `내 샘플 '${mine.name}'이 이 브라우저에 없어서 킷 소리로 들려요` : undefined}
+      title={unusable ? `내 샘플 '${mine!.name}': ${unusable} — 지금은 킷 소리로 들려요` : undefined}
       onChange={async (e) => {
         const value = e.target.value
         const info = value.startsWith('sample:') ? sampleInfos().find((s) => s.id === value.slice(7)) : undefined
@@ -894,7 +897,7 @@ function SoundPicker({ track, pitch }: { track: Track; pitch: number }) {
       {mine && (
         <option value={`sample:${mine.id}`}>
           내 샘플 · {mine.name}
-          {sampleMeta(mine.id) ? '' : ' (이 브라우저에 없음)'}
+          {unusable ? ` (${unusable})` : ''}
         </option>
       )}
       {options.length > 0 && (
