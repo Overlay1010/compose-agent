@@ -212,7 +212,7 @@ function SampleRow({
       />
       )}
       <span className="sample-meta">
-        {meta.kind === 'loop' && meta.groove ? (
+        {meta.kind === 'loop' && meta.groove?.hits.length ? (
           <button
             className="groove"
             onClick={() => {

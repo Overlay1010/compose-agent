@@ -51,13 +51,15 @@ export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
 export const PLAYABLE: SampleKind[] = ['bass', 'keys', 'pluck', 'pad', 'lead', 'bell']
 
 /** 분석 규칙을 바꾸면 올린다 → 이미 넣은 샘플도 다음에 열 때 다시 분석 (2: 드럼 역할 · 최대 크기, 3: 루프를 드럼보다 먼저) */
-export const ANALYSIS_VERSION = 5 // 4: 루프의 리듬(groove), 5: 1마디짜리 짧은 루프도 루프로
+export const ANALYSIS_VERSION = 6 // 4: 루프의 리듬(groove), 5: 1마디짜리 짧은 루프도 루프로, 6: 드럼 루프에서 하이햇만 · 자르는 자리 따로
 
-/** 루프에 녹음된 리듬. hits: [루프 안 박, 세기 1~127, 열림(오래 울림) 1 · 아님 0] — 격자에 맞추지 않은 그대로 */
+/** 루프에 녹음된 리듬 — 격자에 맞추지 않은 그대로.
+ * hits: 하이햇 타격 [루프 안 박, 세기 1~127, 열림(오래 울림) 1 · 아님 0]. cuts: 모든 타격의 박 (오디오로 깔 때 자르는 자리) */
 export interface Groove {
   bpm: number
   beats: number
   hits: [beat: number, velocity: number, open: 0 | 1][]
+  cuts?: number[]
 }
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -279,30 +281,77 @@ export function bpmFromName(name: string): number | null {
   return n >= 60 && n <= 200 ? n : null
 }
 
+// 2차 필터 (RBJ 쿡북) — 소리를 대역으로 나눠 하이햇을 킥 · 스네어와 가른다
+function biquad(x: Float32Array, rate: number, type: 'highpass' | 'bandpass', freq: number, q = 0.707): Float32Array {
+  const w = (2 * Math.PI * freq) / rate
+  const cos = Math.cos(w)
+  const alpha = Math.sin(w) / (2 * q)
+  const [b0, b1, b2] = type === 'highpass' ? [(1 + cos) / 2, -(1 + cos), (1 + cos) / 2] : [alpha, 0, -alpha]
+  const [a0, a1, a2] = [1 + alpha, -2 * cos, 1 - alpha]
+  const y = new Float32Array(x.length)
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0
+  for (let i = 0; i < x.length; i++) {
+    const v = (b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0
+    x2 = x1
+    x1 = x[i]
+    y2 = y1
+    y1 = v
+    y[i] = v
+  }
+  return y
+}
+
+function envelope(x: Float32Array, hop: number): Float32Array {
+  const env = new Float32Array(Math.ceil(x.length / hop))
+  for (let f = 0; f < env.length; f++) {
+    let sum = 0
+    const end = Math.min(x.length, (f + 1) * hop)
+    for (let i = f * hop; i < end; i++) sum += x[i] * x[i]
+    env[f] = Math.sqrt(sum / Math.max(1, end - f * hop))
+  }
+  return env
+}
+
+const HOLD_DECAY = 0.9 // 5ms마다. 방금 친 소리의 크기 기억이 50ms에 1/3쯤으로 준다
+const MIN_GAP = 8 // 프레임(40ms). 이보다 붙은 타격은 하나로
+
+/** 타격 시작 프레임: 방금 친 소리 크기(천천히 줄어드는 기억)보다 1.5배 넘게 커질 때만. 직전 4프레임과만 비교했더니
+ * 킥 · 스네어의 울림 꼬리가 흔들릴 때마다 새 타격으로 잡혀 0 · 0.12 · 0.26박처럼 다닥다닥 붙었다 */
+function hitsIn(env: Float32Array, floor: number): number[] {
+  const out: number[] = []
+  let held = 0
+  for (let f = 0; f < env.length; f++) {
+    if (env[f] >= floor && env[f] > held * 1.5 + 1e-6 && (!out.length || f - out[out.length - 1] >= MIN_GAP)) out.push(f)
+    held = Math.max(env[f], held * HOLD_DECAY)
+  }
+  return out
+}
+
+const energy = (env: Float32Array, f: number, n = 6) => {
+  let s = 0
+  for (let j = f; j < Math.min(env.length, f + n); j++) s = Math.max(s, env[j])
+  return s
+}
+
+const HAT_HIGH = 7000 // Hz. 하이햇은 이 위가 대부분
+const UPPER_MID = 3000 // Hz. 스네어의 쇳소리는 여기가 세다
+const HAT_RATIO = 1.2 // 높은 대역 / 중고역이 이보다 크면 하이햇
+const WITH_SNARE = 0.8 // 스네어와 같은 순간이어도 높은 대역이 다른 하이햇의 이만큼이면 하이햇도 함께 친 것
+
 /**
- * 루프의 리듬 읽기. 치는 자리(소리가 갑자기 커지는 곳) · 세기(그 타격의 최대 크기) · 열림(150ms 넘게 울림)을 재고,
- * 템포는 이름에서, 없으면 파일 길이가 1 · 2 · 4 · 8 · 16마디라고 보고 85~170 BPM에 드는 것으로 (한 옥타브라 하나로 정해진다).
+ * 루프의 리듬 읽기. 드럼 루프에는 킥 · 스네어 · 하이햇이 섞여 있어서(처음에는 그걸 다 하이햇으로 옮겼다) 대역을 나눈다:
+ * - 하이햇: 7kHz 위 대역에서 커지는 곳. 그 순간 중고역(3kHz 근처)이 더 세면 스네어로 보고 빼되, 높은 대역이 다른 하이햇만큼 세면
+ *   하이햇도 같이 친 것 (2 · 4박의 스네어 + 하이햇).
+ * - cuts: 대역을 가리지 않은 모든 타격 — 오디오로 깔 때 이 자리마다 자른다 (킥 · 스네어 자리에서도 끊기지 않게).
+ * 세기는 그 하이햇의 높은 대역 크기, 열림은 높은 대역이 150ms 넘게 울림. 템포는 이름에서, 없으면 파일 길이가 1 · 2 · 4 · 8 · 16마디라고
+ * 보고 85~170 BPM에 드는 것으로 (한 옥타브라 하나로 정해진다).
  */
 export function grooveOf(data: Float32Array, rate: number, name: string): Groove | null {
   const hop = Math.max(1, Math.round(rate * GROOVE_HOP_S))
-  const env = new Float32Array(Math.ceil(data.length / hop))
-  for (let f = 0; f < env.length; f++) {
-    let sum = 0
-    const end = Math.min(data.length, (f + 1) * hop)
-    for (let i = f * hop; i < end; i++) sum += data[i] * data[i]
-    env[f] = Math.sqrt(sum / Math.max(1, end - f * hop))
-  }
+  const full = envelope(data, hop)
   let peak = 0
-  for (const v of env) peak = Math.max(peak, v)
+  for (const v of full) peak = Math.max(peak, v)
   if (peak < 1e-4) return null
-  // 파일이 소리로 바로 시작하면 "커지는 순간"이 없어 첫 타를 놓쳤다 — 처음부터 크면 그것도 타격
-  const starts: number[] = env[0] >= peak * 0.08 ? [0] : []
-  for (let f = 1; f < env.length; f++) {
-    let low = env[f - 1]
-    for (let j = Math.max(0, f - 4); j < f; j++) low = Math.min(low, env[j])
-    if (env[f] >= peak * 0.08 && env[f] > 1.6 * low + 1e-6 && (!starts.length || f - starts[starts.length - 1] >= 8)) starts.push(f)
-  }
-  if (starts.length < 2) return null
   const seconds = data.length / rate
   const named = bpmFromName(name)
   const bars = [1, 2, 4, 8, 16].find((b) => (b * 240) / seconds >= 85 && (b * 240) / seconds < 170)
@@ -310,16 +359,31 @@ export function grooveOf(data: Float32Array, rate: number, name: string): Groove
   if (!bpm) return null
   let beats = (seconds * bpm) / 60
   if (Math.abs(beats / 4 - Math.round(beats / 4)) < 0.05) beats = Math.round(beats / 4) * 4 // 마디 단위로 잘린 루프
-  const hits: Groove['hits'] = starts.slice(0, MAX_HITS).map((f, k) => {
-    const next = starts[k + 1] ?? env.length
-    let top = env[f]
-    for (let j = f; j < Math.min(next, f + 8); j++) top = Math.max(top, env[j])
+  const beatOf = (f: number) => round((f * hop * bpm) / 60 / rate, 3)
+
+  const cuts = hitsIn(full, peak * 0.06).map(beatOf).filter((b) => b < beats - 1e-3).slice(0, MAX_HITS)
+  if (cuts.length < 2) return null
+
+  const high = envelope(biquad(biquad(data, rate, 'highpass', HAT_HIGH), rate, 'highpass', HAT_HIGH), hop)
+  const mid = envelope(biquad(data, rate, 'bandpass', UPPER_MID, 0.9), hop)
+  let highPeak = 0
+  for (const v of high) highPeak = Math.max(highPeak, v)
+  const candidates = highPeak > peak * 0.01 ? hitsIn(high, highPeak * 0.1) : []
+  const ratio = (f: number) => energy(high, f) / Math.max(energy(mid, f), 1e-9)
+  const clear = candidates.filter((f) => ratio(f) >= HAT_RATIO)
+  const typical = clear.map((f) => energy(high, f)).sort((a, b) => a - b)[Math.floor(clear.length / 2)] ?? Infinity
+  const hats = candidates.filter((f) => ratio(f) >= HAT_RATIO || energy(high, f) >= typical * WITH_SNARE)
+  let hatPeak = 0
+  for (const f of hats) hatPeak = Math.max(hatPeak, energy(high, f))
+  const hits: Groove['hits'] = hats.slice(0, MAX_HITS).map((f, k) => {
+    const next = hats[k + 1] ?? high.length
+    const top = energy(high, f)
     let ring = f
-    while (ring < next && env[ring] > top * 0.3) ring++
+    while (ring < next && high[ring] > top * 0.3) ring++
     const open: 0 | 1 = (ring - f) * GROOVE_HOP_S > 0.15 ? 1 : 0
-    return [round((f * hop * bpm) / 60 / rate, 3), Math.max(1, Math.min(127, Math.round(30 + 97 * (top / peak)))), open]
+    return [beatOf(f), Math.max(1, Math.min(127, Math.round(30 + 97 * (top / hatPeak)))), open]
   })
-  return { bpm, beats: round(beats, 3), hits: hits.filter(([b]) => b < beats - 1e-3) }
+  return { bpm, beats: round(beats, 3), hits: hits.filter(([b]) => b < beats - 1e-3), cuts }
 }
 
 function onsets(env: Float32Array, peak: number): number {

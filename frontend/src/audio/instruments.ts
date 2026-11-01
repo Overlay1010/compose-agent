@@ -269,10 +269,13 @@ class UserSampleVoice implements Voice {
 
 // ---------- 오디오 루프 (내 샘플의 루프 파일을 그대로) ----------
 
-/** 타격마다 잘라 놓을 루프인가: 음 높이가 없는 리듬 루프(하이햇 · 드럼)이고 리듬을 읽었으면 그 타격들 */
-function sliceHits(clip: AudioClip): [number, number, number][] | null {
+/** 타격마다 잘라 놓을 루프인가: 음 높이가 없는 리듬 루프(하이햇 · 드럼)이고 리듬을 읽었으면 자를 자리(박)들.
+ * 모든 대역의 타격(cuts)으로 자른다 — 하이햇 자리로만 자르면 드럼 루프의 킥 · 스네어가 앞 조각에 묻혀 곡 박과 어긋난다 */
+function sliceHits(clip: AudioClip): number[] | null {
   const meta = sampleMeta(clip.sample.id)
-  return meta && meta.root === null && meta.groove?.hits.length ? meta.groove.hits : null
+  if (!meta || meta.root !== null || !meta.groove) return null
+  const cuts = meta.groove.cuts ?? meta.groove.hits.map(([b]) => b)
+  return cuts.length ? cuts : null
 }
 
 /**
@@ -288,9 +291,9 @@ export function playEvents(track: Track, beatsPerBar: number): Note[] {
   const hits = sliceHits(clip)
   if (hits) {
     for (let s = clip.start; s < clip.end - 1e-6; s += clip.beats) {
-      hits.forEach(([beat], k) => {
+      hits.forEach((beat, k) => {
         const t = s + beat
-        const next = Math.min(s + (hits[k + 1]?.[0] ?? clip.beats), clip.end)
+        const next = Math.min(s + (hits[k + 1] ?? clip.beats), clip.end)
         if (t < clip.end - 1e-6 && next > t) out.push({ pitch: k, start: t, duration: next - t, velocity: 100 })
       })
     }
@@ -321,7 +324,7 @@ class AudioLoopVoice implements Voice {
   private level: Tone.Gain
   private clip: AudioClip
   private tempo: number
-  private hits: [number, number, number][] | null
+  private hits: number[] | null
 
   constructor(clip: AudioClip, tempo: number) {
     this.clip = clip
@@ -343,8 +346,8 @@ class AudioLoopVoice implements Voice {
     let length = this.output.toSeconds(duration)
     if (this.hits) {
       // 타격 하나: 원래 속도로 그 조각만 (곡이 느리면 조각 뒤는 조용히, 빠르면 다음 타격에서 끊김)
-      const [from] = this.hits[pitch]
-      const to = this.hits[pitch + 1]?.[0] ?? this.clip.beats
+      const from = this.hits[pitch]
+      const to = this.hits[pitch + 1] ?? this.clip.beats
       offset = Math.max(0, from * spb - LOOP_PREROLL) // 타격 시작은 5ms 단위로 찾아서 어택 맨 앞이 잘리지 않게 조금 앞부터
       rate = 1
       length = Math.min(length, (to - from) * spb)
