@@ -25,7 +25,7 @@ export function Overview() {
   const lengthBeats = useMemo(() => {
     if (!shown) return 0
     const bpb = (shown.time_signature[0] * 4) / shown.time_signature[1]
-    const end = Math.max(1, ...shown.tracks.flatMap((t) => t.notes.map((n) => n.start + n.duration)))
+    const end = Math.max(1, ...shown.tracks.flatMap((t) => [...t.notes.map((n) => n.start + n.duration), t.audio?.end ?? 0]))
     return Math.ceil(end / bpb) * bpb
   }, [shown])
 
@@ -77,6 +77,13 @@ export function Overview() {
       const lo = Math.min(...pitches)
       const hi = Math.max(...pitches)
       ctx.globalAlpha = off[t.id] ? 0.25 : 0.9
+      if (t.audio) {
+        // 오디오 루프: 루프 한 번마다 띠 하나 (새 트랙이면 바뀐 색)
+        ctx.fillStyle = original ? trackColor(project, t.id) : color('--change')
+        for (let s = t.audio.start; s < t.audio.end - 1e-6; s += t.audio.beats) {
+          ctx.fillRect(x(s) + 1, top + 4, Math.max(2, x(Math.min(t.audio.beats, t.audio.end - s)) - 2), ROW - 8)
+        }
+      }
       for (const n of t.notes) {
         const y = top + 2 + (hi === lo ? (ROW - 6) / 2 : ((hi - n.pitch) / (hi - lo)) * (ROW - 6))
         ctx.fillStyle = changed.has(n) ? color('--change') : trackColor(project, t.id)

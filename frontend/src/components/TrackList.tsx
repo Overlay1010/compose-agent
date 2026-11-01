@@ -70,7 +70,7 @@ export function TrackList() {
                   )}
                 </span>
                 <span className="info">
-                  음 {t.notes.length}개
+                  {t.audio ? `오디오 루프 · ${t.audio.bpm} BPM` : `음 ${t.notes.length}개`}
                 </span>
                 <Meter
                   notes={heard.tracks.find((h) => h.id === t.id)?.notes ?? t.notes}
@@ -95,9 +95,15 @@ export function TrackList() {
             >
               S
             </button>
-            {isNew(t.id) ? (
-              // 아직 없는 트랙이라 악기 · 볼륨은 적용한 뒤에 바꿀 수 있다
-              <span className="instrument drum">{soundName(t)}</span>
+            {isNew(t.id) || t.audio ? (
+              // 아직 없는 트랙이라 악기 · 볼륨은 적용한 뒤에 바꿀 수 있다. 오디오 루프는 고를 악기가 없다
+              <span
+                className={t.audio && !sampleMeta(t.audio.sample.id) ? 'instrument drum missing' : 'instrument drum'}
+                title={t.audio ? (sampleMeta(t.audio.sample.id) ? `${t.audio.bpm} BPM 루프 · 곡 템포에 맞춰 재생` : '이 루프가 이 브라우저에 없어서 소리가 안 나요') : undefined}
+              >
+                {soundName(t)}
+                {t.audio && !sampleMeta(t.audio.sample.id) ? ' (이 브라우저에 없음)' : ''}
+              </span>
             ) : t.is_drum ? (
               <select
                 className="instrument"

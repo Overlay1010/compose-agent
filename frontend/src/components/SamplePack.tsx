@@ -224,6 +224,19 @@ function SampleRow({
           >
             이 리듬으로 하이햇
           </button>
+        ) : null}
+        {meta.kind === 'loop' && meta.groove ? (
+          <button
+            className="groove"
+            onClick={() => {
+              useSamplePack.getState().setOpen(false)
+              void useChat.getState().send(`'${meta.name}' 루프를 오디오로 그대로 깔아줘`, false)
+            }}
+            disabled={!useProject.getState().project}
+            title={`이 루프 소리 그대로 오디오 트랙으로 (곡 템포에 맞춰 늘림 · 음은 못 고침)`}
+          >
+            그대로 깔기
+          </button>
         ) : (
           <>
             {meta.length.toFixed(1)}초 · {brightWord(meta.brightness)}

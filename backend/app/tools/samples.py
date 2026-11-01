@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -17,7 +18,7 @@ from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.project import Note, Project, SampleRef, Track
+from app.models.project import AudioClip, Note, Project, SampleRef, Track
 from app.generate.chords import song_end
 from app.generate.drums import HIT, _untangle
 from app.tools.base import Bar, ToolError, ToolResult
@@ -97,8 +98,8 @@ def _overlap(track: Track) -> bool:
 
 
 def role_of(track: Track) -> Role | None:
-    """트랙이 곡에서 맡은 역할. 이름 → 악기 → 음 모양 순서로 본다. 드럼이면 None."""
-    if track.is_drum:
+    """트랙이 곡에서 맡은 역할. 이름 → 악기 → 음 모양 순서로 본다. 드럼 · 오디오 루프면 None."""
+    if track.is_drum or track.audio is not None:
         return None
     program = heard_program(track)
     if 32 <= program <= 39:
@@ -492,3 +493,64 @@ def groove_from_loop(project: Project, args: GrooveFromLoopArgs) -> ToolResult:
 # 리듬만 옮기고 소리는 킷이다 — "루프 소리 자체로 들으려면 '하이햇 내 샘플로'"라고 틀리게 안내해서 둘을 나눠 적는다
 SOUND_NOTE = ("소리는 킷 하이햇이에요. 하이햇 원샷이 있으면 \"하이햇 내 샘플로\"로 원샷 소리로 바꿀 수 있지만, "
               "그건 루프 소리 자체가 아니에요 (루프에서 옮긴 건 리듬뿐).")
+
+
+# ---------- 루프를 오디오로 ----------
+
+class AddLoopArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sample: str | None = Field(default=None, description="루프 이름 일부 또는 id. 템포를 아는 루프가 하나뿐이면 비워 둬도 된다")
+    bars: tuple[Bar, Bar] | None = Field(default=None, description="[시작, 끝] 마디, 끝 포함. 없으면 곡 전체")
+    name: str | None = Field(default=None, max_length=40, description="새 트랙 이름. 없으면 루프 이름")
+
+
+def add_loop(project: Project, args: AddLoopArgs) -> ToolResult:
+    """루프 파일을 오디오 트랙으로 그대로 깐다 (소리 그대로 — 음을 하나하나 고칠 수는 없음).
+    곡 템포에 맞추려고 재생 속도를 바꾸므로 음높이도 같이 바뀐다 (드럼 루프는 괜찮고, 멜로디 루프는 키가 어긋날 수 있다)."""
+    loops = [s for s in current_library() if s.kind == "loop" and s.groove]
+    if not loops:
+        raise ToolError(
+            "템포를 읽은 루프가 샘플팩에 없어요. 루프 파일(이름에 Loop나 BPM이 있거나 여러 번 치는 소리)을 넣으면 쓸 수 있다고 알려 주세요.",
+            code="no_loops",
+        )
+    pool = tuple(_match(args.sample, tuple(loops))) if args.sample else tuple(loops)
+    if not pool:
+        names = ", ".join(s.name for s in loops[:8])
+        raise ToolError(f"'{args.sample}' 이름의 루프가 없어요. 템포를 읽은 루프: {names}", code="unknown_sample")
+    if len(pool) > 1 and not args.sample:
+        names = ", ".join(s.name for s in pool[:8])
+        raise ToolError(f"루프가 여럿이에요: {names}. 어느 루프로 할지 사용자에게 물어봐 주세요.", code="ambiguous_sample")
+    loop = pool[0]
+    groove = loop.groove
+    assert groove is not None
+    bpb = project.beats_per_bar
+    if args.bars:
+        start, end = (args.bars[0] - 1) * bpb, args.bars[1] * bpb
+    else:
+        start, end = 0.0, song_end(project) or groove.beats
+    clip = AudioClip(sample=SampleRef(id=loop.id, name=loop.name), bpm=groove.bpm, beats=groove.beats, start=start, end=end)
+    name = args.name or free_name(project, loop.name[:40])
+    track = Track(id=new_track_id(project), name=name, notes=[], audio=clip)
+    ratio = project.tempo / groove.bpm
+    shift = 12 * math.log2(ratio)
+    warn = ""
+    if abs(ratio - 1) < 0.005:
+        speed = "원래 속도 그대로"
+    elif loop.root is None:
+        # 리듬 루프는 브라우저가 타격마다 잘라 원래 속도로 곡 템포 자리에 놓는다 (frontend instruments.ts playEvents)
+        speed = (f"곡 템포 {round(project.tempo, 1):g}에 맞춰 타격마다 잘라 그 자리에 놓았어요 "
+                 f"(소리 · 음높이는 그대로, 곡이 {'느려서 타격 사이가 조금 비어요' if ratio < 1 else '빨라서 타격 꼬리가 조금 짧아져요'})")
+    else:
+        speed = (f"곡 템포 {round(project.tempo, 1):g}에 맞춰 {abs(ratio - 1) * 100:.0f}% {'빠르게' if ratio > 1 else '느리게'} "
+                 f"(음높이도 {abs(shift):.1f}반음 {'높게' if shift > 0 else '낮게'})")
+        if abs(shift) >= 1:
+            warn = " 음높이가 바뀌어 멜로디 루프라면 곡의 키와 어긋날 수 있어요."
+    reps = (end - start) / groove.beats
+    return ToolResult(
+        project=project.model_copy(update={"tracks": [*project.tracks, track]}),
+        changed_settings=True,
+        summary=(f"새 오디오 트랙 {name}({track.id})에 '{loop.name}' 루프({groove.bpm:g} BPM · {groove.beats / bpb:g}마디)를 "
+                 f"{start / bpb + 1:g}~{end / bpb:g}마디에 {reps:g}번 깔았어요 · {speed}.{warn} "
+                 "소리 그대로라 음을 하나하나 고칠 수는 없고, MIDI로 내보내면 빠져요 (음원에는 담겨요). 볼륨 · 팬 · 음소거는 돼요."),
+    )

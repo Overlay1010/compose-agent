@@ -1,6 +1,6 @@
 import * as Tone from 'tone'
 import type { Project } from '../api/types'
-import { createVoice, type Voice } from './instruments'
+import { createVoice, playEvents, type Voice } from './instruments'
 import { useSamples } from '../samples/library'
 
 // Project를 Tone.js Transport에 올려 재생한다.
@@ -58,8 +58,9 @@ function load(project: Project, muted: Record<string, boolean>) {
   t.timeSignature = [project.time_signature[0], project.time_signature[1]]
 
   let end = 0
+  const bpb = (project.time_signature[0] * 4) / project.time_signature[1]
   for (const track of project.tracks) {
-    const voice = createVoice(track)
+    const voice = createVoice(track, project.tempo)
     const volume = new Tone.Volume().connect(master)
     volume.mute = !!muted[track.id]
     const panner = new Tone.Panner(panValue(track.pan)).connect(volume)
@@ -67,9 +68,9 @@ function load(project: Project, muted: Record<string, boolean>) {
     voice.output.connect(fader)
     channels.set(track.id, { name: track.name, voice, fader, panner, volume })
 
-    for (const n of track.notes) {
+    for (const n of playEvents(track, bpb)) {
       t.schedule(
-        once((time) => voice.play(n.pitch, ticks(n.duration), time, n.velocity)),
+        once((time) => voice.play(n.pitch, ticks(n.duration), time, n.velocity, n.start)),
         ticks(n.start),
       )
       end = Math.max(end, n.start + n.duration)

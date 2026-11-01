@@ -254,3 +254,36 @@ def test_groove_needs_a_loop_and_asks_when_there_are_several(lofi):
     assert e.value.code == "ambiguous_sample" and "Shaker Loop 90" in e.value.message
     with library([HAT_LOOP]):
         assert "Hat Loop 140(루프 · 리듬 140 BPM)" in system_prompt(lofi)
+
+
+# ---------- 루프를 오디오로 ----------
+
+def test_add_loop_makes_an_audio_track_that_fits_the_song_tempo(lofi):
+    with library([*PACK, HAT_LOOP]):
+        r = run_tool(lofi, "add_loop", {"sample": "hat loop"})
+    loop = r.project.tracks[-1]
+    assert loop.audio is not None and loop.notes == [] and not loop.is_drum and r.changed_settings
+    assert (loop.audio.sample.name, loop.audio.bpm, loop.audio.beats, loop.audio.start, loop.audio.end) == ("Hat Loop 140", 140, 8, 0, 64)
+    assert "타격마다 잘라" in r.summary and "음높이는 그대로" in r.summary and "MIDI로 내보내면 빠져요" in r.summary  # 리듬 루프(음 높이 없음)
+    melodic = HAT_LOOP.model_copy(update={"id": "m", "name": "Keys Loop 140", "root": 60})
+    with library([melodic]):
+        m = run_tool(lofi, "add_loop", {})
+    assert "40% 느리게" in m.summary and "8.8반음 낮게" in m.summary and "키와 어긋날" in m.summary
+    assert role_of(loop) is None
+    with library([HAT_LOOP]):
+        assert "오디오 루프 'Hat Loop 140' · 140 BPM · 1~16마디 · 음표 없음" in system_prompt(r.project)
+
+
+def test_audio_tracks_stay_out_of_midi_but_count_for_song_length(lofi):
+    from app.midi_io.convert import midi_bytes_to_project, project_to_midi_bytes
+    with library([HAT_LOOP]):
+        r = run_tool(lofi, "add_loop", {"bars": [17, 20]})  # 곡(16마디) 뒤에 4마디
+    assert r.project.bar_count == 20
+    back = midi_bytes_to_project(project_to_midi_bytes(r.project))
+    assert [t.name for t in back.tracks] == [t.name for t in lofi.tracks]  # 오디오 트랙은 MIDI에 없다
+
+
+def test_add_loop_needs_a_loop_with_tempo(lofi):
+    with library(PACK), pytest.raises(ToolError) as e:
+        run_tool(lofi, "add_loop", {})
+    assert e.value.code == "no_loops"

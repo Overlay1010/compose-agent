@@ -1,6 +1,6 @@
 import * as Tone from 'tone'
 import type { Project } from '../api/types'
-import { createVoice } from './instruments'
+import { createVoice, playEvents } from './instruments'
 import { useSamples } from '../samples/library'
 
 // 음원 내보내기: 재생과 같은 악기 · 볼륨 · 팬 · 효과로 곡을 오프라인(실시간보다 빠르게)으로 녹음한다.
@@ -13,9 +13,10 @@ const faderDb = (volume: number) => (volume <= 0 ? -Infinity : 40 * Math.log10(v
 
 /** silenced: 음소거 · 솔로로 안 들리는 트랙 (들리는 그대로 내보낸다) */
 export async function renderMix(project: Project, silenced: Record<string, boolean> = {}): Promise<AudioBuffer> {
-  const tracks = project.tracks.filter((t) => !silenced[t.id] && t.notes.length)
+  const bpb = (project.time_signature[0] * 4) / project.time_signature[1]
+  const tracks = project.tracks.filter((t) => !silenced[t.id] && playEvents(t, bpb).length)
   if (!tracks.length) throw new Error('들리는 트랙이 없어요. 음소거 · 솔로를 확인해 주세요.')
-  const endBeats = Math.max(...tracks.flatMap((t) => t.notes.map((n) => n.start + n.duration)))
+  const endBeats = Math.max(...tracks.flatMap((t) => playEvents(t, bpb).map((n) => n.start + n.duration)))
   const seconds = (endBeats * 60) / project.tempo + TAIL_SECONDS
   await useSamples.getState().load()
 
@@ -25,12 +26,12 @@ export async function renderMix(project: Project, silenced: Record<string, boole
     const ticks = (beats: number) => `${Math.round(beats * transport.PPQ)}i`
     const master = new Tone.Volume(-4).toDestination()
     const voices = tracks.map((track) => {
-      const voice = createVoice(track)
+      const voice = createVoice(track, project.tempo)
       const panner = new Tone.Panner(Math.max(-1, Math.min(1, track.pan / 64))).connect(master)
       const fader = new Tone.Volume(faderDb(track.volume)).connect(panner)
       voice.output.connect(fader)
-      for (const n of track.notes) {
-        transport.schedule((time) => voice.play(n.pitch, ticks(n.duration), time, n.velocity), ticks(n.start))
+      for (const n of playEvents(track, bpb)) {
+        transport.schedule((time) => voice.play(n.pitch, ticks(n.duration), time, n.velocity, n.start), ticks(n.start))
       }
       return voice
     })

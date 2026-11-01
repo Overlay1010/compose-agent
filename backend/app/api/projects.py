@@ -110,6 +110,8 @@ def export_midi(project_id: str, track: str | None = None) -> Response:
     one = next((t for t in project.tracks if t.id == track), None)
     if one is None:
         raise _error(404, "unknown_track", f"없는 트랙이에요: {track}")
+    if one.audio is not None:
+        raise _error(400, "audio_track", "오디오 루프 트랙은 MIDI로 내보낼 수 없어요. 음원(WAV 등)으로 내보내면 담겨요.")
     return _download(
         project_to_midi_bytes(_only(project, track)),
         f"{_safe(project.name)}_{_safe(one.name)}_v{project.version}.mid",
@@ -126,6 +128,8 @@ def export_tracks_zip(project_id: str) -> Response:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr(f"00 전체 곡 - {_safe(project.name)}.mid", project_to_midi_bytes(project))
         for i, t in enumerate(project.tracks, start=1):
+            if t.audio is not None:  # 오디오 루프 트랙은 MIDI 파일이 없다
+                continue
             name = f"{i:02d} {_safe(t.name)}.mid"
             while name in used:  # 이름이 같은 트랙
                 name = name.removesuffix(".mid") + "_.mid"
@@ -288,7 +292,7 @@ def recommend_samples(project_id: str, body: RecommendIn) -> dict[str, list[Pick
     return {
         t.id: [PickOut(id=p.sample.id, name=p.sample.name, reason=p.reason) for p in recommend(t, project.tempo, body.samples)[:8]]
         for t in project.tracks
-        if not t.is_drum
+        if not t.is_drum and t.audio is None
     }
 
 

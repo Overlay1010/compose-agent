@@ -51,6 +51,7 @@ export function programName(program: number): string {
 
 /** 트랙 소리 이름: 드럼이면 킷 이름, 아니면 악기 이름 */
 export function soundName(track: Track): string {
+  if (track.audio) return `오디오 루프 · ${track.audio.sample.name}`
   if (track.sample && !track.is_drum) return `내 샘플 · ${track.sample.name}`
   return track.is_drum ? `드럼 킷 ${kitName(track.program)}` : programName(gmProgramOf(track))
 }

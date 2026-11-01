@@ -20,9 +20,20 @@ export interface Track {
   drum_sounds: Record<string, string>
   /** 드럼만: 레인(음 번호)별로 쓰는 내 샘플. 이 브라우저에 없으면 킷 소리 */
   drum_samples?: Record<string, SampleRef>
+  /** 오디오 트랙: 음표 대신 루프 파일을 그대로 (MIDI에는 안 담김) */
+  audio?: AudioClip | null
   /** 멜로디 트랙만: 악기 대신 쓰는 내 샘플 (소리 파일은 이 브라우저에만, samples/library.ts). 없으면 program 악기 */
   sample?: SampleRef | null
   notes: Note[]
+}
+
+/** 오디오 트랙의 루프 (백엔드 app/models/project.py AudioClip) */
+export interface AudioClip {
+  sample: SampleRef
+  bpm: number // 루프의 원래 템포
+  beats: number // 루프 한 번의 길이 (그 템포의 박)
+  start: number // 곡에서 시작 박
+  end: number // 곡에서 끝 박
 }
 
 export interface SampleRef {

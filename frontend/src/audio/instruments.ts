@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import type { Track } from '../api/types'
+import type { AudioClip, Note, Track } from '../api/types'
 import { DRUM_DEFAULT, GM_NAMES, drumSample, gmProgramOf, kitOf } from './catalog'
 import { fontUrl, levelGain } from './soundset'
 import { sampleBuffer, sampleMeta } from '../samples/library'
@@ -14,15 +14,16 @@ export interface Voice {
   ready: Promise<void>
   /** 샘플을 못 불러와 신스로 대신하는 중인지 */
   fallback: boolean
-  /** duration은 Tone.js 시간 문자열 (예: "96i" = 96틱) */
-  play(pitch: number, duration: string, time: number, velocity: number): void
+  /** duration은 Tone.js 시간 문자열 (예: "96i" = 96틱). beat는 그 음의 곡 안 시작 박 (오디오 루프가 루프의 어디부터 틀지 정할 때) */
+  play(pitch: number, duration: string, time: number, velocity: number, beat?: number): void
   releaseAll(): void
   dispose(): void
   /** 드럼만: 이 소리(음 번호)를 잠깐 키우거나 줄인다 (레인 슬라이더를 끄는 동안 들으며 맞추기) */
   setLaneGain?(pitch: number, gain: number): void
 }
 
-export function createVoice(track: Track): Voice {
+export function createVoice(track: Track, tempo = 120): Voice {
+  if (track.audio) return new AudioLoopVoice(track.audio, tempo)
   if (track.is_drum) return new SampledDrumVoice(track)
   const mine = track.sample ? sampleMeta(track.sample.id) : undefined
   if (mine && mine.root !== null) return new UserSampleVoice(track, mine)
@@ -261,6 +262,119 @@ class UserSampleVoice implements Voice {
     for (const s of this.sources) s.dispose()
     this.sources.clear()
     this.inner?.dispose()
+    this.level.dispose()
+    this.output.dispose()
+  }
+}
+
+// ---------- 오디오 루프 (내 샘플의 루프 파일을 그대로) ----------
+
+/** 타격마다 잘라 놓을 루프인가: 음 높이가 없는 리듬 루프(하이햇 · 드럼)이고 리듬을 읽었으면 그 타격들 */
+function sliceHits(clip: AudioClip): [number, number, number][] | null {
+  const meta = sampleMeta(clip.sample.id)
+  return meta && meta.root === null && meta.groove?.hits.length ? meta.groove.hits : null
+}
+
+/**
+ * 오디오 트랙을 재생할 조각들. 두 가지:
+ * - 리듬 루프(음 높이 없음): 타격마다 잘라 원래 속도로 곡 템포 자리에 (ReCycle처럼). 재생 속도를 바꾸면 140 BPM 하이햇 루프를
+ *   84 BPM 곡에 맞출 때 음높이가 8.8반음 내려가 둔하게 들렸다. pitch에 타격 번호를 담는다.
+ * - 그 밖: 마디마다 · 루프가 다시 시작하는 곳마다 자른다 — 중간부터 재생해도(구간 반복 · 바뀐 소리 ↔ 원래 소리) 다음 마디부터 바로 들리게.
+ */
+export function playEvents(track: Track, beatsPerBar: number): Note[] {
+  const clip = track.audio
+  if (!clip) return track.notes
+  const out: Note[] = []
+  const hits = sliceHits(clip)
+  if (hits) {
+    for (let s = clip.start; s < clip.end - 1e-6; s += clip.beats) {
+      hits.forEach(([beat], k) => {
+        const t = s + beat
+        const next = Math.min(s + (hits[k + 1]?.[0] ?? clip.beats), clip.end)
+        if (t < clip.end - 1e-6 && next > t) out.push({ pitch: k, start: t, duration: next - t, velocity: 100 })
+      })
+    }
+    return out
+  }
+  let t = clip.start
+  while (t < clip.end - 1e-6) {
+    const nextBar = (Math.floor(t / beatsPerBar + 1e-9) + 1) * beatsPerBar
+    const intoLoop = (t - clip.start) % clip.beats
+    const nextLoop = t + (clip.beats - intoLoop)
+    const next = Math.min(nextBar, nextLoop, clip.end)
+    out.push({ pitch: 60, start: t, duration: next - t, velocity: 100 })
+    t = next
+  }
+  return out
+}
+
+const LOOP_PEAK = 0.6 // 루프의 최대 크기를 이만큼으로 (드럼 · 악기와 섞였을 때 비슷하게)
+const LOOP_EDGE = 0.004 // 초. 조각 이음매의 딸깍 소리를 막는 아주 짧은 페이드
+const LOOP_PREROLL = 0.003 // 초
+
+class AudioLoopVoice implements Voice {
+  output = new Tone.Gain()
+  ready: Promise<void>
+  fallback = false
+  private buffer: Tone.ToneAudioBuffer | null = null
+  private sources = new Set<Tone.ToneBufferSource>()
+  private level: Tone.Gain
+  private clip: AudioClip
+  private tempo: number
+  private hits: [number, number, number][] | null
+
+  constructor(clip: AudioClip, tempo: number) {
+    this.clip = clip
+    this.tempo = tempo
+    this.hits = sliceHits(clip)
+    const meta = sampleMeta(clip.sample.id)
+    this.level = new Tone.Gain(LOOP_PEAK / Math.max(meta?.peak ?? 1, 0.05)).connect(this.output)
+    // 이 브라우저에 없는 루프는 소리 없이 (트랙 목록에 표시)
+    this.ready = (meta ? sampleBuffer(clip.sample.id) : Promise.resolve(null)).then((raw) => {
+      if (raw) this.buffer = new Tone.ToneAudioBuffer(raw)
+    })
+  }
+
+  play(pitch: number, duration: string, time: number, _velocity: number, beat = this.clip.start) {
+    if (!this.buffer) return
+    const spb = 60 / this.clip.bpm // 루프 파일의 한 박(초)
+    let offset: number
+    let rate: number
+    let length = this.output.toSeconds(duration)
+    if (this.hits) {
+      // 타격 하나: 원래 속도로 그 조각만 (곡이 느리면 조각 뒤는 조용히, 빠르면 다음 타격에서 끊김)
+      const [from] = this.hits[pitch]
+      const to = this.hits[pitch + 1]?.[0] ?? this.clip.beats
+      offset = Math.max(0, from * spb - LOOP_PREROLL) // 타격 시작은 5ms 단위로 찾아서 어택 맨 앞이 잘리지 않게 조금 앞부터
+      rate = 1
+      length = Math.min(length, (to - from) * spb)
+    } else {
+      // 곡 템포에 맞춰 재생 속도를 바꾼다 (음높이도 같이 바뀜 — 백엔드 add_loop 결과에 알린다)
+      const intoLoop = (((beat - this.clip.start) % this.clip.beats) + this.clip.beats) % this.clip.beats
+      offset = intoLoop * spb
+      rate = this.tempo / this.clip.bpm
+    }
+    const source = new Tone.ToneBufferSource({
+      context: this.output.context,
+      url: this.buffer,
+      playbackRate: rate,
+      fadeIn: LOOP_EDGE,
+      fadeOut: LOOP_EDGE,
+    }).connect(this.level)
+    source.onended = () => this.sources.delete(source) // 지우지는 않는다 (음원 내보내기에서 소리가 나기 전에 지워짐 — 드럼 끊기와 같은 이유)
+    this.sources.add(source)
+    source.start(time, offset)
+    source.stop(time + length)
+  }
+
+  releaseAll() {
+    for (const s of this.sources) s.stop()
+    this.sources.clear()
+  }
+
+  dispose() {
+    for (const s of this.sources) s.dispose()
+    this.sources.clear()
     this.level.dispose()
     this.output.dispose()
   }

@@ -62,6 +62,8 @@ const TOOL_LABELS: Record<string, string> = {
   generate_bassline: '베이스 만들기',
   generate_drums: '드럼 만들기',
   use_sample: '내 샘플로 바꾸기',
+  groove_from_loop: '루프 리듬 옮기기',
+  add_loop: '루프 깔기',
   add_track: '트랙 추가',
   start_over: '미리보기 버리고 다시 시작',
 }

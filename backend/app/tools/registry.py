@@ -39,7 +39,7 @@ from app.tools.generate import (
     AddTrackArgs, GenerateBasslineArgs, GenerateChordsArgs, GenerateDrumsArgs, add_track, generate_bassline, generate_chords,
     generate_drums,
 )
-from app.tools.samples import GrooveFromLoopArgs, UseSampleArgs, groove_from_loop, use_sample
+from app.tools.samples import AddLoopArgs, GrooveFromLoopArgs, UseSampleArgs, add_loop, groove_from_loop, use_sample
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
@@ -128,6 +128,13 @@ TOOLS: dict[str, Tool] = {
             "격자에 맞추지 않아 루프의 그루브가 그대로 남는다. \"내 루프 리듬으로 · 루프처럼 · 이 루프 그루브로 하이햇\"일 때.",
             GrooveFromLoopArgs,
             groove_from_loop,
+        ),
+        Tool(
+            "add_loop",
+            "사용자 샘플팩의 루프 파일을 오디오 트랙으로 그대로 깐다 (소리 그대로 · 곡 템포에 맞춰 재생 속도를 바꿈 · 음은 못 고침). "
+            "\"루프를 그대로 깔아줘 · 루프 소리 그대로 · 오디오로\"일 때. 리듬만 옮겨 MIDI로 고칠 수 있게 하려면 groove_from_loop.",
+            AddLoopArgs,
+            add_loop,
         ),
         Tool(
             "delete_notes",

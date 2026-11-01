@@ -25,6 +25,16 @@ class SampleRef(BaseModel):
     name: str = Field(max_length=120, description="파일 이름 (확장자 뺀 것)")
 
 
+class AudioClip(BaseModel):
+    """오디오 트랙의 루프 하나: 내 샘플(루프 파일)을 start ~ end 박에 되풀이한다. 곡 템포에 맞춰 재생 속도를 바꾼다."""
+
+    sample: SampleRef
+    bpm: float = Field(gt=0, le=400, description="루프의 원래 템포")
+    beats: float = Field(gt=0, le=256, description="루프 한 번의 길이(그 템포의 박)")
+    start: float = Field(ge=0, description="곡에서 시작 박")
+    end: float = Field(gt=0, description="곡에서 끝 박")
+
+
 class Track(BaseModel):
     id: str
     name: str
@@ -42,6 +52,9 @@ class Track(BaseModel):
     drum_samples: dict[int, SampleRef] = Field(
         default_factory=dict,
         description="드럼만: 레인(음 번호)별로 킷 · drum_sounds 대신 쓰는 내 샘플. 샘플이 없는 곳에서는 킷 소리로 들린다",
+    )
+    audio: AudioClip | None = Field(
+        default=None, description="오디오 트랙: 음표 대신 루프 파일을 그대로 깐다 (MIDI 내보내기에는 담기지 않음, 음원에는 담김)",
     )
     sample: SampleRef | None = Field(
         default=None,
@@ -73,7 +86,7 @@ class Project(BaseModel):
 
     @property
     def length_beats(self) -> float:
-        ends = [n.start + n.duration for t in self.tracks for n in t.notes]
+        ends = [n.start + n.duration for t in self.tracks for n in t.notes] + [t.audio.end for t in self.tracks if t.audio]
         return max(ends, default=0.0)
 
     @property

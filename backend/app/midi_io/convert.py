@@ -181,6 +181,8 @@ def project_to_midi_bytes(project: Project) -> bytes:
 
     sec_per_beat = 60.0 / project.tempo
     for track in project.tracks:
+        if track.audio is not None:  # 오디오 루프는 MIDI에 담을 수 없다 (음원 내보내기에는 담긴다)
+            continue
         inst = pretty_midi.Instrument(program=track.program, is_drum=track.is_drum, name=_name_for_midi(track.name))
         # 기본값이 아닐 때만 넣는다 (DAW가 자기 기본값을 쓰게)
         if track.volume != 100:
