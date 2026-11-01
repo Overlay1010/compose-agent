@@ -51,7 +51,7 @@ export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
 export const PLAYABLE: SampleKind[] = ['bass', 'keys', 'pluck', 'pad', 'lead', 'bell']
 
 /** 분석 규칙을 바꾸면 올린다 → 이미 넣은 샘플도 다음에 열 때 다시 분석 (2: 드럼 역할 · 최대 크기, 3: 루프를 드럼보다 먼저) */
-export const ANALYSIS_VERSION = 4 // 4: 루프의 리듬(groove)
+export const ANALYSIS_VERSION = 5 // 4: 루프의 리듬(groove), 5: 1마디짜리 짧은 루프도 루프로
 
 /** 루프에 녹음된 리듬. hits: [루프 안 박, 세기 1~127, 열림(오래 울림) 1 · 아님 0] — 격자에 맞추지 않은 그대로 */
 export interface Groove {
@@ -391,7 +391,8 @@ export function analyze(id: string, file: string, folder: string, data: Float32A
   let kind = kindFromName(name) ?? kindFromName(folder)
   let kindFrom: SampleMeta['kindFrom'] = 'name'
   // 소리가 여러 번 새로 시작하는 긴 파일은 패턴이 녹음된 루프 (이름에 loop · bpm이 없어도 — 예: Drums 폴더의 "Hat 03")
-  const phrase = length > 2 && onsets(env, peak) >= 4
+  // 1초: 140 BPM 1마디 하이햇 루프(1.7초)가 2초 기준에 걸리지 않아 원샷으로 남았고, 레인에서 칠 때마다 앞부분만 잘려 쪼개진 소리가 났다
+  const phrase = length > 1 && onsets(env, peak) >= 4
   if (kind === 'drum' && phrase) {
     kind = 'loop'
     kindFrom = 'audio'
