@@ -400,7 +400,7 @@ kbd { min-width: 24px; padding: 2px 7px; border-radius: 6px; border: 1px solid v
 .sample-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sample-root { width: 100%; font-family: var(--mono); }
 .sample-meta { color: var(--text-2); white-space: nowrap; }
-.instrument.missing { border-color: #8a6d2a; color: #e0b350; }
+.instrument.missing, .lane-sound.missing { border-color: #8a6d2a; color: #e0b350; }
 @media (max-width: 640px) {
   .sample-row { grid-template-columns: 28px minmax(0, 1fr) 92px 56px 28px; }
   .sample-row .sample-meta { display: none; }

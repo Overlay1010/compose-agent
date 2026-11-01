@@ -276,6 +276,10 @@ const KIT_FX: Record<number, () => Tone.ToneAudioNode[]> = {
 }
 const CLOSED_HATS = new Set([42, 44])
 const OPEN_HAT = 46
+// 내 드럼 샘플: 최대 크기를 이만큼으로 맞춘다 (내장 Sonic Pi 킷과 비슷한 크기 — 솔로로 내보내 잼)
+const MY_DRUM_PEAK = 0.9
+// 탐 샘플 하나로 탐 레인 여섯을 낮은 탐 → 높은 탐으로 (내장 탐처럼 재생 속도로)
+const MY_TOM_RATES: Record<number, number> = { 41: 0.8, 43: 0.87, 45: 0.94, 47: 1, 48: 1.07, 50: 1.15 }
 
 class SampledDrumVoice implements Voice {
   output = new Tone.Gain()
@@ -290,6 +294,8 @@ class SampledDrumVoice implements Voice {
   private kit: number
   private picked: Record<string, string>
   private laneGain = new Map<number, number>()
+  /** 레인(음 번호) → 내 샘플 소리 · 크기 · 속도 */
+  private mine = new Map<number, { buffer: Tone.ToneAudioBuffer; gain: number; rate: number }>()
 
   constructor(track: Track) {
     this.kit = kitOf(track.program)
@@ -302,10 +308,21 @@ class SampledDrumVoice implements Voice {
     this.bus.chain(...this.fx, this.output)
     // 잔향은 울림(IR)을 만드는 데 시간이 걸려서 샘플과 함께 기다린다
     const fxReady = Promise.all(this.fx.map((n) => (n instanceof Tone.Reverb ? n.ready : null)))
+    // 내 샘플을 고른 레인 (이 브라우저에 없는 샘플은 킷 소리 그대로)
+    const mineReady = Promise.all(
+      Object.entries(track.drum_samples ?? {}).map(async ([lane, ref]) => {
+        const meta = sampleMeta(ref.id)
+        const raw = meta ? await sampleBuffer(ref.id) : null
+        if (!meta || !raw) return
+        const pitch = Number(lane)
+        this.mine.set(pitch, { buffer: new Tone.ToneAudioBuffer(raw), gain: MY_DRUM_PEAK / Math.max(meta.peak ?? 1, 0.05), rate: MY_TOM_RATES[pitch] ?? 1 })
+      }),
+    )
     this.ready = waitLoad((done, fail) => {
       this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: '/samples/drums/', onload: done, onerror: fail })
     }).then(async (ok) => {
       await fxReady
+      await mineReady
       if (ok) return
       this.buffers?.dispose()
       this.buffers = null
@@ -318,7 +335,8 @@ class SampledDrumVoice implements Voice {
   play(pitch: number, duration: string, time: number, velocity: number) {
     if (!this.buffers?.loaded) return this.synth?.play(pitch, duration, time, velocity)
 
-    const [file, rate, gain = 1] = drumSample(this.kit, pitch, this.picked)
+    const mine = this.mine.get(pitch)
+    const [file, rate, gain = 1] = mine ? ['', mine.rate, mine.gain] : drumSample(this.kit, pitch, this.picked)
     // 닫힌 하이햇이 울리면 열린 하이햇 소리를 끊는다 (실제 하이햇처럼)
     if (CLOSED_HATS.has(pitch) && this.openHat) {
       this.openHat.stop(time)
@@ -327,7 +345,7 @@ class SampledDrumVoice implements Voice {
     // 한 번 치고 버리는 소스라서 같은 시각에 겹쳐 울려도 문제없다
     // 이 드럼과 같은 오디오 공간(context)에 만든다. 음원 내보내기(Tone.Offline)는 녹음 중에 전역 context를
     // 원래대로 되돌리므로, 전역 기본값으로 만들면 녹음용 노드에 연결하지 못한다
-    const src = new Tone.ToneBufferSource({ url: this.buffers.get(file), context: this.bus.context }).connect(this.bus)
+    const src = new Tone.ToneBufferSource({ url: mine ? mine.buffer : this.buffers.get(file), context: this.bus.context }).connect(this.bus)
     src.playbackRate.value = rate
     src.onended = () => {
       if (this.openHat === src) this.openHat = null
@@ -350,6 +368,7 @@ class SampledDrumVoice implements Voice {
   dispose() {
     this.buffers?.dispose()
     this.synth?.dispose()
+    for (const m of this.mine.values()) m.buffer.dispose()
     for (const n of this.fx) n.dispose()
     this.bus.dispose()
     this.output.dispose()

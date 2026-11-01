@@ -39,6 +39,10 @@ class Track(BaseModel):
         default_factory=dict,
         description="드럼만: 레인(음 번호)별로 킷 대신 고른 소리 id (app/tools/drums.py). MIDI에는 담기지 않는다",
     )
+    drum_samples: dict[int, SampleRef] = Field(
+        default_factory=dict,
+        description="드럼만: 레인(음 번호)별로 킷 · drum_sounds 대신 쓰는 내 샘플. 샘플이 없는 곳에서는 킷 소리로 들린다",
+    )
     sample: SampleRef | None = Field(
         default=None,
         description="멜로디 트랙만: 악기 대신 쓰는 내 샘플. 샘플이 없는 곳(다른 브라우저 · MIDI 내보내기)에서는 program 악기로 들린다",

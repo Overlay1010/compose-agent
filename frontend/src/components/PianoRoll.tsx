@@ -11,6 +11,8 @@ import { usePlayer } from '../store/player'
 import { diffNotes } from '../diff'
 import { useProject } from '../store/project'
 import { useReharm } from '../store/reharm'
+import { sampleInfos, sampleMeta, useSamples } from '../samples/library'
+import { DRUM_ROLE_NAMES, type DrumRole } from '../samples/analyze'
 import { trackColor } from '../theme'
 import { ChordStrip, KeyBadge } from './ChordStrip'
 import { EmptyState } from './EmptyState'
@@ -855,25 +857,56 @@ function DrumLanes({ track }: { track: Track }) {
   )
 }
 
-/** 레인 하나의 소리 고르기: 킷 기본 소리 + 같은 역할의 다른 소리 */
+// 레인 역할마다 쓸 수 있는 내 드럼 샘플 역할 (backend app/tools/samples.py DRUM_FIT과 같음 — 딱 맞는 것 먼저)
+const MY_DRUM_FIT: Record<string, DrumRole[]> = {
+  kick: ['kick'], snare: ['snare', 'clap'], clap: ['clap', 'snare'], hat: ['hat'], openhat: ['openhat'], tom: ['tom'],
+  crash: ['crash', 'ride'], ride: ['ride', 'crash'],
+}
+
+/** 레인 하나의 소리 고르기: 킷 기본 소리 + 같은 역할의 다른 소리 + 내 드럼 샘플 */
 function SoundPicker({ track, pitch }: { track: Track; pitch: number }) {
-  const { busy, setDrumSound } = useProject()
+  const { busy, setDrumSound, setDrumSample } = useProject()
   const { sending, note } = useChat()
+  const samples = useSamples((s) => s.samples)
   const role = DRUM_ROLES[pitch]
   if (!role) return <span className="lane-sound none">바꿀 수 있는 소리 없음</span>
   const picked = track.drum_sounds?.[pitch]
+  const mine = track.drum_samples?.[pitch]
   const kitSound = drumSoundOf(track.program, pitch)!
+  const fits = MY_DRUM_FIT[role] ?? []
+  const options = samples
+    .filter((s) => s.kind === 'drum' && s.drum && fits.includes(s.drum) && s.id !== mine?.id)
+    .sort((a, b) => fits.indexOf(a.drum!) - fits.indexOf(b.drum!) || a.name.localeCompare(b.name))
   return (
     <select
-      className="lane-sound"
-      value={picked ?? 'default'}
+      className={mine && !sampleMeta(mine.id) ? 'lane-sound missing' : 'lane-sound'}
+      value={mine ? `sample:${mine.id}` : picked ?? 'default'}
       disabled={busy || sending}
       aria-label={`${DRUM_NAMES[pitch] ?? pitch} 소리`}
+      title={mine && !sampleMeta(mine.id) ? `내 샘플 '${mine.name}'이 이 브라우저에 없어서 킷 소리로 들려요` : undefined}
       onChange={async (e) => {
-        const changed = await setDrumSound(track.id, pitch, e.target.value)
+        const value = e.target.value
+        const info = value.startsWith('sample:') ? sampleInfos().find((s) => s.id === value.slice(7)) : undefined
+        const changed = info ? await setDrumSample(track.id, pitch, info) : await setDrumSound(track.id, pitch, value)
         if (changed?.note) note(changed.note, true)
       }}
     >
+      {mine && (
+        <option value={`sample:${mine.id}`}>
+          내 샘플 · {mine.name}
+          {sampleMeta(mine.id) ? '' : ' (이 브라우저에 없음)'}
+        </option>
+      )}
+      {options.length > 0 && (
+        <optgroup label="내 샘플">
+          {options.map((s) => (
+            <option key={s.id} value={`sample:${s.id}`}>
+              {s.name}
+              {s.drum !== fits[0] ? ` (${DRUM_ROLE_NAMES[s.drum!]})` : ''}
+            </option>
+          ))}
+        </optgroup>
+      )}
       <option value="default">{DRUM_SOUNDS[kitSound].name} (킷 기본)</option>
       {Object.entries(DRUM_SOUNDS)
         .filter(([id, s]) => s.role === role && id !== kitSound)

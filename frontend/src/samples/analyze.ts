@@ -7,6 +7,9 @@
 
 export type SampleKind = 'bass' | 'keys' | 'pluck' | 'pad' | 'lead' | 'bell' | 'chord' | 'loop' | 'drum' | 'other'
 
+/** 드럼 원샷의 역할 (backend app/tools/drums.py ROLES와 같은 이름 + 퍼커션) */
+export type DrumRole = 'kick' | 'snare' | 'clap' | 'hat' | 'openhat' | 'tom' | 'crash' | 'ride' | 'perc'
+
 export interface SampleMeta {
   id: string
   name: string
@@ -20,8 +23,12 @@ export interface SampleMeta {
   sustained: boolean
   /** 0 어두움 ~ 1 밝음 (스펙트럼 중심 200Hz ~ 5kHz를 로그로) */
   brightness: number
-  /** 샘플끼리 크기를 맞추려고 곱할 값 */
+  /** 샘플끼리 크기를 맞추려고 곱할 값 (멜로디 악기용 — 어택 뒤 0.3초 크기 기준) */
   gain: number
+  /** 가장 큰 소리 (0~1). 드럼은 짧아서 평균 대신 이걸로 크기를 맞춘다 */
+  peak: number
+  /** 드럼 원샷이면 역할, 아니면 null */
+  drum: DrumRole | null
   /** 기준음 · 종류를 어디서 알았는지 (화면 표시 · 사용자가 고쳤는지) */
   rootFrom: 'name' | 'audio' | 'user' | null
   kindFrom: 'name' | 'audio' | 'user'
@@ -30,6 +37,10 @@ export interface SampleMeta {
 export const KIND_NAMES: Record<SampleKind, string> = {
   bass: '베이스', keys: '건반', pluck: '플럭', pad: '패드', lead: '리드', bell: '벨',
   chord: '코드 원샷', loop: '멜로디 루프', drum: '드럼', other: '기타 소리',
+}
+
+export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
+  kick: '킥', snare: '스네어', clap: '클랩', hat: '닫힌 햇', openhat: '열린 햇', tom: '탐', crash: '크래시', ride: '라이드', perc: '퍼커션',
 }
 
 /** 음 하나를 높이고 낮춰 악기로 쓸 수 있는 종류 (코드 원샷 · 루프는 음이 겹쳐 들린다) */
@@ -42,7 +53,7 @@ export const noteName = (pitch: number) => `${NOTE_NAMES[pitch % 12]}${Math.floo
 
 // 앞에 있을수록 먼저 (드럼 · 루프 · 코드를 먼저 걸러야 "Bass Loop"가 베이스 원샷이 되지 않는다)
 const KIND_WORDS: [SampleKind, RegExp][] = [
-  ['drum', /kick|snare|clap|hi ?hats?|\bhh\b|\boh\b|cymbal|crash|\bride\b|\bperc|\btoms?\b|\brim\b|shaker|\bsnap\b|\bkck\b|\bsd\b|\bbd\b/],
+  ['drum', /kick|snare|clap|bass ?drum|\bdrums?\b|hi ?hats?|\bhats?\b|open ?hh|\bhh\b|\boh\b|cymbal|crash|\bride\b|\bperc|\btoms?\b|\brim\b|shaker|\bsnap\b|\bkck\b|\bsd\b|\bbd\b/],
   ['loop', /loop|\bmelod(y|ic)\b|\briff\b|phrase|\b\d{2,3} ?bpm\b|\bbpm ?\d{2,3}\b/],
   ['chord', /chord|\b[a-g](#|b)?(maj|min|m7|maj7|dim|sus\d?|add9|m9|7)\b|\b(maj|min|minor|major)\b/],
   ['bass', /808|bass|\bsub\b|reese/],
@@ -62,6 +73,32 @@ export function kindFromName(text: string): SampleKind | null {
     if (re.test(t)) return kind
   }
   return null
+}
+
+// 열린 햇을 닫힌 햇보다 먼저 ("Open Hat"이 "hat"에 걸리지 않게)
+const DRUM_WORDS: [DrumRole, RegExp][] = [
+  ['openhat', /open ?(hi ?)?hats?|\boh\b|open ?hh/],
+  ['hat', /hi ?hats?|\bhh\b|\bch\b|closed|\bhats?\b/],
+  ['kick', /kick|\bkck\b|\bbd\b|bass ?drum/],
+  ['snare', /snare|\bsd\b|\brim/],
+  ['clap', /clap|\bsnap/],
+  ['crash', /crash|cymbal|splash|china/],
+  ['ride', /\bride/],
+  ['tom', /\btoms?\b/],
+  ['perc', /perc|shaker|tamb|conga|bongo|cowbell|wood ?block|clave|triangle/],
+]
+
+/** 이름에서 드럼 역할. 못 찾으면 null */
+export function drumFromName(text: string): DrumRole | null {
+  const t = text.toLowerCase().replace(/[_\-.()[\]]+/g, ' ')
+  return DRUM_WORDS.find(([, re]) => re.test(t))?.[0] ?? null
+}
+
+/** 이름으로 모르는 드럼 원샷: 어두우면 킥, 밝으면 짧으면 햇 · 길면 크래시, 그 사이는 스네어 */
+function drumFromSound(brightness: number, length: number): DrumRole {
+  if (brightness < 0.2) return 'kick'
+  if (brightness > 0.75) return length > 0.8 ? 'crash' : 'hat'
+  return 'snare'
 }
 
 const ACCIDENTAL: Record<string, number> = { '#': 1, '♯': 1, s: 1, sharp: 1, b: -1, '♭': -1, flat: -1 }
@@ -238,8 +275,10 @@ export function analyze(id: string, file: string, folder: string, data: Float32A
   let peakFrame = 0
   for (let f = 0; f < env.length; f++) if (env[f] > env[peakFrame]) peakFrame = f
   const peak = env[peakFrame]
-  const base = { id, name, folder, gain: 1, rootFrom: null, kindFrom: 'audio' } as const
-  if (peak < 1e-4) return { ...base, kind: 'other', root: null, length: 0, sustained: false, brightness: 0 }
+  let top = 0
+  for (let i = 0; i < data.length; i++) top = Math.max(top, Math.abs(data[i]))
+  const base = { id, name, folder, gain: 1, peak: round(top, 3), rootFrom: null, kindFrom: 'audio' } as const
+  if (peak < 1e-4) return { ...base, kind: 'other', root: null, length: 0, sustained: false, brightness: 0, drum: null }
 
   let lastFrame = peakFrame
   for (let f = env.length - 1; f > peakFrame; f--) {
@@ -286,11 +325,13 @@ export function analyze(id: string, file: string, folder: string, data: Float32A
     kindFrom = 'audio'
     if (root === null) kind = length < 1 ? 'drum' : 'other'
     else if (length > 3 && onsets(env, peak) >= 4) kind = 'loop'
+    else if (root < 48 && length < 0.6) kind = 'drum' // 낮고 짧게 끝나는 소리는 베이스 원샷보다 킥 (808 · 베이스는 꼬리가 길다)
     else if (root < 48) kind = 'bass'
     else if (sustained) kind = 'pad'
     else if (length < 0.8) kind = 'pluck'
     else if (brightness > 0.65 && length > 1.5) kind = 'bell'
     else kind = 'keys'
   }
-  return { ...base, kind, kindFrom, root, rootFrom, length: round(length), sustained, brightness, gain }
+  const drum = kind === 'drum' ? (drumFromName(name) ?? drumFromName(folder) ?? drumFromSound(brightness, length)) : null
+  return { ...base, kind, kindFrom, root, rootFrom, length: round(length), sustained, brightness, gain, drum }
 }

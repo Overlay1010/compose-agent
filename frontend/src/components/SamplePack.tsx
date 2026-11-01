@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { KIND_NAMES, PLAYABLE, noteName, type SampleKind, type SampleMeta } from '../samples/analyze'
+import { DRUM_ROLE_NAMES, KIND_NAMES, PLAYABLE, noteName, type DrumRole, type SampleKind, type SampleMeta } from '../samples/analyze'
 import { sampleBuffer, useSamples, type ImportResult } from '../samples/library'
 import { useSamplePack } from '../store/samplePack'
 
@@ -113,7 +113,7 @@ export function SamplePack() {
           </p>
           <p className="hint">
             이름과 소리로 종류(베이스 · 패드 · 건반 · 플럭 · 리드 · 벨)와 기준음을 알아내요. 틀리면 아래에서 고칠 수 있어요.
-            코드 원샷 · 멜로디 루프는 아직 악기로 못 써요.
+            드럼 원샷은 역할(킥 · 스네어 · 햇 …)을 알아내 드럼 레인 소리로 써요. 코드 원샷 · 멜로디 루프는 아직 악기로 못 써요.
           </p>
           <input ref={folder} type="file" hidden multiple {...{ webkitdirectory: '' }} onChange={(e) => void put([...(e.target.files ?? [])]).then(() => (e.target.value = ''))} />
           <input ref={files} type="file" hidden multiple accept=".wav,.mp3,.ogg,.flac,.m4a,audio/*" onChange={(e) => void put([...(e.target.files ?? [])]).then(() => (e.target.value = ''))} />
@@ -160,11 +160,11 @@ function SampleRow({
   onRemove,
 }: {
   meta: SampleMeta
-  onChange: (patch: Partial<Pick<SampleMeta, 'kind' | 'root'>>) => void
+  onChange: (patch: Partial<Pick<SampleMeta, 'kind' | 'root' | 'drum'>>) => void
   onRemove: () => void
 }) {
   const [rootText, setRootText] = useState(meta.root === null ? '' : noteName(meta.root))
-  const playable = PLAYABLE.includes(meta.kind) && meta.root !== null
+  const playable = (PLAYABLE.includes(meta.kind) && meta.root !== null) || (meta.kind === 'drum' && !!meta.drum)
   const from = (f: SampleMeta['rootFrom'] | SampleMeta['kindFrom']) => (f === 'name' ? '이름에서' : f === 'audio' ? '소리에서' : f === 'user' ? '직접 고침' : '')
   return (
     <div className={playable ? 'sample-row' : 'sample-row unusable'} role="row">
@@ -181,6 +181,15 @@ function SampleRow({
           </option>
         ))}
       </select>
+      {meta.kind === 'drum' ? (
+        <select value={meta.drum ?? 'perc'} onChange={(e) => onChange({ drum: e.target.value as DrumRole })} aria-label={`${meta.name} 드럼 역할`} title="드럼 레인 중 어디에 쓸지">
+          {(Object.keys(DRUM_ROLE_NAMES) as DrumRole[]).map((r) => (
+            <option key={r} value={r}>
+              {DRUM_ROLE_NAMES[r]}
+            </option>
+          ))}
+        </select>
+      ) : (
       <input
         className="sample-root"
         value={rootText}
@@ -199,6 +208,7 @@ function SampleRow({
         }}
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
+      )}
       <span className="sample-meta">
         {meta.length.toFixed(1)}초 · {brightWord(meta.brightness)}
         {meta.sustained ? ' · 길게 끌림' : ''}

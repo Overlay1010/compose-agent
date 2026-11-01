@@ -138,6 +138,18 @@ export interface SampleInfo {
   length: number
   sustained: boolean
   brightness: number
+  drum: string | null
+}
+
+/** 화면에서 드럼 레인 하나의 소리를 내 샘플로 (null이면 그 레인의 샘플을 빼고 킷 소리로). 바로 새 버전 */
+export async function setDrumSample(projectId: string, trackId: string, pitch: number, sample: SampleInfo | null): Promise<TrackChange> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/drum-sample`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pitch, sample }),
+    }),
+  )
 }
 
 /** 화면에서 트랙 소리를 내 샘플로 (null이면 샘플을 빼고 원래 악기로). 악기 바꾸기와 같이 바로 새 버전 */

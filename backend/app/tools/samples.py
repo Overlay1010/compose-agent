@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.project import Project, SampleRef, Track
 from app.tools.base import ToolError, ToolResult
+from app.tools.drums import ROLE_NAMES, ROLES
 from app.tools.instrument import display_name, heard_program
 
 Kind = Literal["bass", "keys", "pluck", "pad", "lead", "bell", "chord", "loop", "drum", "other"]
@@ -39,6 +40,9 @@ class SampleInfo(BaseModel):
     length: float = Field(ge=0, le=600, description="들리는 길이(초)")
     sustained: bool = Field(default=False, description="1초 뒤에도 크게 남아 있음 (패드처럼 끌 수 있는 소리)")
     brightness: float = Field(ge=0, le=1, description="0 어두움 ~ 1 밝음")
+    drum: Literal["kick", "snare", "clap", "hat", "openhat", "tom", "crash", "ride", "perc"] | None = Field(
+        default=None, description="드럼 원샷이면 역할 (킥 · 스네어 · 클랩 · 닫힌 햇 · 열린 햇 · 탐 · 크래시 · 라이드 · 퍼커션)"
+    )
 
 
 # 명령 한 번 동안 쓰는 샘플 목록. 도구는 Project만 받으므로 따로 둔다 (app/agent/session.py가 채운다)
@@ -161,17 +165,23 @@ def score(sample: SampleInfo, role: Role, track: Track, tempo: float, prefer: Pr
     if hold > sample.length:
         value -= min(20, 10 * (hold - sample.length))
     why.append(f"길이 {sample.length:.1f}초")
+    bonus, said = _prefer(sample, prefer)
+    return Pick(sample=sample, score=round(value + bonus, 1), reason=" · ".join([*why, *said]))
+
+
+def _prefer(sample: SampleInfo, prefer: Prefer | None) -> tuple[float, list[str]]:
+    """말로 고른 쪽(어둡게 · 밝게 · 짧게 · 길게)으로 더할 점수와 이유."""
     if prefer == "darker":
-        value += 40 * (1 - sample.brightness)
+        bonus = 40 * (1 - sample.brightness)
     elif prefer == "brighter":
-        value += 40 * sample.brightness
+        bonus = 40 * sample.brightness
     elif prefer == "shorter":
-        value -= 8 * min(sample.length, 5)
+        return -8 * min(sample.length, 5), []
     elif prefer == "longer":
-        value += 8 * min(sample.length, 5)
-    if prefer in ("darker", "brighter"):
-        why.append("어두운 소리" if sample.brightness < 0.4 else "밝은 소리" if sample.brightness > 0.6 else "중간 밝기")
-    return Pick(sample=sample, score=round(value, 1), reason=" · ".join(why))
+        return 8 * min(sample.length, 5), []
+    else:
+        return 0.0, []
+    return bonus, ["어두운 소리" if sample.brightness < 0.4 else "밝은 소리" if sample.brightness > 0.6 else "중간 밝기"]
 
 
 def recommend(track: Track, tempo: float, samples: tuple[SampleInfo, ...] | list[SampleInfo], prefer: Prefer | None = None) -> list[Pick]:
@@ -183,16 +193,41 @@ def recommend(track: Track, tempo: float, samples: tuple[SampleInfo, ...] | list
     return sorted(picks, key=lambda p: (-p.score, p.sample.name))
 
 
+# ---------- 드럼 레인 ----------
+
+DRUM_KO = {**ROLE_NAMES, "perc": "퍼커션"}
+
+# 레인 역할마다 쓸 수 있는 드럼 샘플 (1 = 딱 맞음). 스네어 ↔ 클랩, 크래시 ↔ 라이드는 없을 때 대신
+DRUM_FIT: dict[str, dict[str, float]] = {
+    "kick": {"kick": 1.0}, "snare": {"snare": 1.0, "clap": 0.5}, "clap": {"clap": 1.0, "snare": 0.5},
+    "hat": {"hat": 1.0}, "openhat": {"openhat": 1.0}, "tom": {"tom": 1.0},
+    "crash": {"crash": 1.0, "ride": 0.4}, "ride": {"ride": 1.0, "crash": 0.4},
+}
+
+
+def recommend_drum(pitch: int, samples: tuple[SampleInfo, ...] | list[SampleInfo], prefer: Prefer | None = None) -> list[Pick]:
+    """드럼 레인(음 번호) 하나에 어울리는 내 드럼 샘플 순서."""
+    role = ROLES.get(pitch)
+    picks = []
+    for s in samples:
+        fit = DRUM_FIT.get(role or "", {}).get(s.drum or "", 0.0) if s.kind == "drum" else 0.0
+        if fit:
+            bonus, why = _prefer(s, prefer)
+            picks.append(Pick(sample=s, score=round(100 * fit + bonus, 1), reason=" · ".join([f"{DRUM_KO[s.drum]} 샘플", *why])))
+    return sorted(picks, key=lambda p: (-p.score, p.sample.name))
+
+
 # ---------- 도구 ----------
 
 class UseSampleArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    track_ids: list[str] = Field(min_length=1, description='샘플로 바꿀 트랙 id 목록 (예: ["t2"]). 드럼 트랙은 안 됨')
+    track_ids: list[str] = Field(min_length=1, description='샘플로 바꿀 트랙 id 목록 (예: ["t2"]). 드럼 트랙이면 레인마다 맞는 드럼 샘플')
     sample: str | None = Field(
         default=None,
-        description='사용자가 말한 샘플 이름 일부 또는 id. "none"이면 샘플을 빼고 원래 악기로. 없으면 트랙마다 어울리는 샘플을 고른다',
+        description='사용자가 말한 샘플 이름 일부 또는 id. "none"이면 샘플을 빼고 원래 악기 · 킷 소리로. 없으면 트랙마다 어울리는 샘플을 고른다',
     )
+    pitches: list[int] | None = Field(default=None, description="드럼 트랙만: 바꿀 레인 음 번호 (예: 킥만 [35, 36]). 없으면 쓰인 레인 모두")
     prefer: Prefer | None = Field(default=None, description='"더 어두운 · 밝은 · 짧은 · 긴 샘플로"')
     different: bool = Field(default=False, description='"다른 샘플로": 지금 쓰는 샘플 말고 다음으로 어울리는 것')
 
@@ -206,6 +241,65 @@ def _match(query: str, samples: tuple[SampleInfo, ...]) -> list[SampleInfo]:
     return [s for s in samples if all(w in s.name.lower() for w in words)]
 
 
+def _lanes(track: Track, pitches: list[int] | None) -> list[int]:
+    """드럼 트랙에서 바꿀 레인: 쓰인 음 중 역할이 있는 것 (말한 음 번호가 있으면 그것만)."""
+    used = sorted({n.pitch for n in track.notes if n.pitch in ROLES})
+    return [p for p in used if pitches is None or p in pitches]
+
+
+def _roles_text(pitches: list[int]) -> str:
+    return " · ".join(dict.fromkeys(ROLE_NAMES[ROLES[p]] for p in pitches if p in ROLES))
+
+
+def _remove(project: Project, targets: list[Track], pitches: list[int] | None) -> ToolResult:
+    tracks = {t.id: t for t in project.tracks}
+    lines: list[str] = []
+    for t in targets:
+        if t.is_drum:
+            kept = {p: s for p, s in t.drum_samples.items() if pitches is not None and p not in pitches}
+            if kept != t.drum_samples:
+                gone = sorted(set(t.drum_samples) - set(kept))
+                tracks[t.id] = t.model_copy(update={"drum_samples": kept})
+                lines.append(f"{t.name} {_roles_text(gone)}에서 내 샘플을 빼고 킷 소리로 돌렸어요.")
+        elif t.sample:
+            tracks[t.id] = t.model_copy(update={"sample": None})
+            lines.append(f"{t.name}에서 내 샘플 '{t.sample.name}'을 빼고 {display_name(heard_program(t))} 소리로 돌렸어요.")
+    if not lines:
+        return ToolResult(project=project, summary="내 샘플을 쓰는 트랙이 아니라 바뀐 게 없어요.")
+    return ToolResult(project=project.model_copy(update={"tracks": list(tracks.values())}), changed_settings=True, summary=" ".join(lines))
+
+
+def _use_on_drums(t: Track, args: UseSampleArgs, pool: tuple[SampleInfo, ...]) -> tuple[Track, str | None, str | None]:
+    """드럼 트랙 하나: 레인마다 맞는 드럼 샘플. (새 트랙, 결과 한 줄, 못 했을 때 이유)."""
+    lanes = _lanes(t, args.pitches)
+    if not lanes:
+        return t, None, f"{t.name}에 그 소리(레인)가 없어요. 쓰인 소리: {sorted({n.pitch for n in t.notes})}"
+    chosen: dict[int, SampleRef] = {}
+    shown: dict[str, str] = {}  # 역할 → 고른 샘플 이름 (탐 여러 레인은 한 번만)
+    missing: list[int] = []
+    for p in lanes:
+        picks = recommend_drum(p, pool, args.prefer)
+        if args.different and p in t.drum_samples:
+            picks = [x for x in picks if x.sample.id != t.drum_samples[p].id] or picks
+        if not picks:
+            missing.append(p)
+            continue
+        best = picks[0].sample
+        chosen[p] = SampleRef(id=best.id, name=best.name)
+        shown.setdefault(ROLE_NAMES[ROLES[p]], best.name)
+    if not chosen:
+        have = drum_text(pool) or "없음"
+        what = f"'{args.sample}'은(는) " if args.sample else ""
+        return t, None, f"{t.name}({_roles_text(lanes)})에 {what}맞는 드럼 샘플이 없어요 (샘플팩의 드럼: {have})."
+    samples = {**t.drum_samples, **chosen}
+    if samples == t.drum_samples:
+        return t, f"{t.name}는 이미 그 샘플들이에요.", None
+    line = f"{t.name} 레인 소리를 내 샘플로 바꿨어요: " + ", ".join(f"{role} '{name}'" for role, name in shown.items()) + "."
+    if missing:
+        line += f" {_roles_text(missing)}은(는) 맞는 샘플이 없어 킷 소리 그대로예요."
+    return t.model_copy(update={"drum_samples": samples}), line, None
+
+
 def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
     by_id = {t.id: t for t in project.tracks}
     unknown = [i for i in args.track_ids if i not in by_id]
@@ -213,20 +307,8 @@ def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
         valid = ", ".join(f"{t.id}({t.name})" for t in project.tracks)
         raise ToolError(f"없는 트랙 id예요: {', '.join(unknown)}. 쓸 수 있는 트랙: {valid}", code="unknown_track")
     targets = [by_id[i] for i in args.track_ids]
-    drums = [t.name for t in targets if t.is_drum]
-    if drums and len(drums) == len(targets):
-        raise ToolError("드럼 트랙에는 아직 내 샘플을 쓸 수 없어요 (멜로디 · 베이스 · 패드 트랙만). 드럼은 킷 · 소리 고르기를 써요.", code="drum_track")
-
-    tracks = {t.id: t for t in project.tracks}
-    lines: list[str] = []
     if args.sample and args.sample.lower() == "none":
-        for t in targets:
-            if t.sample and not t.is_drum:
-                tracks[t.id] = t.model_copy(update={"sample": None})
-                lines.append(f"{t.name}에서 내 샘플 '{t.sample.name}'을 빼고 {display_name(heard_program(t))} 소리로 돌렸어요.")
-        if not lines:
-            return ToolResult(project=project, summary="내 샘플을 쓰는 트랙이 아니라 바뀐 게 없어요.")
-        return ToolResult(project=project.model_copy(update={"tracks": list(tracks.values())}), changed_settings=True, summary=" ".join(lines))
+        return _remove(project, targets, args.pitches)
 
     samples = current_library()
     if not samples:
@@ -241,9 +323,17 @@ def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
             close = ", ".join(s.name for s in samples[:8])
             raise ToolError(f"'{args.sample}' 이름의 샘플이 없어요. 샘플팩에 있는 것 (일부): {close}", code="unknown_sample")
 
+    tracks = {t.id: t for t in project.tracks}
+    lines: list[str] = []
+    errors: list[str] = []  # 여러 트랙 중 일부만 안 되면 나머지는 바꾸고 알린다 (모두 안 되면 오류)
     for t in targets:
         if t.is_drum:
-            lines.append(f"드럼 트랙({t.name})은 건너뛰었어요.")
+            new, line, error = _use_on_drums(t, args, pool)
+            if error:
+                errors.append(error)
+            else:
+                tracks[t.id] = new
+                lines.append(line or "")
             continue
         picks = recommend(t, project.tempo, pool, args.prefer)
         if args.different and t.sample:
@@ -256,11 +346,11 @@ def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
             ]
         if not picks:
             role = role_of(t)
-            raise ToolError(
+            errors.append(
                 f"{t.name}({ROLE_KO.get(role or '', '이 트랙')})에 어울리는 샘플이 샘플팩에 없어요 "
-                f"(있는 종류: {kinds_text(samples)}). 음 하나짜리 원샷만 쓸 수 있어요 (코드 원샷 · 멜로디 루프는 아직 못 써요).",
-                code="no_fitting_sample",
+                f"(있는 종류: {kinds_text(samples)}). 음 하나짜리 원샷만 쓸 수 있어요 (코드 원샷 · 멜로디 루프는 아직 못 써요)."
             )
+            continue
         best = picks[0]
         if t.sample and t.sample.id == best.sample.id:
             lines.append(f"{t.name}는 이미 '{best.sample.name}' 샘플이에요.")
@@ -272,22 +362,35 @@ def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
             + (f" 다른 후보: {others}." if others else "")
         )
     changed = any(tracks[t.id] is not t for t in targets)
+    if not changed and errors:
+        raise ToolError(" ".join(errors), code="no_fitting_sample")
     return ToolResult(
         project=project.model_copy(update={"tracks": list(tracks.values())}) if changed else project,
         changed_settings=changed,
-        summary=" ".join(lines) + (" 음은 그대로예요." if changed else ""),
+        summary=" ".join([*lines, *errors]) + (" 음은 그대로예요." if changed else ""),
     )
+
+
+def drum_text(samples: tuple[SampleInfo, ...] | list[SampleInfo]) -> str:
+    counts: dict[str, int] = {}
+    for s in samples:
+        if s.kind == "drum":
+            counts[s.drum or ""] = counts.get(s.drum or "", 0) + 1
+    return " · ".join(f"{DRUM_KO.get(k, '역할 모름')} {n}" for k, n in counts.items())
 
 
 def kinds_text(samples: tuple[SampleInfo, ...] | list[SampleInfo]) -> str:
     counts: dict[str, int] = {}
     for s in samples:
         counts[s.kind] = counts.get(s.kind, 0) + 1
-    return " · ".join(f"{KIND_KO[k]} {n}" for k, n in sorted(counts.items(), key=lambda x: -x[1]))
+    text = " · ".join(f"{KIND_KO[k]} {n}" for k, n in sorted(counts.items(), key=lambda x: -x[1]))
+    drums = drum_text(samples)
+    return f"{text} (드럼: {drums})" if drums else text
 
 
 def library_text(samples: tuple[SampleInfo, ...] | list[SampleInfo], limit: int = 40) -> str:
     """시스템 프롬프트에 넣을 샘플팩 한 줄 요약 + 이름 일부 (전부 넣으면 토큰이 너무 많다)."""
-    names = ", ".join(f"{s.name}({KIND_KO[s.kind]})" for s in list(samples)[:limit])
+    kind = lambda s: DRUM_KO.get(s.drum or "", "드럼") if s.kind == "drum" else KIND_KO[s.kind]  # noqa: E731
+    names = ", ".join(f"{s.name}({kind(s)})" for s in list(samples)[:limit])
     more = f" 외 {len(samples) - limit}개" if len(samples) > limit else ""
     return f"원샷 {len(samples)}개 — {kinds_text(samples)}\n- 이름: {names}{more}"

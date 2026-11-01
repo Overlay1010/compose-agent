@@ -120,17 +120,21 @@ def set_drum_sound(project: Project, args: SetDrumSoundArgs) -> ToolResult:
             )
 
     sounds = dict(track.drum_sounds)
+    # 내장 소리를 고르면 그 레인의 내 샘플은 뺀다 (내 샘플이 있으면 그게 들리므로)
+    samples = {p: s for p, s in track.drum_samples.items() if p not in pitches}
     for p in pitches:
         if args.sound == DEFAULT:
             sounds.pop(p, None)
         else:
             sounds[p] = args.sound
-    if sounds == track.drum_sounds:
+    if sounds == track.drum_sounds and samples == track.drum_samples:
         return ToolResult(project=project, summary=f"이미 {sound_name(args.sound)}이라 바뀐 게 없어요.")
     roles = sorted({ROLE_NAMES.get(ROLES.get(p, ""), str(p)) for p in pitches})
     return ToolResult(
         project=project.model_copy(
-            update={"tracks": [t.model_copy(update={"drum_sounds": sounds}) if t.id == track.id else t for t in project.tracks]}
+            update={"tracks": [
+                t.model_copy(update={"drum_sounds": sounds, "drum_samples": samples}) if t.id == track.id else t for t in project.tracks
+            ]}
         ),
         changed_settings=True,
         summary=f"{track.name} {' · '.join(roles)} 소리를 {sound_name(args.sound)}(으)로 바꿨어요. 음은 그대로예요.",

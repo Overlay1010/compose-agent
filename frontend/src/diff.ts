@@ -65,9 +65,11 @@ export function changedRange(project: Project, preview: Project | null): { start
 
 export const sameMix = (a: Track, b: Track) => a.volume === b.volume && a.pan === b.pan
 
-/** 드럼 레인별로 고른 소리가 같은지 */
+const entries = (o: Record<string, unknown> | undefined) => JSON.stringify(Object.entries(o ?? {}).sort())
+
+/** 드럼 레인별로 고른 소리(내장 소리 · 내 샘플)가 같은지 */
 export const sameDrumSounds = (a: Track, b: Track) =>
-  JSON.stringify(Object.entries(a.drum_sounds ?? {}).sort()) === JSON.stringify(Object.entries(b.drum_sounds ?? {}).sort())
+  entries(a.drum_sounds) === entries(b.drum_sounds) && entries(a.drum_samples) === entries(b.drum_samples)
 
 /** 화면용 팬 표시: 가운데 · 왼쪽 20 · 오른쪽 40 */
 export const panLabel = (pan: number) => (pan === 0 ? '가운데' : `${pan < 0 ? '왼쪽' : '오른쪽'} ${Math.abs(pan)}`)

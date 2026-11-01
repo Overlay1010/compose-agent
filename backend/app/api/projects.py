@@ -182,6 +182,12 @@ def _change_text(before: Project, after: Project, track_id: str) -> str:
     """화면에서 바꾼 트랙 설정을 사람 말로 (대화 기록 · 화면 알림에 같은 문장을 쓴다)."""
     old = next(t for t in before.tracks if t.id == track_id)
     new = next(t for t in after.tracks if t.id == track_id)
+    if old.drum_samples != new.drum_samples and old.program == new.program:
+        p = min(p for p in {*old.drum_samples, *new.drum_samples} if old.drum_samples.get(p) != new.drum_samples.get(p))
+        lane = ROLE_NAMES.get(ROLES.get(p, ""), DRUM_NAMES.get(p, str(p)))
+        if p in new.drum_samples:
+            return f"{new.name} {lane} 소리를 내 샘플 '{new.drum_samples[p].name}'(으)로 바꿨어요"
+        return f"{new.name} {lane}에서 내 샘플을 빼고 킷 소리로 돌렸어요"
     if old.drum_sounds != new.drum_sounds and old.program == new.program:
         pitches = {p for p in {*old.drum_sounds, *new.drum_sounds} if old.drum_sounds.get(p) != new.drum_sounds.get(p)}
         p = min(pitches)
@@ -250,6 +256,19 @@ def set_track_sample(project_id: str, track_id: str, body: SampleIn) -> TrackCha
     """트랙 소리를 내 샘플로 (소리 파일은 브라우저에만 있고 여기엔 이름표만 저장). 악기 바꾸기처럼 바로 새 버전."""
     with library([body.sample] if body.sample else []):
         return _change_track(project_id, "use_sample", {"track_ids": [track_id], "sample": body.sample.id if body.sample else "none"})
+
+
+class DrumSampleIn(BaseModel):
+    pitch: int = Field(ge=0, le=127, description="드럼 레인(음 번호)")
+    sample: SampleInfo | None = Field(description="고른 내 드럼 샘플의 이름표. None이면 그 레인의 샘플을 빼고 킷 소리로")
+
+
+@router.post("/{project_id}/tracks/{track_id}/drum-sample", response_model=TrackChangeOut)
+def set_track_drum_sample(project_id: str, track_id: str, body: DrumSampleIn) -> TrackChangeOut:
+    """드럼 레인 하나의 소리를 내 샘플로 (소리 파일은 브라우저에만). 레인 소리 고르기처럼 바로 새 버전."""
+    with library([body.sample] if body.sample else []):
+        args = {"track_ids": [track_id], "pitches": [body.pitch], "sample": body.sample.id if body.sample else "none"}
+        return _change_track(project_id, "use_sample", args)
 
 
 class RecommendIn(BaseModel):

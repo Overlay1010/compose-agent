@@ -4,7 +4,7 @@ import { toolLabel, useChat } from '../store/chat'
 import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/catalog'
 import { useProject } from '../store/project'
 import { useReharm } from '../store/reharm'
-import type { ReharmView } from '../api/types'
+import type { ReharmView, Track } from '../api/types'
 import { panLabel, sameDrumSounds, sameMix } from '../diff'
 import { selectionLabel } from '../selection'
 import { soundName } from '../theme'
@@ -116,7 +116,7 @@ export function ChatPanel() {
           {preview.tracks
             .filter((t) => {
               const before = project.tracks.find((o) => o.id === t.id)
-              return before && gmProgramOf(before) !== gmProgramOf(t)
+              return before && (gmProgramOf(before) !== gmProgramOf(t) || soundName(before) !== soundName(t))
             })
             .map((t) => (
               <p className="tempo-change" key={t.id}>
@@ -127,15 +127,18 @@ export function ChatPanel() {
           {preview.tracks.map((t) => {
             const before = project.tracks.find((o) => o.id === t.id)
             if (!before || sameDrumSounds(before, t) || before.program !== t.program) return null
-            const changed = [...new Set([...Object.keys(before.drum_sounds ?? {}), ...Object.keys(t.drum_sounds ?? {})])]
-              .filter((p) => before.drum_sounds?.[p] !== t.drum_sounds?.[p])
+            const keys = (x: Track) => [...Object.keys(x.drum_sounds ?? {}), ...Object.keys(x.drum_samples ?? {})]
+            const changed = [...new Set([...keys(before), ...keys(t)])]
+              .filter((p) => before.drum_sounds?.[p] !== t.drum_sounds?.[p] || before.drum_samples?.[p]?.id !== t.drum_samples?.[p]?.id)
               .map(Number)
             return (
               <p className="tempo-change" key={`drum-${t.id}`}>
                 {t.name}{' '}
                 <strong>
                   {changed
-                    .map((p) => `${DRUM_NAMES[p] ?? p} → ${DRUM_SOUNDS[drumSoundOf(t.program, p, t.drum_sounds)!]?.name ?? p}`)
+                    .map((p) => `${DRUM_NAMES[p] ?? p} → ${
+                      t.drum_samples?.[p] ? `내 샘플 ${t.drum_samples[p].name}` : DRUM_SOUNDS[drumSoundOf(t.program, p, t.drum_sounds)!]?.name ?? p
+                    }`)
                     .join(' · ')}
                 </strong>
               </p>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { KIND_NAMES, analyze, type SampleMeta } from './analyze'
+import { KIND_NAMES, analyze, drumFromName, type SampleMeta } from './analyze'
 
 // 내 샘플팩: 사용자가 넣은 원샷 파일과 분석한 이름표를 이 브라우저(IndexedDB)에만 저장한다.
 // 서버 · 저장소에는 올리지 않는다 (남의 샘플이라 라이선스상 퍼뜨리면 안 되고, 크기도 크다).
@@ -68,7 +68,7 @@ interface LibraryState {
   importing: { done: number; total: number } | null
   load: () => Promise<void>
   add: (files: File[]) => Promise<ImportResult>
-  update: (id: string, patch: Partial<Pick<SampleMeta, 'kind' | 'root'>>) => Promise<void>
+  update: (id: string, patch: Partial<Pick<SampleMeta, 'kind' | 'root' | 'drum'>>) => Promise<void>
   remove: (id: string) => Promise<void>
   clear: () => Promise<void>
 }
@@ -88,7 +88,10 @@ export const useSamples = create<LibraryState>((set, get) => ({
 
   load: () => {
     loading ??= tx<Stored[]>('readonly', (s) => s.getAll())
-      .then((rows) => set({ samples: (rows ?? []).map((r) => r.meta).sort(byKindName), loaded: true }))
+      .then(async (rows) => {
+        set({ samples: (rows ?? []).map((r) => r.meta).sort(byKindName), loaded: true })
+        await upgrade(rows ?? [])
+      })
       .catch(() => set({ loaded: true })) // 사생활 보호 창 등에서 IndexedDB를 못 쓰면 빈 샘플팩
     return loading
   },
@@ -140,6 +143,9 @@ export const useSamples = create<LibraryState>((set, get) => ({
       ...('kind' in patch ? { kindFrom: 'user' as const } : {}),
       ...('root' in patch ? { rootFrom: 'user' as const } : {}),
     }
+    // 드럼으로 바꿨는데 역할이 없으면 이름으로 짐작한 역할부터 (화면에서 바로 고칠 수 있게)
+    if (meta.kind === 'drum' && !meta.drum) meta.drum = drumFromName(meta.name) ?? 'perc'
+    if (meta.kind !== 'drum') meta.drum = null
     await tx('readwrite', (s) => s.put({ ...row, meta }))
     set({ samples: get().samples.map((s) => (s.id === id ? meta : s)).sort(byKindName) })
   },
@@ -161,9 +167,31 @@ export const sampleMeta = (id: string) => useSamples.getState().samples.find((s)
 
 /** 서버에 보내는 이름표 (backend app/tools/samples.py SampleInfo) — 소리 파일은 보내지 않는다 */
 export const sampleInfos = () =>
-  useSamples.getState().samples.map(({ id, name, kind, root, length, sustained, brightness }) => ({
-    id, name, kind, root, length, sustained, brightness,
+  useSamples.getState().samples.map(({ id, name, kind, root, length, sustained, brightness, drum }) => ({
+    id, name, kind, root, length, sustained, brightness, drum: drum ?? null,
   }))
+
+/** 예전에 넣은 샘플(드럼 역할 · 최대 크기가 없던 때)을 다시 분석한다. 사용자가 고친 종류 · 기준음은 그대로 */
+async function upgrade(rows: Stored[]) {
+  const old = rows.filter((r) => r.meta.peak === undefined || r.meta.drum === undefined)
+  for (const row of old) {
+    try {
+      const buffer = await decode(await row.blob.arrayBuffer())
+      const fresh = analyze(row.meta.id, `${row.meta.name}.wav`, row.meta.folder, mono(buffer), buffer.sampleRate)
+      const meta: SampleMeta = {
+        ...fresh,
+        ...(row.meta.kindFrom === 'user' ? { kind: row.meta.kind, kindFrom: 'user' as const } : {}),
+        ...(row.meta.rootFrom === 'user' ? { root: row.meta.root, rootFrom: 'user' as const } : {}),
+      }
+      if (meta.kind !== 'drum') meta.drum = null
+      else meta.drum ??= 'perc'
+      await tx('readwrite', (s) => s.put({ ...row, meta }))
+      useSamples.setState((st) => ({ samples: st.samples.map((s) => (s.id === meta.id ? meta : s)).sort(byKindName) }))
+    } catch {
+      // 못 읽은 파일은 그대로 둔다 (재생할 때 트랙 악기 · 킷 소리로)
+    }
+  }
+}
 
 /** 재생용 소리. 이 브라우저에 없으면 null */
 export function sampleBuffer(id: string): Promise<AudioBuffer | null> {

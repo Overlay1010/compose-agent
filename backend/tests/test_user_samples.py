@@ -12,9 +12,9 @@ from app.tools.samples import SampleInfo, library, recommend, role_of
 from tests.test_agent import FakeLLM, calls, lofi, say, upload_lofi  # noqa: F401 (lofi는 fixture)
 
 
-def info(name, kind, root, length=1.0, sustained=False, brightness=0.5):
+def info(name, kind, root, length=1.0, sustained=False, brightness=0.5, drum=None):
     return SampleInfo(id=name.lower().replace(" ", "-"), name=name, kind=kind, root=root, length=length,
-                      sustained=sustained, brightness=brightness)
+                      sustained=sustained, brightness=brightness, drum=drum)
 
 
 PACK = [
@@ -29,7 +29,10 @@ PACK = [
     info("Bell A5", "bell", 81, length=3.0, brightness=0.9),
     info("Keys Chord Cmin", "chord", 60, length=2.0),
     info("Melody Loop 140 Am", "loop", 57, length=6.9),
-    info("Kick 01", "drum", None, length=0.4),
+    info("Kick 01", "drum", None, length=0.4, brightness=0.1, drum="kick"),
+    info("Kick Punchy", "drum", None, length=0.3, brightness=0.3, drum="kick"),
+    info("Clap 02", "drum", None, length=0.3, brightness=0.7, drum="clap"),
+    info("Closed Hat", "drum", None, length=0.1, brightness=0.9, drum="hat"),
 ]
 
 
@@ -94,11 +97,8 @@ def test_different_by_name_and_none(lofi):
     assert track(removed.project, "Rhodes").sample is None and "돌렸어요" in removed.summary
 
 
-def test_use_sample_rejects_drums_unknown_names_and_unfitting_packs(lofi):
+def test_use_sample_rejects_unknown_names_and_unfitting_packs(lofi):
     with library(PACK):
-        with pytest.raises(ToolError) as e:
-            run_tool(lofi, "use_sample", {"track_ids": ["t1"]})
-        assert e.value.code == "drum_track"
         with pytest.raises(ToolError) as e:
             run_tool(lofi, "use_sample", {"track_ids": ["t2"], "sample": "violin"})
         assert e.value.code == "unknown_sample"
@@ -118,7 +118,7 @@ def test_prompt_shows_the_pack_and_the_track_sample(lofi):
     with library(PACK):
         sampled = run_tool(lofi, "use_sample", {"track_ids": ["t4"]}).project
         text = system_prompt(sampled)
-    assert "원샷 12개" in text and "Warm Pad C3(패드)" in text and "내 샘플 'Warm Pad C3'" in text
+    assert "원샷 15개" in text and "(드럼: 킥 2 · 클랩 1 · 닫힌 하이햇 1)" in text and "Warm Pad C3(패드)" in text and "내 샘플 'Warm Pad C3'" in text
     assert "사용자가 넣은 샘플팩" not in system_prompt(lofi)  # 샘플팩이 없으면 그 부분이 없다
 
 
@@ -158,3 +158,57 @@ def test_chat_passes_the_pack_to_the_tools(client):
     assert body["steps"][0]["ok"], body["steps"]
     assert next(t for t in body["preview"]["tracks"] if t["id"] == "t2")["sample"]["name"] in ("Dark 808 C1", "Sub Bass F2")
     assert "사용자가 넣은 샘플팩" in llm.calls[0][0]["content"]
+
+
+# ---------- 드럼 레인 ----------
+
+def test_drums_get_a_sample_per_lane_and_keep_the_kit_elsewhere(lofi):
+    # lofi 드럼: 36 킥 · 38 스네어 · 39 클랩 · 42 닫힌 햇 · 46 열린 햇 · 탐 · 49 크래시
+    with library(PACK):
+        r = run_tool(lofi, "use_sample", {"track_ids": ["t1"]})
+    drums = track(r.project, "Drums")
+    picked = {p: s.name for p, s in drums.drum_samples.items()}
+    assert picked[36] == "Kick 01" and picked[39] == "Clap 02" and picked[42] == "Closed Hat"
+    assert picked[38] == "Clap 02"  # 스네어 샘플이 없으면 클랩으로 대신
+    assert not {46, 43, 45, 48, 49, 50} & set(picked)  # 맞는 샘플이 없는 레인은 킷 소리 그대로
+    assert drums.notes == track(lofi, "Drums").notes and drums.program == track(lofi, "Drums").program
+    assert "킥 'Kick 01'" in r.summary and "킷 소리 그대로" in r.summary
+
+
+def test_only_the_lanes_asked_for_then_another_then_off(lofi):
+    with library(PACK):
+        kick = run_tool(lofi, "use_sample", {"track_ids": ["t1"], "pitches": [35, 36]}).project
+        other = run_tool(kick, "use_sample", {"track_ids": ["t1"], "pitches": [36], "different": True}).project
+        off = run_tool(other, "use_sample", {"track_ids": ["t1"], "sample": "none"})
+    assert {p: s.name for p, s in track(kick, "Drums").drum_samples.items()} == {36: "Kick 01"}
+    assert track(other, "Drums").drum_samples[36].name == "Kick Punchy"
+    assert track(off.project, "Drums").drum_samples == {} and "킷 소리로 돌렸어요" in off.summary
+
+
+def test_kit_or_builtin_sound_replaces_the_lane_sample(lofi):
+    with library(PACK):
+        sampled = run_tool(lofi, "use_sample", {"track_ids": ["t1"]}).project
+    lane = run_tool(sampled, "set_drum_sound", {"track_id": "t1", "pitches": [36], "sound": "default"})
+    assert 36 not in track(lane.project, "Drums").drum_samples and lane.changed_settings  # 고른 소리가 같아도 샘플을 뺐으니 바뀜
+    kit = run_tool(sampled, "set_instrument", {"track_ids": ["t1"], "program": 25})
+    assert track(kit.project, "Drums").drum_samples == {}
+
+
+def test_drum_pack_without_fitting_roles_is_an_error_but_other_tracks_still_change(lofi):
+    hats_only = [s for s in PACK if s.drum == "hat" or s.kind == "pad"]
+    with library(hats_only):
+        with pytest.raises(ToolError) as e:
+            run_tool(lofi, "use_sample", {"track_ids": ["t1"], "pitches": [36]})
+        assert e.value.code == "no_fitting_sample" and "닫힌 하이햇 1" in e.value.message
+        r = run_tool(lofi, "use_sample", {"track_ids": ["t1", "t4"], "pitches": [36]})  # 패드는 바뀌고 킥은 못 바꿨다고 알림
+    assert track(r.project, "Pad").sample is not None and "맞는 드럼 샘플이 없어요" in r.summary
+
+
+def test_drum_sample_endpoint(client):
+    pid = upload_lofi(client)
+    kick = next(s for s in PACK if s.name == "Kick 01").model_dump()
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sample", json={"pitch": 36, "sample": kick})
+    assert r.status_code == 200 and r.json()["note"] == "Drums 킥 소리를 내 샘플 'Kick 01'(으)로 바꿨어요"
+    assert next(t for t in r.json()["project"]["tracks"] if t["id"] == "t1")["drum_samples"] == {"36": {"id": "kick-01", "name": "Kick 01"}}
+    r = client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sample", json={"pitch": 36, "sample": None})
+    assert r.json()["note"] == "Drums 킥에서 내 샘플을 빼고 킷 소리로 돌렸어요"
