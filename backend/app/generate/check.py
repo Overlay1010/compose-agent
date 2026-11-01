@@ -16,6 +16,7 @@ from app.harmony.reharm import INTERVALS
 from app.models.project import Note
 
 GRID = 0.25  # 박 (16분음표)
+ROLL_GRIDS = (0.125, 1 / 6)  # 드럼 롤: 32분음표 · 16분 셋잇단
 EPS = 1e-3
 SCALES = {"major": (0, 2, 4, 5, 7, 9, 11), "minor": (0, 2, 3, 5, 7, 8, 10, 11)}  # 단조는 화성단음계 이끔음까지
 
@@ -62,10 +63,12 @@ def check(
     starts: tuple[float, ...] = (),
     drums: bool = False,
     swing: tuple[float, float] | None = None,
+    rolls: bool = False,
 ) -> list[str]:
     """notes(한 트랙에 새로 넣은 음)에서 걸린 것들. chords를 주면 코드 밖 검사, key를 주면 음계 밖 검사 (key만이면 코드 음도 허용).
     starts: 격자에 안 맞아도 되는 시작 (화면에서 고른 범위의 시작처럼). drums: 드럼 트랙 (음역은 GM 타악기 번호로).
-    swing: (퍼센트, 격자 박) — 스윙으로 늦춘 뒷박 자리도 격자로 본다 (edits.swing과 같은 계산)."""
+    swing: (퍼센트, 격자 박) — 스윙으로 늦춘 뒷박 자리도 격자로 본다 (edits.swing과 같은 계산).
+    rolls: 드럼 롤 — 32분음표 · 16분 셋잇단 자리도 격자로 본다."""
     problems: list[str] = []
     low, high = DRUM_RANGE if drums else playable(program)
     late = (swing[0] / 100 * 2 - 1) * swing[1] if swing else 0.0
@@ -78,7 +81,8 @@ def check(
             problems.append(f"음계 밖 {_where(n)} ({key.name})")
         off = n.start / GRID - round(n.start / GRID)
         swung = swing is not None and _on_swing(n.start, late, swing[1])
-        if abs(off) * GRID > EPS and not swung and not any(abs(n.start - s) < EPS for s in starts):
+        rolled = rolls and any(abs(n.start / g - round(n.start / g)) * g < EPS for g in ROLL_GRIDS)
+        if abs(off) * GRID > EPS and not swung and not rolled and not any(abs(n.start - s) < EPS for s in starts):
             problems.append(f"박 어긋남 {_where(n)}")
         if not low <= n.pitch <= high:
             problems.append(f"음역 밖 {_where(n)} ({'GM 타악기' if drums else '이 악기'} {_name(low)}~{_name(high)})")

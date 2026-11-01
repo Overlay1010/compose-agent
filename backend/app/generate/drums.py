@@ -114,6 +114,11 @@ def track_part(notes: list[Note]) -> str | None:
 
 
 SWING = {"lofi": 57.0, "boombap": 54.0}  # 8분음표 스윙 퍼센트 (나머지는 정박)
+
+# 하이햇 롤: 말이 없으면 넣는 스타일, 그리고 롤 모양 (마디 안 시작 박, 한 칸 길이(박), 칸 수) — 32분 4개 · 16분 셋잇단 6개
+ROLL_STYLES = {"trap"}
+ROLLS = [(3.5, 0.125, 4), (3.0, 1 / 6, 6), (2.5, 0.125, 4), (1.5, 0.125, 4), (2.0, 1 / 6, 6), (1.0, 1 / 6, 6)]
+HAT_JITTER = 9  # 햇 세기는 조금 더 흔든다 (같은 세기로 계속 치면 기계처럼 들림)
 SWING_GRID = 0.5  # 박. 8분음표
 ELECTRONIC_KITS = {24, 25, 26}
 KIT_STYLES = {27: "lofi", 28: "boombap", 26: "house", 25: "trap", 16: "rock"}
@@ -145,6 +150,8 @@ class DrumPlan:
     fills: int  # 넣은 필인 수
     density: str
     pattern: int = 1  # 패턴 1 · 2 (결과 요약에 — LLM이 무엇이 바뀌었는지 짐작해 말하지 않게)
+    rolls: bool = False  # 하이햇 롤을 넣었나 (32분 · 셋잇단 — 검사가 그 자리를 박 어긋남으로 보지 않게)
+    variation: bool = False  # 하이햇을 마디마다 바꿨나
 
 
 def _bar_pattern(style: str, variant: int, bpb: float) -> dict[int, str]:
@@ -177,9 +184,38 @@ def _thin(pattern: dict[int, str], density: str) -> dict[int, str]:
     return out
 
 
+def _hat_bar(row: str, k: int, rng: Random, *, rolls: bool, variation: bool, swung: bool, opens: bool,
+             fill: bool) -> tuple[list[tuple[float, int]], list[tuple[float, int]]]:
+    """한 마디의 닫힌 햇 · 덧붙인 열린 햇 [(마디 안 박, 세기)]. 4마디 묶음의 첫 마디는 무늬 그대로 (곡의 기준이 들리게),
+    나머지 마디는 조금씩 바꾼다 — 1마디 무늬를 똑같이 되풀이했더니 "루프처럼 안 나오고 규칙처럼만 나온다"는 말이 나왔다."""
+    hats = [(i * 0.25, LEVELS[c]) for i, c in enumerate(row) if c != "."]
+    added_open: list[tuple[float, int]] = []
+    if k % PHRASE == 0 or len(row) != 16:
+        return hats, added_open
+    taken = lambda pos: any(abs(p - pos) < 1e-6 for p, _ in hats)  # noqa: E731
+    if variation:
+        # 다음 박 앞 16분 하나 (스윙 스타일은 빼고 — 뒷 8분을 늦추는 느낌이 흐려진다)
+        if not swung and rng.random() < 0.6:
+            pos = rng.choice([0.75, 1.75, 2.75]) if not fill else rng.choice([0.75, 1.75])
+            if not taken(pos):
+                hats.append((pos, LEVELS["g"]))
+        # 짝수 마디 끝(4박 뒤 8분)에 열린 햇 (열린 햇이 이미 도는 무늬 · 필인 마디는 빼고)
+        if not opens and not fill and k % 2 == 1 and rng.random() < 0.7:
+            hats = [(p, v) for p, v in hats if abs(p - 3.5) > 1e-6]
+            added_open.append((3.5, LEVELS["x"]))
+    if rolls:
+        # 필인 마디의 4박은 탐 · 클랩 자리라 롤은 그 앞에
+        start, step, count = rng.choice([r for r in ROLLS if not (fill and r[0] + r[1] * r[2] > 3.0 + 1e-6)])
+        end = start + step * count
+        hats = [(p, v) for p, v in hats if not start - 1e-6 <= p < end - 1e-6]
+        added_open = [(p, v) for p, v in added_open if not start - 1e-6 <= p < end - 1e-6]
+        hats += [(round(start + j * step, 4), round(48 + (100 - 48) * j / (count - 1))) for j in range(count)]  # 점점 세게
+    return sorted(hats), added_open
+
+
 def drum_notes(
     project: Project, start: float, end: float, style: str | None = None, density: str | None = None,
-    fills: bool = True, swing: float | None = None, version: int = 1,
+    fills: bool = True, swing: float | None = None, version: int = 1, rolls: bool | None = None, variation: bool = True,
 ) -> tuple[list[Note], DrumPlan]:
     """[start, end) 박에 드럼. 마디 단위로 깐다 (범위가 마디 중간에서 시작하면 그 마디의 남은 칸부터)."""
     style = style or auto_style(project)
@@ -188,6 +224,9 @@ def drum_notes(
     palettes = PALETTES[style]
     palette = palettes[((version - 1) // 2) % len(palettes)]
     pct = SWING.get(style, 50.0) if swing is None else swing
+    rolls = (style in ROLL_STYLES) if rolls is None else rolls
+    rolls = rolls and density != "low" and abs(project.beats_per_bar - 4) < 1e-6  # 단순하게 · 4박이 아닌 박자는 롤 없이
+    variation = variation and abs(project.beats_per_bar - 4) < 1e-6
     late = (pct / 100 * 2 - 1) * SWING_GRID
     bpb = project.beats_per_bar
     steps = int(round(bpb * 4))
@@ -217,17 +256,26 @@ def drum_notes(
         if after_fill:  # 필인 뒤 첫 박에 크래시
             lanes[CRASH] = "X" + "." * (steps - 1)
         after_fill = bool(fill)
-        for lane, row in lanes.items():
-            for i, c in enumerate(row[:steps]):
-                if c == ".":
-                    continue
-                t = bar * bpb + i * 0.25 + (late if i % 4 == 2 else 0.0)  # 뒷 8분음표만
+        events: dict[int, list[tuple[float, int]]] = {
+            lane: [(i * 0.25, LEVELS[c]) for i, c in enumerate(row[:steps]) if c != "."] for lane, row in lanes.items() if lane != HAT
+        }
+        if HAT in lanes:
+            hats, opens = _hat_bar(lanes[HAT][:steps], k, rng, rolls=rolls, variation=variation, swung=pct != 50,
+                                   opens=OPEN in pattern, fill=bool(fill))
+            events[HAT] = hats
+            if opens:
+                events[OPEN] = events.get(OPEN, []) + opens
+        for lane, hits in events.items():
+            jitter = HAT_JITTER if lane == HAT else JITTER
+            for pos, level in hits:
+                on_eighth = abs(pos % 1 - 0.5) < 1e-6
+                t = bar * bpb + pos + (late if on_eighth else 0.0)  # 뒷 8분음표만
                 if not start - 1e-6 <= t < end - 1e-6:
                     continue
-                vel = max(1, min(127, LEVELS[c] + rng.randint(-JITTER, JITTER)))
+                vel = max(1, min(127, level + rng.randint(-jitter, jitter)))
                 length = 1.0 if lane in (CRASH, OPEN) else HIT
                 notes.append(Note(pitch=lane, start=round(t, 4), duration=round(min(length, end - t), 4), velocity=vel))
-    return _untangle(notes), DrumPlan(style, palette, pct, filled, density, variant + 1)
+    return _untangle(notes), DrumPlan(style, palette, pct, filled, density, variant + 1, rolls, variation)
 
 
 def _untangle(notes: list[Note]) -> list[Note]:

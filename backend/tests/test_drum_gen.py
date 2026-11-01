@@ -169,3 +169,39 @@ def test_each_part_track_can_take_its_own_kit():
     changed = run_tool(r.project, "set_instrument", {"track_ids": [hats.id], "program": 26})
     programs = {t.name: t.program for t in changed.project.tracks if t.is_drum}
     assert programs["Hats"] == 26 and programs["Kick"] == 0  # 햇만 909 킷
+
+
+# ---------- 하이햇 변주 · 롤 ----------
+
+def hat_positions(track, bar):
+    return sorted(round(n.start - bar * 4, 4) for n in track.notes if n.pitch == HAT and bar * 4 <= n.start < bar * 4 + 4)
+
+
+def test_trap_hats_roll_and_vary_but_keep_the_first_bar_of_each_phrase():
+    r, drums = drums_of(eight_bars(), style="trap")
+    assert r.checks == [] and "하이햇 마디마다 변주 · 롤" in r.summary
+    plain = [i * 0.5 for i in range(8)]
+    assert hat_positions(drums, 0) == plain and hat_positions(drums, 4) == plain  # 4마디 묶음의 첫 마디는 무늬 그대로
+    for bar in (1, 2, 3, 5, 6, 7):  # 나머지 마디는 32분 · 셋잇단 롤이 하나씩
+        fine = [p for p in hat_positions(drums, bar) if abs(p * 4 - round(p * 4)) > 1e-3]
+        assert fine, bar
+    rolled = [n for n in drums.notes if n.pitch == HAT and abs(n.start * 4 - round(n.start * 4)) > 1e-3]
+    assert max(n.velocity for n in rolled) - min(n.velocity for n in rolled) > 30  # 점점 세게
+
+
+def test_rolls_can_be_turned_off_or_on_for_other_styles():
+    _, no_rolls = drums_of(eight_bars(), style="trap", rolls=False)
+    assert all(abs(n.start * 4 - round(n.start * 4)) < 1e-3 for n in no_rolls.notes)
+    r, pop = drums_of(eight_bars(), style="pop", rolls=True)
+    assert r.checks == [] and any(abs(n.start * 4 - round(n.start * 4)) > 1e-3 for n in pop.notes if n.pitch == HAT)
+    _, simple = drums_of(eight_bars(), style="trap", density="low")  # 단순하게는 롤 없이
+    assert all(abs(n.start * 4 - round(n.start * 4)) < 1e-3 for n in simple.notes)
+
+
+def test_variation_changes_bars_and_can_be_turned_off():
+    _, pop = drums_of(eight_bars(), style="pop")
+    bars = [hat_positions(pop, b) for b in range(3)]
+    opens = {round(n.start % 4, 4) for n in pop.notes if n.pitch == 46}
+    assert bars[1] != bars[0] or bars[2] != bars[0] or opens == {3.5}  # 16분 끼우기나 짝수 마디 끝 열린 햇
+    _, same = drums_of(eight_bars(), style="pop", variation=False)
+    assert all(hat_positions(same, b) == hat_positions(same, 0) for b in (1, 2, 5, 6)) and 46 not in {n.pitch for n in same.notes}

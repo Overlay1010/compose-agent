@@ -207,6 +207,10 @@ class GenerateDrumsArgs(BaseModel):
         default=None, description="하이햇 밀도. low = 단순하게(4분), high = 촘촘하게(16분). 말이 없으면 비워 둬",
     )
     fills: bool = Field(default=True, description="4마디마다 필인과 다음 마디 첫 박 크래시. \"필인 없이\"면 false")
+    rolls: bool | None = Field(
+        default=None, description="하이햇 롤(32분 · 셋잇단으로 촤라락). 말이 없으면 비워 둬 (트랩만 넣음). \"롤 넣어줘\" = true, \"롤 빼줘\" = false",
+    )
+    variation: bool = Field(default=True, description="하이햇을 마디마다 조금씩 바꾼다 (16분 끼우기 · 열린 햇). \"마디마다 똑같이\"면 false")
     swing: float | None = Field(default=None, ge=50, le=75, description="8분음표 스윙 %. 말이 없으면 비워 둬 (로파이 57 · 붐뱁 54, 나머지 정박)")
     name: str | None = Field(default=None, max_length=40, description='새 트랙 이름 (한 트랙일 때). 없으면 "Drums" · 부분 이름')
     bars: tuple[Bar, Bar] | None = Field(default=None, description="[시작, 끝] 마디, 끝 포함. 없으면 곡 전체")
@@ -236,6 +240,9 @@ def _drum_detail(plan: DrumPlan, version: int, sounds: dict[int, str] | None = N
     feel.append(f"필인 {plan.fills}번" if plan.fills else "필인 없음")
     if plan.swing != 50:
         feel.append(f"스윙 {plan.swing:g}%")
+    hats = [w for w, on in (("마디마다 변주", plan.variation), ("롤", plan.rolls)) if on]
+    if hats:
+        feel.append(f"하이햇 {' · '.join(hats)}")
     return f"{sound} · {' · '.join(feel)}" + (f" · 버전 {version}" if version > 1 else "")
 
 
@@ -293,13 +300,13 @@ def generate_drums(project: Project, args: GenerateDrumsArgs) -> ToolResult:
         # 모든 트랙이 같은 버전 — 한 트랙이라도 지금과 다르면 그 버전 (패턴이 같아도 킷 · 소리 조합이 다르면 다른 버전).
         # 트랙마다 따로 정했더니 3/4에서 햇만 다음 소리 조합으로 넘어가 킷이 섞였다
         for version in range(args.version, args.version + TRIES):
-            every, plan = drum_notes(song, start, end, style, args.density, args.fills, args.swing, version)
+            every, plan = drum_notes(song, start, end, style, args.density, args.fills, args.swing, version, args.rolls, args.variation)
             if not all(same(t, every, plan) for t in targets):
                 break
         for target in targets:
             lanes = lanes_of[target.id]
             notes, sounds = _keep(every, lanes), _sounds(plan, lanes)
-            checks += check(notes, plan.palette.kit, drums=True, swing=swing_of(plan), starts=(start,))
+            checks += check(notes, plan.palette.kit, drums=True, swing=swing_of(plan), starts=(start,), rolls=plan.rolls)
             kept = [n for n in target.notes if not lo <= n.start < hi]
             tracks[target.id] = target.model_copy(update={
                 "notes": sorted([*kept, *notes], key=lambda n: (n.start, n.pitch)), "program": plan.palette.kit,
@@ -312,7 +319,9 @@ def generate_drums(project: Project, args: GenerateDrumsArgs) -> ToolResult:
             changed_notes=changed, changed_settings=True, summary=" / ".join(lines), checks=checks,
         )
 
-    every, plan = drum_notes(project, start, end, args.style, args.density, args.fills, args.swing, args.version)
+    every, plan = drum_notes(
+        project, start, end, args.style, args.density, args.fills, args.swing, args.version, args.rolls, args.variation,
+    )
     wanted = set(args.parts or PARTS)
     groups = [(p, PARTS[p]) for p in PARTS if p in wanted] if args.split else [(None, set().union(*(PARTS[p] for p in wanted)))]
     out = project
@@ -327,7 +336,7 @@ def generate_drums(project: Project, args: GenerateDrumsArgs) -> ToolResult:
         track = Track(id=new_id, name=name, is_drum=True, program=plan.palette.kit, program_set=True,
                       drum_sounds=_sounds(plan, lanes), notes=notes)
         out = out.model_copy(update={"tracks": [*out.tracks, track]})
-        checks += check(notes, plan.palette.kit, drums=True, swing=swing_of(plan), starts=(start,))
+        checks += check(notes, plan.palette.kit, drums=True, swing=swing_of(plan), starts=(start,), rolls=plan.rolls)
         made.append(track)
     if not made:
         raise ToolError("그 범위에 드럼을 깔 자리가 없어요.", code="empty_range")

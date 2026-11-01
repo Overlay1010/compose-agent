@@ -1,4 +1,4 @@
-"""정답 있는 명령 109개.
+"""정답 있는 명령 111개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -284,6 +284,8 @@ CASES: list[Case] = [
     case("B17", "만들기", "fl_style_loose", "하이햇 촘촘한 하우스 비트 하나 더 만들어줘",
          [Call("generate_drums", {"style": "house", "density": "high", "track_id": None})]),
     case("B19", "만들기", "waltz_3_4", "킥만 깔아줘", [Call("generate_drums", {"parts": ["kick"]})]),
+    case("B20", "만들기", "lofi_groove", "하이햇 롤 들어간 팝 드럼 깔아줘", [Call("generate_drums", {"style": "pop", "rolls": True})]),
+    case("B21", "만들기", "fl_style_loose", "롤 없이 트랩 비트 만들어줘", [Call("generate_drums", {"style": "trap", "rolls": False})]),
     case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
          [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
     # ---------- 내 샘플 (샘플팩 이름표가 있을 때 use_sample, GM 악기 set_instrument가 아님) ----------
@@ -310,4 +312,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 109 and len({c.id for c in CASES}) == 109
+assert len(CASES) == 111 and len({c.id for c in CASES}) == 111
