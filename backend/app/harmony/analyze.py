@@ -433,10 +433,15 @@ def _is_melody(track: Track, lowest: str | None) -> bool:
 
 
 def melody_ids(project: Project) -> set[str]:
-    """멜로디로 보는 트랙 id (리하모니 제안이 부딪힘을 검사하는 음)."""
+    """멜로디로 보는 트랙 id (리하모니 제안이 부딪힘을 검사하는 음).
+
+    베이스 악기(GM 32~39) 트랙은 멜로디로 보지 않는다: 베이스를 하나 더 깔면 원래 베이스가 가장 낮은 트랙이 아니게 되어
+    한 줄 순차 진행이라 멜로디로 읽혔다 (lofi_groove에 베이스를 깔고 패드를 깔면 패드가 원래 베이스 높이로 내려옴)."""
+    from app.tools.instrument import heard_program  # app.tools가 app.harmony를 부르므로 여기서
+
     pitched = [t for t in project.tracks if not t.is_drum and t.notes]
     lowest = min(pitched, key=lambda t: sum(n.pitch for n in t.notes) / len(t.notes)).id if pitched else None
-    return {t.id for t in pitched if _is_melody(t, lowest)}
+    return {t.id for t in pitched if not 32 <= heard_program(t) <= 39 and _is_melody(t, lowest)}
 
 
 SHORT = 1.0  # 박. 화음 트랙 안의 윗선율로 볼 음의 길이 (이보다 짧게 지나가는 음)

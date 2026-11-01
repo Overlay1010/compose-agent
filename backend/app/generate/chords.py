@@ -84,10 +84,11 @@ def pad_window(project: Project, start: float, end: float) -> tuple[int, int]:
     # 베이스 트랙: 베이스 악기이거나 실제로 낮게 치는 화음 트랙. 그냥 가장 낮은 트랙으로 고르면 이미 깐 패드를 베이스로 보고
     # 그 위에 깔아서 "낮은 패드"가 원래 패드보다 높게 나왔다 (Alarma: 패드 G3~G4 위에 C4~G5)
     basses = [t for t in harmonic if 32 <= heard_program(t) <= 39 or median(n.pitch for n in t.notes) < BASS_BELOW]
-    if len(harmonic) > 1 and basses:
-        bass = min(basses, key=lambda t: median(n.pitch for n in t.notes))
-        if pitches := heard(bass):
-            low = max(low, _percentile(pitches, 0.9) + GAP)
+    # 베이스가 여럿이면(원래 베이스 + 새로 만든 베이스) 모두의 위로 — 가장 낮은 것 하나만 보면 원래 베이스 높이에 깔렸다 (lofi 52 → 43)
+    if len(harmonic) > 1:
+        for bass in basses:
+            if pitches := heard(bass):
+                low = max(low, _percentile(pitches, 0.9) + GAP)
     tune = [p for t in pitched if t.id in melody for p in heard(t)]
     if tune:
         high = min(high, _percentile(tune, 0.1) - GAP)

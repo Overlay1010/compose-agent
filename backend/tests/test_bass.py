@@ -126,3 +126,11 @@ def test_bars_without_kicks_still_get_a_rhythm():
     assert r.checks == []
     assert sorted({n.start % 4 for n in bass.notes if n.start < 16}) == [0, 1.5, 2.5]  # 인트로: 정해 둔 리듬
     assert sorted({n.start % 4 for n in bass.notes if n.start >= 16}) == [0, 2]  # 킥 자리
+
+
+def test_pad_after_a_new_bass_stays_above_the_old_bass():
+    # 베이스를 하나 더 깔면 원래 Bass가 가장 낮은 트랙이 아니게 되어 멜로디로 읽혔고, 패드가 원래 베이스 높이로 내려왔다
+    p = project("lofi_groove")
+    alone = run_tool(p, "generate_chords", {}).project.tracks[-1]
+    after = run_tool(bass_of(p)[0].project, "generate_chords", {}).project.tracks[-1]
+    assert min(n.pitch for n in after.notes) == min(n.pitch for n in alone.notes)
