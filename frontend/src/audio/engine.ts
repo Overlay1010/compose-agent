@@ -26,6 +26,8 @@ export async function play(project: Project, muted: Record<string, boolean>, fro
 }
 
 export const stop = () => mod?.stop()
+/** 소리 세트를 바꿨을 때: 멈추고 다음 재생에 새 소리를 불러온다 */
+export const invalidate = () => mod?.invalidate()
 export const positionBeats = () => mod?.positionBeats() ?? 0
 export const setMuted = (trackId: string, muted: boolean) => mod?.setMuted(trackId, muted)
 export const setMix = (trackId: string, volume: number, pan: number) => mod?.setMix(trackId, volume, pan)

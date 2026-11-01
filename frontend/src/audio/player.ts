@@ -101,6 +101,12 @@ export async function play(project: Project, muted: Record<string, boolean>, fro
   return [...channels.values()].filter((c) => c.voice.fallback).map((c) => c.name)
 }
 
+/** 다음 재생 때 악기 소리를 새로 불러오게 한다 (소리 세트를 바꿨을 때) */
+export function invalidate() {
+  stop()
+  loaded = null
+}
+
 export function stop() {
   playRequest++
   if (!loaded) return

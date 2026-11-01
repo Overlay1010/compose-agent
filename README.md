@@ -171,6 +171,7 @@ v0.1의 제한: 템포 · 박자 변화가 있으면 첫 값만 쓴다 (화면�
 | 쓰는 곳 | 샘플 | 라이선스 |
 | --- | --- | --- |
 | 멜로디 악기 (General MIDI 128개) | [FluidR3 GM](https://github.com/gleitz/midi-js-soundfonts) by Frank Wen, 재생할 때 gleitz.github.io에서 불러옴 | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| 멜로디 악기 · 고를 수 있는 세트 | [Musyng Kite](http://www.synthfont.com/SoundFonts/Musyng.sfpack) · [FatBoy](https://fatboy.site) ([midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts)에서 mp3로 바꾼 것), 화면 위 "소리"에서 고르면 재생할 때 gleitz.github.io에서 불러옴 | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) — 이 소리로 만든 음원을 배포하면 같은 조건이 붙을 수 있어 음원 내보내기 메뉴에 알린다 |
 | 드럼 (킷 9가지 · 소리 40가지) | [Sonic Pi](https://github.com/sonic-pi-net/sonic-pi/tree/dev/etc/samples) 샘플 (원본 freesound.org), `frontend/public/samples/drums/`에 포함 | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 
 샘플을 못 불러오면(오프라인 등) 그 트랙만 Tone.js 신스 소리로 재생하고 화면에 알려 준다.

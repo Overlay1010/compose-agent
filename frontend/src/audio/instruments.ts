@@ -1,9 +1,10 @@
 import * as Tone from 'tone'
 import type { Track } from '../api/types'
 import { DRUM_DEFAULT, GM_NAMES, drumSample, gmProgramOf, kitOf } from './catalog'
+import { fontUrl, levelGain } from './soundset'
 
 // 트랙 하나의 소리를 내는 단위.
-// 기본은 실제 악기 샘플(멜로디: FluidR3 GM, 드럼: Sonic Pi 샘플)이고,
+// 기본은 실제 악기 샘플(멜로디: 고른 소리 세트 — 기본 FluidR3 GM, audio/soundset.ts · 드럼: Sonic Pi 샘플)이고,
 // 샘플을 못 불러오면 예전 Tone.js 신스 소리로 대신한다.
 export interface Voice {
   output: Tone.ToneAudioNode
@@ -38,11 +39,9 @@ function waitLoad(start: (done: () => void, fail: () => void) => void): Promise<
   })
 }
 
-// ---------- 멜로디 악기 (FluidR3 GM, CC BY 3.0) ----------
+// ---------- 멜로디 악기 (소리 세트: audio/soundset.ts) ----------
 
-const FLUID_URL = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/'
-
-// FluidR3 파일은 플랫 이름을 쓴다 (Db4.mp3, Eb4.mp3 …). A0(21) ~ C8(108)
+// 세트 파일은 플랫 이름을 쓴다 (Db4.mp3, Eb4.mp3 …). A0(21) ~ C8(108)
 const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 const fileOf = (pitch: number) => `${FLAT_NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}.mp3`
 
@@ -63,17 +62,19 @@ class SampledVoice implements Voice {
   fallback = false
   private sampler: Tone.Sampler | null = null
   private synth: SynthVoice | null = null
+  private level: Tone.Gain
 
   constructor(track: Track) {
     const program = gmProgramOf(track)
+    this.level = new Tone.Gain(levelGain(program)).connect(this.output) // 세트마다 다른 악기 크기를 FluidR3에 맞춤
     this.ready = waitLoad((done, fail) => {
       this.sampler = new Tone.Sampler({
         urls: sampleUrls(track),
-        baseUrl: `${FLUID_URL}${GM_NAMES[program]}-mp3/`,
+        baseUrl: fontUrl(GM_NAMES[program]),
         release: 0.8,
         onload: done,
         onerror: fail,
-      }).connect(this.output)
+      }).connect(this.level)
     }).then((ok) => {
       if (ok) return
       this.sampler?.dispose()
@@ -100,6 +101,7 @@ class SampledVoice implements Voice {
   dispose() {
     this.sampler?.dispose()
     this.synth?.dispose()
+    this.level.dispose()
     this.output.dispose()
   }
 }
@@ -123,13 +125,15 @@ class LoopedVoice implements Voice {
   private bases: number[]
   private sources = new Set<Tone.ToneBufferSource>()
   private synth: SynthVoice | null = null
+  private level: Tone.Gain
 
   constructor(track: Track) {
     const program = gmProgramOf(track)
+    this.level = new Tone.Gain(levelGain(program)).connect(this.output) // 세트마다 다른 악기 크기를 FluidR3에 맞춤
     const urls = sampleUrls(track)
     this.bases = Object.keys(urls).map(Number)
     this.ready = waitLoad((done, fail) => {
-      this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: `${FLUID_URL}${GM_NAMES[program]}-mp3/`, onload: done, onerror: fail })
+      this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: fontUrl(GM_NAMES[program]), onload: done, onerror: fail })
     }).then((ok) => {
       if (ok) return
       this.buffers?.dispose()
@@ -165,7 +169,7 @@ class LoopedVoice implements Voice {
         fadeIn: offset > 0 ? XFADE : 0,
         fadeOut: last ? RELEASE : XFADE,
         curve: 'linear', // 겹친 두 조각의 합이 일정하게
-      }).connect(this.output)
+      }).connect(this.level)
       // 끝난 소리는 목록에서만 뺀다 (정리는 Tone.js가 실시간 재생에서만 한다 — 여기서 dispose하면 음원 녹음 때 소리가 나기 전에 지워진다)
       source.onended = () => this.sources.delete(source)
       this.sources.add(source)
@@ -187,6 +191,7 @@ class LoopedVoice implements Voice {
     this.sources.clear()
     this.buffers?.dispose()
     this.synth?.dispose()
+    this.level.dispose()
     this.output.dispose()
   }
 }

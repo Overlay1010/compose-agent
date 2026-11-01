@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { audioFormats, convertAudio, downloadMidi, downloadTracksZip, saveBlob } from '../api/client'
-import { positionBeats } from '../audio/engine'
+import { invalidate, positionBeats } from '../audio/engine'
+import { SOUND_SETS, currentSet, useSoundSet } from '../audio/soundset'
 import { useShortcutHelp } from '../shortcuts'
 import { silenced, usePlayer } from '../store/player'
 import { timeAgo } from '../time'
@@ -131,6 +132,7 @@ function ExportMenu() {
           <p className="export-note">
             지금 저장된 상태 기준{preview ? ' · 적용 전 미리보기는 들어가지 않아요' : ''} · 드럼 소리 선택은 MIDI에는 안 담기고 음원에는 담겨요
           </p>
+          <SoundSetNote />
         </div>
       )}
     </div>
@@ -184,6 +186,42 @@ function TransportDisplay({ bpm, beatsPerBar }: { bpm: number; beatsPerBar: numb
         <span className="val">{time}</span>
       </span>
     </div>
+  )
+}
+
+/** 음원 내보내기 메뉴: 지금 소리 세트와 라이선스. CC BY-SA 세트면 배포할 때 조건이 붙을 수 있다고 알린다 */
+function SoundSetNote() {
+  useSoundSet((s) => s.id) // 세트를 바꾸면 다시 그린다
+  const set = currentSet()
+  return (
+    <p className={set.shareAlike ? 'export-note warn' : 'export-note'}>
+      음원 악기 소리: {set.name.replace(/ \(.*\)$/, '')} ({set.license})
+      {set.shareAlike && ' · 이 소리로 만든 음원을 배포하면 같은 라이선스(동일 조건 변경 허락) 조건이 붙을 수 있어요. 배포할 음원은 FluidR3로 내보내는 게 안전해요'}
+    </p>
+  )
+}
+
+/** 멜로디 악기 소리 세트 고르기 (이 브라우저에 기억). 바꾸면 멈추고 다음 재생 때 새 소리를 불러온다 */
+function SoundSetPicker() {
+  const { id, choose } = useSoundSet()
+  return (
+    <select
+      className="soundset"
+      value={id}
+      onChange={(e) => {
+        usePlayer.getState().stop()
+        invalidate()
+        choose(e.target.value)
+      }}
+      aria-label="악기 소리 세트"
+      title="멜로디 악기 소리 세트 (드럼은 그대로). 바꾸면 다음 재생 때 새 소리를 불러와요"
+    >
+      {SOUND_SETS.map((s) => (
+        <option key={s.id} value={s.id}>
+          소리 · {s.name}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -278,6 +316,7 @@ export function TopBar() {
         <button className="keys" onClick={() => useShortcutHelp.getState().setOpen(true)} title="단축키 목록 (?)" aria-label="단축키 목록">
           ?
         </button>
+        {project && <SoundSetPicker />}
         {project && (
           <button className="version" onClick={() => setHistoryOpen(true)} title="지금까지 저장된 상태 · 예전으로 되돌리기">
             히스토리
