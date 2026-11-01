@@ -7,7 +7,9 @@
 - 이어 주는 음: 코드의 마지막 음이 짧으면(1박 이하) 다음 근음의 반음 · 온음 위나 아래 중 조성 음계에 드는 음으로 (워킹은 늘)
 - 음역: 근음은 E1 ~ D#2 (4현 베이스가 편한 자리), 5음 · 옥타브 · 코드 음은 그 위로. 워킹은 근음을 바로 앞 음에서 가장 가까운
   옥타브(E1 ~ B2)로 골라 선이 이어지게 한다 (늘 같은 높이면 G2까지 올라갔다가 다음 근음 F1로 한 옥타브 넘게 떨어졌다)
-- 소리: 신스 리드 · 일렉트로닉 킷 · 신스 베이스가 있으면 신스 베이스, 스트링 · 관악기 편성이면 어쿠스틱(콘트라) 베이스, 그 밖은 핑거 베이스
+- 소리: 신스 리드 · 일렉트로닉 킷 · 신스 베이스가 있으면 신스 베이스(옥타브는 신스 베이스 2), 스트링 · 관악기 편성이면
+  어쿠스틱(콘트라) 베이스, 그 밖은 스타일대로 — 근음 핑거 · 근음+5음 피크 · 옥타브 슬랩 · 워킹 콘트라베이스
+  (늘 핑거 베이스 하나라 "베이스 악기가 여러 가지면 좋겠다"는 말을 들었다)
 """
 
 from __future__ import annotations
@@ -42,7 +44,9 @@ BASS_RHYTHMS = [
 RHYTHM_NAMES = ["쿵 - 따 쿵 리듬", "4분음표 리듬", "2분음표 리듬", "당긴 리듬"]  # 결과 요약에 (LLM이 리듬을 짐작해 말하지 않게)
 WALK = ((0, 1), (1, 1), (2, 1), (3, 1))
 
-FINGER, ACOUSTIC_BASS, SYNTH_BASS = 33, 32, 38
+ACOUSTIC_BASS, FINGER, PICK, SLAP, SYNTH_BASS, SYNTH_BASS_2 = 32, 33, 34, 36, 38, 39
+STYLE_SOUNDS = {"root": FINGER, "root_fifth": PICK, "octave": SLAP, "walking": ACOUSTIC_BASS}
+AUTO_SOUNDS = {ACOUSTIC_BASS, FINGER, PICK, SLAP, SYNTH_BASS, SYNTH_BASS_2}  # 생성기가 스스로 고르는 소리
 
 
 @dataclass
@@ -55,14 +59,14 @@ class BassPlan:
     feel: str = ""  # 쓴 리듬 ("킥에 맞춤" · "쿵 - 따 쿵 리듬" …)
 
 
-def bass_program(project: Project) -> int:
+def bass_program(project: Project, style: str = "root") -> int:
     heard = [heard_program(t) for t in project.tracks if not t.is_drum]
     kits = {t.program for t in project.tracks if t.is_drum}
     if any(80 <= p <= 87 or p in (38, 39) for p in heard) or kits & ELECTRONIC_KITS:
-        return SYNTH_BASS
+        return SYNTH_BASS_2 if style == "octave" else SYNTH_BASS
     if any(40 <= p <= 79 for p in heard):
         return ACOUSTIC_BASS
-    return FINGER
+    return STYLE_SOUNDS.get(style, FINGER)
 
 
 def kick_hits(project: Project, start: float, end: float) -> list[float]:
@@ -152,7 +156,7 @@ def bass_notes(
     version: int = 1, progression: list[str] | None = None, bars_per_chord: float = 1.0,
 ) -> tuple[list[Note], BassPlan]:
     """[start, end) 박에 코드대로 베이스. 코드가 없는 구간(N.C.)은 비운다. progression의 모르는 코드 이름은 ValueError."""
-    program = bass_program(project) if program is None else program
+    program = bass_program(project, style) if program is None else program
     bpb = project.beats_per_bar
     chords, end = follow(project, start, end, progression, bars_per_chord)
     if not chords:

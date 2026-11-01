@@ -12,7 +12,7 @@ from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.generate.bass import bass_notes
+from app.generate.bass import AUTO_SOUNDS, bass_notes
 from app.generate.chords import chord_notes
 from app.generate.check import check
 from app.models.project import Note, Project, Track
@@ -175,6 +175,10 @@ def generate_chords(project: Project, args: GenerateChordsArgs) -> ToolResult:
 
 def generate_bassline(project: Project, args: GenerateBasslineArgs) -> ToolResult:
     def make(song: Project, start: float, end: float | None, program: int | None, version: int):
+        # 다시 만들 때 악기 말이 없고 지금 소리가 생성기가 고른 소리면 스타일에 맞춰 다시 고른다 (핑거로 만든 걸 "워킹으로"
+        # 바꾸면 콘트라베이스로). 사용자가 고른 소리(프렛리스 등)는 그대로
+        if args.program is None and program in AUTO_SOUNDS:
+            program = None
         return bass_notes(song, start, end, args.style, program, version, args.progression, args.bars_per_chord)
 
     # 베이스는 지나가는 음이 있어 코드 밖 대신 음계 밖으로 검사한다 (코드 음이면 음계 밖이어도 된다)

@@ -75,6 +75,9 @@ CONVERSATIONS: list[Conversation] = [
     Conversation("N03", "만들기", "waltz_3_4", ("베이스라인 만들어줘", "다른 버전으로 해줘"),
                  (("generate_bassline", {}), ("generate_bassline", {"track_id": "t3", "version": 2})),
                  note="베이스도 같은 트랙을 버전 2(다른 리듬)로"),
+    Conversation("N04", "만들기", "waltz_3_4", ("베이스라인 만들어줘", "슬랩 베이스로 바꿔줘"),
+                 (("generate_bassline", {}), ("set_instrument", {"track_ids": ["t3"], "program": 36})),
+                 note="만든 베이스의 소리만 바꾸기 — 다시 만들지 않고 악기만 (결과는 같은 음 + 슬랩)"),
 ]
 
 assert len({c.id for c in CONVERSATIONS}) == len(CONVERSATIONS)

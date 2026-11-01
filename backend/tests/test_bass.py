@@ -103,6 +103,19 @@ def test_bass_sound_fits_the_band():
     assert bass_program(band(0)) == 33  # 피아노 → 핑거 베이스
     assert bass_program(band(40, 42)) == 32  # 현악 → 어쿠스틱(콘트라) 베이스
     assert bass_program(band(81, kit=25)) == 38  # 신스 → 신스 베이스
+    # 스타일마다 다른 소리: 근음+5음 피크 · 옥타브 슬랩 · 워킹 콘트라베이스, 신스 곡 옥타브는 신스 베이스 2
+    assert [bass_program(band(0), s) for s in ("root_fifth", "octave", "walking")] == [34, 36, 32]
+    assert bass_program(band(81, kit=25), "octave") == 39
+
+
+def test_changing_style_changes_an_auto_sound_but_keeps_a_chosen_one():
+    made, bass = bass_of(keys_only())
+    assert bass.program == 33
+    _, walking = bass_of(made.project, track_id=bass.id, style="walking", version=2)
+    assert walking.program == 32  # 생성기가 고른 핑거 → 워킹엔 콘트라베이스
+    chosen, fretless = bass_of(keys_only(), program=35)
+    _, again = bass_of(chosen.project, track_id=fretless.id, style="walking", version=2)
+    assert again.program == 35  # 사용자가 고른 프렛리스는 그대로
 
 
 def test_no_chords_no_bass():
