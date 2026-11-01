@@ -4,7 +4,7 @@
 - 코드 밖: 그 자리 코드의 구성음이 아님 (패드 · 반주처럼 코드를 그대로 치는 생성기)
 - 음계 밖: 곡 조성의 음계에도, 그 자리 코드에도 없음 (멜로디 · 베이스처럼 지나가는 음이 있는 생성기)
 - 박 어긋남: 격자(16분음표)나 범위 시작에 맞지 않게 시작
-- 음역 밖: 그 악기로 낼 수 없는 높이
+- 음역 밖: 그 악기로 낼 수 없는 높이 (드럼은 GM 타악기 번호 밖)
 - 겹침: 같은 높이 음이 같은 트랙에서 겹쳐 울림
 """
 
@@ -25,6 +25,7 @@ FAMILY_RANGES = [
     (44, 92), (55, 108), (36, 96), (36, 96), (24, 108), (36, 96), (36, 96), (24, 108),
 ]
 PROGRAM_RANGES = {40: (55, 103), 41: (48, 91), 42: (36, 76), 43: (28, 67), 52: (40, 84), 53: (40, 84)}  # 바이올린 · 비올라 · 첼로 · 콘트라베이스 · 합창
+DRUM_RANGE = (35, 81)  # GM 타악기 (어쿠스틱 베이스 드럼 ~ 오픈 트라이앵글)
 
 
 def playable(program: int) -> tuple[int, int]:
@@ -47,17 +48,27 @@ def _chord_at(chords: list[ChordSpan], beat: float) -> ChordSpan | None:
     return next((c for c in chords if c.start - EPS <= beat < c.end - EPS), None)
 
 
+def _on_swing(beat: float, late: float, grid: float) -> bool:
+    """스윙으로 늦춘 뒷박 자리인가: 격자 두 칸 묶음의 두 번째 칸 + late."""
+    k = round((beat - late) / grid)
+    return k % 2 == 1 and abs(beat - (k * grid + late)) < EPS
+
+
 def check(
     notes: list[Note],
     program: int,
     chords: list[ChordSpan] | None = None,
     key: KeyInfo | None = None,
     starts: tuple[float, ...] = (),
+    drums: bool = False,
+    swing: tuple[float, float] | None = None,
 ) -> list[str]:
     """notes(한 트랙에 새로 넣은 음)에서 걸린 것들. chords를 주면 코드 밖 검사, key를 주면 음계 밖 검사 (key만이면 코드 음도 허용).
-    starts: 격자에 안 맞아도 되는 시작 (화면에서 고른 범위의 시작처럼)."""
+    starts: 격자에 안 맞아도 되는 시작 (화면에서 고른 범위의 시작처럼). drums: 드럼 트랙 (음역은 GM 타악기 번호로).
+    swing: (퍼센트, 격자 박) — 스윙으로 늦춘 뒷박 자리도 격자로 본다 (edits.swing과 같은 계산)."""
     problems: list[str] = []
-    low, high = playable(program)
+    low, high = DRUM_RANGE if drums else playable(program)
+    late = (swing[0] / 100 * 2 - 1) * swing[1] if swing else 0.0
     scale = {(key.tonic + i) % 12 for i in SCALES[key.mode]} if key else None
     for n in notes:
         chord = _chord_at(chords, n.start) if chords is not None else None
@@ -66,10 +77,11 @@ def check(
         if scale is not None and n.pitch % 12 not in scale and not (chord and n.pitch % 12 in _tones(chord)):
             problems.append(f"음계 밖 {_where(n)} ({key.name})")
         off = n.start / GRID - round(n.start / GRID)
-        if abs(off) * GRID > EPS and not any(abs(n.start - s) < EPS for s in starts):
+        swung = swing is not None and _on_swing(n.start, late, swing[1])
+        if abs(off) * GRID > EPS and not swung and not any(abs(n.start - s) < EPS for s in starts):
             problems.append(f"박 어긋남 {_where(n)}")
         if not low <= n.pitch <= high:
-            problems.append(f"음역 밖 {_where(n)} (이 악기 {_name(low)}~{_name(high)})")
+            problems.append(f"음역 밖 {_where(n)} ({'GM 타악기' if drums else '이 악기'} {_name(low)}~{_name(high)})")
     by_pitch: dict[int, list[Note]] = {}
     for n in notes:
         by_pitch.setdefault(n.pitch, []).append(n)

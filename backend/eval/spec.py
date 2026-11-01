@@ -53,6 +53,8 @@ class OneOf:
     values: frozenset[Any]
 
     def ok(self, value: Any) -> bool:
+        if isinstance(value, list):  # JSON 배열(마디 범위 [1, 8])은 frozenset에 못 넣어서 튜플로 비교
+            value = tuple(value)
         return value in self.values
 
     def __str__(self) -> str:

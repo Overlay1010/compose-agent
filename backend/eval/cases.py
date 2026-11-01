@@ -1,4 +1,4 @@
-"""정답 있는 명령 98개.
+"""정답 있는 명령 101개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -183,7 +183,9 @@ CASES: list[Case] = [
     case("K04", "트랙", "lofi_groove", "Rhodes 코드에서 베이스 라인 뽑아줘",
          [Call("duplicate_track", {"track_id": "t3", "voice": "bottom", "octaves": Range(-2, -1)})]),
     case("C06", "되묻기 · 정보", "lofi_groove", "새로운 멜로디 하나 만들어줘", note="새 음 작곡은 아직 못 함 → 흉내 내지 말고 안내"),
-    case("C07", "되묻기 · 정보", "lofi_groove", "드럼 패턴 새로 짜줘", note="새 패턴 작곡은 아직 못 함"),
+    case("C07", "만들기", "lofi_groove", "드럼 패턴 새로 짜줘", [Call("generate_drums", {"track_id": "t1", "style": None})],
+         alt=[[Call("generate_drums", {"track_id": None, "style": None})]],
+         note="v0.3부터 드럼을 만든다 (전에는 \"아직 못 함\"이 정답). 있는 드럼을 바꾸는 게 자연스럽지만 새 트랙도 정답"),
     # 화면에서 고른 부분 + "여기 · 이 부분 · 이거"
     case("G01", "고른 부분", "lofi_groove", "여기 한 옥타브 올려줘",
          [Call("shift_octave", {"track_ids": ["t3"], "octaves": 1, "beats": [16, 32]})],
@@ -257,6 +259,12 @@ CASES: list[Case] = [
     case("B15", "만들기", "waltz_3_4", "베이스도 멋있게 깔아줄래?",
          [Call("generate_bassline", {"style": OneOf(frozenset({None, "root"})), "program": None})],
          note="만들 것이 분명하면 \"멋있게\"가 붙어도 되묻지 말고 기본값으로 (직접 써 보고 찾음)"),
+    # 드럼 (스타일 · 밀도 · 필인은 말한 것만, 킷 · 소리 조합은 스타일에 맞춰 생성기가 고른다)
+    case("B16", "만들기", "waltz_3_4", "드럼 깔아줘", [Call("generate_drums", {"style": None, "density": None})]),
+    case("B17", "만들기", "fl_style_loose", "하이햇 촘촘한 하우스 비트 하나 더 만들어줘",
+         [Call("generate_drums", {"style": "house", "density": "high", "track_id": None})]),
+    case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
+         [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
     case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
     case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
@@ -265,4 +273,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 98 and len({c.id for c in CASES}) == 98
+assert len(CASES) == 101 and len({c.id for c in CASES}) == 101

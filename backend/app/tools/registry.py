@@ -36,7 +36,8 @@ from app.tools.mix import SetMixArgs, set_mix
 from app.tools.notes import CopyBarsArgs, DeleteNotesArgs, SetLengthArgs, copy_bars, delete_notes, set_length
 from app.tools.tempo import SetTempoArgs, set_tempo
 from app.tools.generate import (
-    AddTrackArgs, GenerateBasslineArgs, GenerateChordsArgs, add_track, generate_bassline, generate_chords,
+    AddTrackArgs, GenerateBasslineArgs, GenerateChordsArgs, GenerateDrumsArgs, add_track, generate_bassline, generate_chords,
+    generate_drums,
 )
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
@@ -172,6 +173,14 @@ TOOLS: dict[str, Tool] = {
             "\"다른 버전\"은 track_id(만든 트랙)와 version(앞 버전 + 1)으로 같은 트랙을 다시 만든다.",
             GenerateBasslineArgs,
             generate_bassline,
+        ),
+        Tool(
+            "generate_drums",
+            "새 드럼 트랙에 장르 드럼 패턴을 깐다 (로파이 · 붐뱁 · 하우스 · 트랩 · 팝 · 록). 스타일마다 어울리는 킷과 소리 조합"
+            "(808 · 909 · 일렉 · 어쿠스틱을 섞어서)을 고르고, 4마디마다 필인 · 크래시를 넣는다. 결과에 새 트랙 id와 버전이 나온다. "
+            "\"다른 버전\"은 track_id(만든 드럼 트랙)와 version(앞 버전 + 1)으로 — 버전마다 패턴이나 소리 조합이 바뀐다 (무엇이 바뀌었는지는 결과에 나온다).",
+            GenerateDrumsArgs,
+            generate_drums,
         ),
         Tool(
             "add_track",
