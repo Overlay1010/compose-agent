@@ -8,8 +8,9 @@ import pytest
 from app.agent.loop import ToolStep
 from app.midi_io.convert import midi_bytes_to_project
 from app.tools import run_tool
-from eval.cases import CASES
-from eval.spec import ALL, Call, Case, OneOf, Pitches, Range, score
+from app.tools.samples import library
+from eval.cases import CASES, PACK
+from eval.spec import ALL, Call, Case, Has, OneOf, Pitches, Range, score
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import make_samples  # noqa: E402
@@ -28,6 +29,8 @@ def concrete(call: Call) -> dict:
             out[k] = int(mid) if k in ("semitones", "octaves", "program", "velocity", "times", "volume", "volume_offset", "pan", "octaves") else mid
         elif isinstance(v, Pitches):
             out[k] = sorted(v.must)
+        elif isinstance(v, Has):
+            out[k] = v.text
         elif isinstance(v, OneOf):
             out[k] = sorted(v.values, key=lambda x: (x is not None, str(x)))[0]  # None(비워 둠)이 있으면 그것부터
         else:
@@ -46,7 +49,8 @@ def test_every_answer_is_reachable(case: Case):
     steps = []
     for call in case.expect:
         args = concrete(call)
-        result = run_tool(project, call.tool, args)
+        with library(PACK if case.samples else None):
+            result = run_tool(project, call.tool, args)
         assert result.changed_notes > 0 or result.changed_settings, f"{case.id} {call} 은 바뀌는 게 없음"
         project = result.project
         steps.append(ToolStep(name=call.tool, args=args, ok=True, summary="",

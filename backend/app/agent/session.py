@@ -12,6 +12,7 @@ from app.agent.llm import LLM
 from app.agent.loop import AgentResult, OnEvent, run_agent
 from app.models.project import Project
 from app.store.memory import Preview, ProjectStore
+from app.tools.samples import SampleInfo, library
 
 
 def chat_turn(
@@ -21,21 +22,26 @@ def chat_turn(
     llm: LLM,
     on_event: OnEvent | None = None,
     selection: dict | None = None,
+    samples: list[SampleInfo] | None = None,
 ) -> tuple[AgentResult, Preview | None]:
-    """selection: 화면에서 고른 부분 {track_ids, beats, pitches, label} ("여기 한 옥타브 올려줘")."""
-    """명령 하나를 처리하고 (에이전트 결과, 지금 쌓여 있는 미리보기)를 돌려준다."""
+    """명령 하나를 처리하고 (에이전트 결과, 지금 쌓여 있는 미리보기)를 돌려준다.
+
+    selection: 화면에서 고른 부분 {track_ids, beats, pitches, label} ("여기 한 옥타브 올려줘").
+    samples: 사용자 브라우저에 있는 샘플팩 이름표 (내 샘플 도구 · 프롬프트가 쓴다. 소리 파일은 오지 않는다).
+    """
     pending = store.preview(project_id)
     started = time.perf_counter()
-    result = run_agent(
-        store.working_copy(project_id),
-        message,
-        llm,
-        history=store.chat_history(project_id),
-        pending=pending.labels if pending else None,
-        base=store.current(project_id),
-        on_event=on_event,
-        selection=selection,
-    )
+    with library(samples):
+        result = run_agent(
+            store.working_copy(project_id),
+            message,
+            llm,
+            history=store.chat_history(project_id),
+            pending=pending.labels if pending else None,
+            base=store.current(project_id),
+            on_event=on_event,
+            selection=selection,
+        )
     if result.started_over_at is not None:
         # "아니 내려줘"처럼 미리보기를 고친 경우: 쌓인 미리보기를 버리고 이번 결과만 새 미리보기로
         store.cancel_preview(project_id)

@@ -18,7 +18,14 @@ export interface Track {
   pan: number // 좌우 -64(왼쪽) ~ 63(오른쪽), 0 가운데
   /** 드럼만: 레인(음 번호)별로 킷 대신 고른 소리 id. 이 앱에만 저장 (MIDI에는 없음) */
   drum_sounds: Record<string, string>
+  /** 멜로디 트랙만: 악기 대신 쓰는 내 샘플 (소리 파일은 이 브라우저에만, samples/library.ts). 없으면 program 악기 */
+  sample?: SampleRef | null
   notes: Note[]
+}
+
+export interface SampleRef {
+  id: string
+  name: string
 }
 
 export interface Project {

@@ -2,6 +2,8 @@ import * as Tone from 'tone'
 import type { Track } from '../api/types'
 import { DRUM_DEFAULT, GM_NAMES, drumSample, gmProgramOf, kitOf } from './catalog'
 import { fontUrl, levelGain } from './soundset'
+import { sampleBuffer, sampleMeta } from '../samples/library'
+import type { SampleMeta } from '../samples/analyze'
 
 // 트랙 하나의 소리를 내는 단위.
 // 기본은 실제 악기 샘플(멜로디: 고른 소리 세트 — 기본 FluidR3 GM, audio/soundset.ts · 드럼: Sonic Pi 샘플)이고,
@@ -22,6 +24,12 @@ export interface Voice {
 
 export function createVoice(track: Track): Voice {
   if (track.is_drum) return new SampledDrumVoice(track)
+  const mine = track.sample ? sampleMeta(track.sample.id) : undefined
+  if (mine && mine.root !== null) return new UserSampleVoice(track, mine)
+  return gmVoice(track) // 내 샘플이 이 브라우저에 없으면(다른 브라우저 · 지운 샘플) 트랙 악기로
+}
+
+function gmVoice(track: Track): Voice {
   return sustains(gmProgramOf(track)) ? new LoopedVoice(track) : new SampledVoice(track)
 }
 
@@ -191,6 +199,68 @@ class LoopedVoice implements Voice {
     this.sources.clear()
     this.buffers?.dispose()
     this.synth?.dispose()
+    this.level.dispose()
+    this.output.dispose()
+  }
+}
+
+// ---------- 내 샘플 (사용자가 넣은 원샷, samples/library.ts) ----------
+
+// 녹음된 음(root) 하나를 재생 속도로 높이고 낮춰 낸다. 속도가 바뀌면 길이도 바뀐다 (한 옥타브 위 = 절반 길이).
+// 음이 끝나면 짧게 줄이고, 원샷이 음보다 짧으면 녹음 끝에서 저절로 끝난다 (되풀이하지 않음 — 원샷에는 되풀이할 구간 정보가 없다).
+const SAMPLE_RELEASE = 0.12 // 초
+
+class UserSampleVoice implements Voice {
+  output = new Tone.Gain()
+  ready: Promise<void>
+  fallback = false
+  private buffer: Tone.ToneAudioBuffer | null = null
+  private inner: Voice | null = null
+  private sources = new Set<Tone.ToneBufferSource>()
+  private level: Tone.Gain
+  private root: number
+
+  constructor(track: Track, meta: SampleMeta) {
+    this.root = meta.root ?? 60
+    this.level = new Tone.Gain(meta.gain).connect(this.output) // 샘플끼리 크기 맞춤 (분석할 때 잰 값)
+    this.ready = sampleBuffer(meta.id).then((raw) => {
+      if (raw) {
+        this.buffer = new Tone.ToneAudioBuffer(raw)
+        return
+      }
+      // 이름표는 있는데 파일을 못 읽음 → 트랙 악기로
+      this.inner = gmVoice(track)
+      this.inner.output.connect(this.output)
+      return this.inner.ready.then(() => {
+        this.fallback = this.inner?.fallback ?? false
+      })
+    })
+  }
+
+  play(pitch: number, duration: string, time: number, velocity: number) {
+    if (this.inner) return this.inner.play(pitch, duration, time, velocity)
+    if (!this.buffer) return
+    const source = new Tone.ToneBufferSource({
+      context: this.output.context, // 음원 내보내기(Tone.Offline)에서도 같은 오디오 공간에 (드럼과 같은 이유)
+      url: this.buffer,
+      playbackRate: 2 ** ((pitch - this.root) / 12),
+      fadeOut: SAMPLE_RELEASE,
+    }).connect(this.level)
+    source.onended = () => this.sources.delete(source)
+    this.sources.add(source)
+    source.start(time, 0, undefined, velocity / 127)
+    source.stop(time + this.output.toSeconds(duration))
+  }
+
+  releaseAll() {
+    for (const s of this.sources) s.stop()
+    this.inner?.releaseAll()
+  }
+
+  dispose() {
+    for (const s of this.sources) s.dispose()
+    this.sources.clear()
+    this.inner?.dispose()
     this.level.dispose()
     this.output.dispose()
   }

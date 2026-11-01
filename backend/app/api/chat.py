@@ -15,6 +15,7 @@ from app.agent import LLM, LLMError, ToolStep, get_llm, session
 from app.models.project import Project
 from app.agent.loop import AgentResult
 from app.harmony import analyze
+from app.tools.samples import SampleInfo
 from app.store.memory import NoPreview, PreviewConflict, Preview, ProjectNotFound, store
 
 router = APIRouter(prefix="/projects", tags=["chat"])
@@ -32,6 +33,7 @@ class SelectionIn(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
     selection: SelectionIn | None = None
+    samples: list[SampleInfo] = Field(default_factory=list, max_length=3000, description="브라우저에 있는 내 샘플팩 이름표")
 
 
 class ChatResponse(BaseModel):
@@ -73,7 +75,7 @@ def _response(project_id: str, result: AgentResult, pending: Preview | None) -> 
 def chat(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm)) -> ChatResponse:
     _check(project_id)
     selection = body.selection.model_dump() if body.selection else None
-    result, pending = session.chat_turn(store, project_id, body.message, llm, selection=selection)
+    result, pending = session.chat_turn(store, project_id, body.message, llm, selection=selection, samples=body.samples)
     return _response(project_id, result, pending)
 
 
@@ -90,7 +92,8 @@ def chat_stream(project_id: str, body: ChatRequest, llm: LLM = Depends(get_llm))
         try:
             selection = body.selection.model_dump() if body.selection else None
             result, pending = session.chat_turn(
-                store, project_id, body.message, llm, on_event=lambda k, d: events.put((k, d)), selection=selection
+                store, project_id, body.message, llm, on_event=lambda k, d: events.put((k, d)), selection=selection,
+                samples=body.samples,
             )
             events.put(("done", _response(project_id, result, pending).model_dump(mode="json")))
         except LLMError as e:

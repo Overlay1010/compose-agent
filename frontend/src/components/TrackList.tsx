@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Track } from '../api/types'
 import * as player from '../audio/engine'
 import { changedTrackIds, panLabel } from '../diff'
@@ -8,11 +8,15 @@ import { useChat } from '../store/chat'
 import { GM_GROUPS, soundName, programName, trackColor } from '../theme'
 import { DRUM_KITS, gmProgramOf } from '../audio/catalog'
 import { Meter } from './Meter'
+import { recommendSamples, type SamplePick } from '../api/client'
+import { sampleInfos, sampleMeta, useSamples } from '../samples/library'
+import { useSamplePack } from '../store/samplePack'
 
 export function TrackList() {
-  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument } = useProject()
+  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument, setSample } = useProject()
   const { sending, note } = useChat()
   const { muted, solo, toggleMute, toggleSolo, playing } = usePlayer()
+  const picks = useSamplePicks()
   if (!project) return null
   const changed = changedTrackIds(project, preview)
   const off = silenced(project, muted, solo)
@@ -23,6 +27,15 @@ export function TrackList() {
 
   const changeInstrument = async (trackId: string, program: number) => {
     const changed = await setInstrument(trackId, program)
+    if (changed?.note) note(changed.note, true)
+  }
+  // 악기 메뉴 값: GM 번호 또는 "sample:<id>" (내 샘플)
+  const changeSound = async (trackId: string, value: string) => {
+    if (value === 'pack') return useSamplePack.getState().setOpen(true)
+    if (!value.startsWith('sample:')) return changeInstrument(trackId, Number(value))
+    const info = sampleInfos().find((s) => s.id === value.slice(7))
+    if (!info) return
+    const changed = await setSample(trackId, info)
     if (changed?.note) note(changed.note, true)
   }
 
@@ -102,13 +115,18 @@ export function TrackList() {
               </select>
             ) : (
               <select
-                className="instrument"
-                value={gmProgramOf(t)}
+                className={t.sample && !sampleMeta(t.sample.id) ? 'instrument missing' : 'instrument'}
+                value={t.sample ? `sample:${t.sample.id}` : gmProgramOf(t)}
                 disabled={busy || sending}
-                onChange={(e) => void changeInstrument(t.id, Number(e.target.value))}
+                onChange={(e) => void changeSound(t.id, e.target.value)}
                 aria-label={`${t.name} 악기`}
-                title="악기 바꾸기 (바로 저장돼요 · 히스토리에서 되돌리기 가능)"
+                title={
+                  t.sample && !sampleMeta(t.sample.id)
+                    ? `내 샘플 '${t.sample.name}'이 이 브라우저에 없어서 ${programName(gmProgramOf(t))} 소리로 들려요`
+                    : '악기 바꾸기 (바로 저장돼요 · 히스토리에서 되돌리기 가능)'
+                }
               >
+                <SampleOptions track={t} picks={picks[t.id] ?? []} />
                 {GM_GROUPS.map((g) => (
                   <optgroup key={g.family} label={g.family}>
                     {g.programs.map((p) => (
@@ -125,6 +143,57 @@ export function TrackList() {
         ))}
       </ul>
     </nav>
+  )
+}
+
+/** 트랙마다 어울리는 내 샘플 (서버가 점수로 고른 순서). 샘플팩이나 곡이 바뀌면 다시 묻는다 */
+function useSamplePicks(): Record<string, SamplePick[]> {
+  const samples = useSamples((s) => s.samples)
+  const project = useProject((s) => s.project)
+  const [picks, setPicks] = useState<Record<string, SamplePick[]>>({})
+  const key = project ? `${project.id}:${project.version}` : ''
+  useEffect(() => {
+    if (!project || !samples.length) {
+      setPicks({})
+      return
+    }
+    let live = true
+    recommendSamples(project.id, sampleInfos())
+      .then((r) => live && setPicks(r))
+      .catch(() => live && setPicks({}))
+    return () => {
+      live = false
+    }
+    // 곡 내용이 같으면(버전이 같으면) 다시 묻지 않는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, samples])
+  return picks
+}
+
+/** 악기 메뉴 맨 위: 지금 쓰는 내 샘플 · 어울리는 내 샘플 · 샘플팩 열기 */
+function SampleOptions({ track, picks }: { track: Track; picks: SamplePick[] }) {
+  const count = useSamples((s) => s.samples.length)
+  const current = track.sample
+  const listed = picks.filter((p) => p.id !== current?.id)
+  return (
+    <>
+      {current && (
+        <option value={`sample:${current.id}`}>
+          내 샘플 · {current.name}
+          {sampleMeta(current.id) ? '' : ' (이 브라우저에 없음)'}
+        </option>
+      )}
+      {listed.length > 0 && (
+        <optgroup label="내 샘플 (어울리는 순)">
+          {listed.map((p) => (
+            <option key={p.id} value={`sample:${p.id}`} title={p.reason}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {!count && <option value="pack">내 샘플 넣기…</option>}
+    </>
   )
 }
 

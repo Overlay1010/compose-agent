@@ -14,7 +14,8 @@ from app.midi_io.convert import MidiParseError, midi_bytes_to_project, project_t
 from app.models.project import Note, Project, ProjectSummary, Track
 from app.agent.prompt import DRUM_NAMES, note_name
 from app.agent.session import note
-from app.tools.instrument import display_name, kit_name
+from app.tools.instrument import display_name, heard_program, kit_name
+from app.tools.samples import SampleInfo, library, recommend
 from app.tools.drums import ROLE_NAMES, ROLES, sound_name
 from app.tools.mix import pan_text
 from app.store.memory import ProjectNotFound, short, store
@@ -193,6 +194,10 @@ def _change_text(before: Project, after: Project, track_id: str) -> str:
         avg = lambda t: round(sum(n.velocity for n in t.notes if n.pitch == pitch) / max(1, sum(n.pitch == pitch for n in t.notes)))  # noqa: E731
         name = DRUM_NAMES.get(pitch, note_name(pitch)) if new.is_drum else note_name(pitch)
         return f"{new.name} {name} 세기 {avg(old)} → {avg(new)}"
+    if old.sample != new.sample and (new.sample or old.program == new.program):
+        if new.sample:
+            return f"{new.name} 소리를 내 샘플 '{new.sample.name}'(으)로 바꿨어요"
+        return f"{new.name}에서 내 샘플을 빼고 {display_name(heard_program(new))} 소리로 돌렸어요"
     if old.program != new.program or old.program_set != new.program_set:
         if new.is_drum:
             return f"{new.name} 드럼 킷을 {kit_name(new.program)}(으)로 바꿨어요"
@@ -234,6 +239,38 @@ def set_track_mix(project_id: str, track_id: str, body: MixIn) -> TrackChangeOut
     if body.volume is None and body.pan is None:
         raise _error(400, "invalid_args", "volume이나 pan 중 하나는 있어야 해요.")
     return _change_track(project_id, "set_mix", {"track_ids": [track_id], **body.model_dump(exclude_none=True)})
+
+
+class SampleIn(BaseModel):
+    sample: SampleInfo | None = Field(description="고른 내 샘플의 이름표. None이면 샘플을 빼고 원래 악기로")
+
+
+@router.post("/{project_id}/tracks/{track_id}/sample", response_model=TrackChangeOut)
+def set_track_sample(project_id: str, track_id: str, body: SampleIn) -> TrackChangeOut:
+    """트랙 소리를 내 샘플로 (소리 파일은 브라우저에만 있고 여기엔 이름표만 저장). 악기 바꾸기처럼 바로 새 버전."""
+    with library([body.sample] if body.sample else []):
+        return _change_track(project_id, "use_sample", {"track_ids": [track_id], "sample": body.sample.id if body.sample else "none"})
+
+
+class RecommendIn(BaseModel):
+    samples: list[SampleInfo] = Field(max_length=3000)
+
+
+class PickOut(BaseModel):
+    id: str
+    name: str
+    reason: str
+
+
+@router.post("/{project_id}/samples/recommend", response_model=dict[str, list[PickOut]])
+def recommend_samples(project_id: str, body: RecommendIn) -> dict[str, list[PickOut]]:
+    """트랙마다 어울리는 내 샘플 (좋은 순 최대 8개). 트랙 악기 메뉴가 쓴다. 드럼 트랙은 없음."""
+    project = _get(project_id)
+    return {
+        t.id: [PickOut(id=p.sample.id, name=p.sample.name, reason=p.reason) for p in recommend(t, project.tempo, body.samples)[:8]]
+        for t in project.tracks
+        if not t.is_drum
+    }
 
 
 class NotesIn(BaseModel):

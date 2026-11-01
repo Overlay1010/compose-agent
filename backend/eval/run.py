@@ -28,7 +28,8 @@ from app.midi_io.convert import midi_bytes_to_project
 from app.models.project import Project
 from app.store.memory import NoPreview, PreviewConflict, ProjectStore
 from app.tools import run_tool
-from eval.cases import CASES
+from app.tools.samples import library
+from eval.cases import CASES, PACK
 from eval.conversations import APPLY, CANCEL, CONVERSATIONS, Conversation
 from eval.spec import Case, score
 
@@ -43,7 +44,8 @@ def run_case(llm: LLM, case: Case) -> dict:
     melodic = {t.id for t in project.tracks if not t.is_drum}
     started = time.perf_counter()
     try:
-        r = run_agent(project, case.command, llm, base=project, selection=case.selection)  # 서버와 같게 start_over를 준다
+        with library(PACK if case.samples else None):  # 서버처럼 브라우저가 보낸 샘플팩 이름표를 쓴다
+            r = run_agent(project, case.command, llm, base=project, selection=case.selection)  # 서버와 같게 start_over를 준다
     except LLMError as e:
         return {"id": case.id, "category": case.category, "command": case.command, "passed": False,
                 "tools_ok": False, "reason": f"LLM 오류: {e}", "seconds": time.perf_counter() - started}

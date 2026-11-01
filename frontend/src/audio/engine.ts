@@ -1,4 +1,5 @@
 import type { Project } from '../api/types'
+import { useSamples } from '../samples/library'
 
 // 재생기(audio/player.ts)를 처음 재생할 때 불러오는 연결부.
 // player.ts는 Tone.js(소리 라이브러리)를 쓰는데 크기가 커서, 첫 화면에서는 불러오지 않는다.
@@ -24,6 +25,11 @@ async function load(): Promise<Player> {
 export async function play(project: Project, muted: Record<string, boolean>, fromBeats = 0): Promise<string[]> {
   return (await load()).play(project, muted, fromBeats)
 }
+
+// 내 샘플을 넣거나 고치면(기준음 · 종류) 다음 재생에 소리를 새로 정한다
+useSamples.subscribe((s, prev) => {
+  if (s.samples !== prev.samples) mod?.invalidate()
+})
 
 export const stop = () => mod?.stop()
 /** 소리 세트를 바꿨을 때: 멈추고 다음 재생에 새 소리를 불러온다 */

@@ -61,6 +61,19 @@ class OneOf:
         return "|".join(sorted(map(str, self.values)))
 
 
+@dataclass(frozen=True)
+class Has:
+    """글자가 들어 있으면 정답 (대소문자 무시). 예: 샘플 이름 일부 "glass" — "Glass Pad" · "glass pad c5" 모두."""
+
+    text: str
+
+    def ok(self, value: Any) -> bool:
+        return isinstance(value, str) and self.text.lower() in value.lower()
+
+    def __str__(self) -> str:
+        return f"'{self.text}' 포함"
+
+
 ALL = "ALL"  # track_ids를 비우거나(전체), 해당 트랙을 전부 고른 경우
 
 
@@ -81,7 +94,7 @@ class Call:
                         return False
                 elif got is None or set(got) != set(want):
                     return False
-            elif isinstance(want, (Range, Pitches, OneOf)):
+            elif isinstance(want, (Range, Pitches, OneOf, Has)):
                 if not want.ok(got):
                     return False
             elif key in ("bars", "beats"):
@@ -120,6 +133,7 @@ class Case:
     reply_has: tuple[str | tuple[str, ...], ...] = ()  # 답에 들어 있어야 할 말 (묶음이면 그중 하나, 대소문자 무시)
     reply_lacks: tuple[str, ...] = ()  # 답에 있으면 안 되는 말 (예: 조성을 "C 장조"로 바꿔 말함)
     english: bool = False  # 영어로 물었으니 답에 한글이 없어야 함 (화면 카드 · 버튼 이름은 그대로 써도 됨)
+    samples: bool = False  # 사용자가 샘플팩을 넣어 둔 상태로 묻는다 (eval/cases.py PACK)
 
     @property
     def expects_no_edit(self) -> bool:

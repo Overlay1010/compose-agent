@@ -1,6 +1,7 @@
 import * as Tone from 'tone'
 import type { Project } from '../api/types'
 import { createVoice } from './instruments'
+import { useSamples } from '../samples/library'
 
 // 음원 내보내기: 재생과 같은 악기 · 볼륨 · 팬 · 효과로 곡을 오프라인(실시간보다 빠르게)으로 녹음한다.
 // 결과는 WAV. 다른 형식(MP3 등)은 이 WAV를 서버에서 ffmpeg로 바꾼다 (api/client.ts convertAudio).
@@ -16,6 +17,7 @@ export async function renderMix(project: Project, silenced: Record<string, boole
   if (!tracks.length) throw new Error('들리는 트랙이 없어요. 음소거 · 솔로를 확인해 주세요.')
   const endBeats = Math.max(...tracks.flatMap((t) => t.notes.map((n) => n.start + n.duration)))
   const seconds = (endBeats * 60) / project.tempo + TAIL_SECONDS
+  await useSamples.getState().load()
 
   const rendered = await Tone.Offline(async ({ transport }) => {
     transport.bpm.value = project.tempo

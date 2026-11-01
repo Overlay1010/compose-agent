@@ -47,11 +47,12 @@ export async function chatStream(
   message: string,
   onEvent: (e: StreamEvent) => void,
   selection?: { track_ids: string[] | null; beats: [number, number]; pitches: number[] | null; label: string } | null,
+  samples: SampleInfo[] = [],
 ): Promise<ChatResponse> {
   const res = await fetch(`${BASE}/projects/${projectId}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, selection: selection ?? null }),
+    body: JSON.stringify({ message, selection: selection ?? null, samples }),
   })
   if (!res.ok || !res.body) return parse<ChatResponse>(res)
 
@@ -124,6 +125,45 @@ export async function setInstrument(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ program }),
+    }),
+  )
+}
+
+/** 내 샘플 이름표 (backend app/tools/samples.py SampleInfo). 소리 파일은 보내지 않는다 */
+export interface SampleInfo {
+  id: string
+  name: string
+  kind: string
+  root: number | null
+  length: number
+  sustained: boolean
+  brightness: number
+}
+
+/** 화면에서 트랙 소리를 내 샘플로 (null이면 샘플을 빼고 원래 악기로). 악기 바꾸기와 같이 바로 새 버전 */
+export async function setSample(projectId: string, trackId: string, sample: SampleInfo | null): Promise<TrackChange> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}/sample`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sample }),
+    }),
+  )
+}
+
+export interface SamplePick {
+  id: string
+  name: string
+  reason: string
+}
+
+/** 트랙마다 어울리는 내 샘플 (좋은 순). 드럼 트랙은 없음 */
+export async function recommendSamples(projectId: string, samples: SampleInfo[]): Promise<Record<string, SamplePick[]>> {
+  return parse(
+    await fetch(`${BASE}/projects/${projectId}/samples/recommend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ samples }),
     }),
   )
 }

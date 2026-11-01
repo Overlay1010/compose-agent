@@ -6,6 +6,8 @@ import { useShortcutHelp } from '../shortcuts'
 import { silenced, usePlayer } from '../store/player'
 import { timeAgo } from '../time'
 import { useProject } from '../store/project'
+import { useSamples } from '../samples/library'
+import { useSamplePack } from '../store/samplePack'
 
 function PlayIcon() {
   return (
@@ -225,6 +227,16 @@ function SoundSetPicker() {
   )
 }
 
+/** 내 샘플팩 창 열기 (넣은 샘플 수) */
+function SamplePackButton() {
+  const count = useSamples((s) => s.samples.length)
+  return (
+    <button className="version" onClick={() => useSamplePack.getState().setOpen(true)} title="내 원샷 샘플을 넣어 악기로 쓰기 (이 브라우저에만 저장)">
+      내 샘플{count ? ` ${count}` : ''}
+    </button>
+  )
+}
+
 export function TopBar() {
   const { project, preview, hearPreview, loading, upload, setHistoryOpen } = useProject()
   // 지금 상태가 저장된 시각 ("저장됨 · 3분 전"). 시간이 흐르게 30초마다 다시 그린다
@@ -317,6 +329,7 @@ export function TopBar() {
           ?
         </button>
         {project && <SoundSetPicker />}
+        <SamplePackButton />
         {project && (
           <button className="version" onClick={() => setHistoryOpen(true)} title="지금까지 저장된 상태 · 예전으로 되돌리기">
             히스토리

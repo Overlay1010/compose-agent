@@ -4,6 +4,7 @@ import type { LogEntry, ToolStep } from '../api/types'
 import { changedTrackIds } from '../diff'
 import { selectionLabel } from '../selection'
 import { useProject } from './project'
+import { sampleInfos } from '../samples/library'
 
 export type LiveStep = ToolStep & { running?: boolean }
 
@@ -60,6 +61,7 @@ const TOOL_LABELS: Record<string, string> = {
   generate_chords: '코드 깔기',
   generate_bassline: '베이스 만들기',
   generate_drums: '드럼 만들기',
+  use_sample: '내 샘플로 바꾸기',
   add_track: '트랙 추가',
   start_over: '미리보기 버리고 다시 시작',
 }
@@ -106,7 +108,7 @@ export const useChat = create<ChatState>((set, get) => ({
             return { ...m, steps }
           })
         }
-      }, sent)
+      }, sent, sampleInfos())
       const secs = ((performance.now() - startedAt) / 1000).toFixed(1)
       update(() => ({
         id: liveId,

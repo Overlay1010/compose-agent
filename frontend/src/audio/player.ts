@@ -1,6 +1,7 @@
 import * as Tone from 'tone'
 import type { Project } from '../api/types'
 import { createVoice, type Voice } from './instruments'
+import { useSamples } from '../samples/library'
 
 // Project를 Tone.js Transport에 올려 재생한다.
 // 시간은 백엔드처럼 박 단위로 다루고, Transport의 틱(1박 = PPQ틱)으로 바꿔 예약한다.
@@ -94,6 +95,8 @@ function load(project: Project, muted: Record<string, boolean>) {
 export async function play(project: Project, muted: Record<string, boolean>, fromBeats = 0): Promise<string[]> {
   const request = ++playRequest
   await Tone.start() // 브라우저는 사용자가 클릭한 뒤에만 소리를 허용한다
+  await useSamples.getState().load() // 내 샘플 이름표를 읽은 뒤에 트랙 소리를 정한다
+  if (request !== playRequest) return []
   if (project !== loaded) load(project, muted)
   await Promise.all([...channels.values()].map((c) => c.voice.ready))
   if (request !== playRequest) return [] // 기다리는 사이 정지했거나 다른 파일을 열었음
@@ -101,7 +104,7 @@ export async function play(project: Project, muted: Record<string, boolean>, fro
   return [...channels.values()].filter((c) => c.voice.fallback).map((c) => c.name)
 }
 
-/** 다음 재생 때 악기 소리를 새로 불러오게 한다 (소리 세트를 바꿨을 때) */
+/** 다음 재생 때 악기 소리를 새로 불러오게 한다 (소리 세트 · 내 샘플을 바꿨을 때) */
 export function invalidate() {
   stop()
   loaded = null

@@ -39,6 +39,7 @@ from app.tools.generate import (
     AddTrackArgs, GenerateBasslineArgs, GenerateChordsArgs, GenerateDrumsArgs, add_track, generate_bassline, generate_chords,
     generate_drums,
 )
+from app.tools.samples import UseSampleArgs, use_sample
 from app.tools.tracks import DuplicateTrackArgs, duplicate_track
 
 TOOLS: dict[str, Tool] = {
@@ -113,6 +114,13 @@ TOOLS: dict[str, Tool] = {
             "트랙의 악기(General MIDI 악기 번호)를 바꾼다. 음은 그대로고 소리만 달라진다. 드럼 트랙은 건너뛴다.",
             SetInstrumentArgs,
             set_instrument,
+        ),
+        Tool(
+            "use_sample",
+            "트랙 소리를 사용자가 넣은 샘플팩의 원샷(내 샘플)으로 바꾼다. 음은 그대로. sample을 비우면 트랙 역할(베이스 · 패드 · 건반 · 플럭 · 멜로디)과 "
+            "음역에 어울리는 샘플을 골라 이유 · 다른 후보와 함께 알려 준다. \"내 샘플 · 샘플팩 · 내 소리로\"일 때 쓴다 (GM 악기는 set_instrument).",
+            UseSampleArgs,
+            use_sample,
         ),
         Tool(
             "delete_notes",

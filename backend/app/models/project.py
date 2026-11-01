@@ -18,6 +18,13 @@ class Note(BaseModel):
     velocity: int = Field(default=80, ge=1, le=127)
 
 
+class SampleRef(BaseModel):
+    """사용자가 넣은 샘플(원샷) 하나. 소리 파일은 그 사람 브라우저에만 있고, 여기에는 이름표만 남긴다."""
+
+    id: str = Field(min_length=1, max_length=64, description="파일 내용으로 만든 id (같은 파일이면 같은 id)")
+    name: str = Field(max_length=120, description="파일 이름 (확장자 뺀 것)")
+
+
 class Track(BaseModel):
     id: str
     name: str
@@ -31,6 +38,10 @@ class Track(BaseModel):
     drum_sounds: dict[int, str] = Field(
         default_factory=dict,
         description="드럼만: 레인(음 번호)별로 킷 대신 고른 소리 id (app/tools/drums.py). MIDI에는 담기지 않는다",
+    )
+    sample: SampleRef | None = Field(
+        default=None,
+        description="멜로디 트랙만: 악기 대신 쓰는 내 샘플. 샘플이 없는 곳(다른 브라우저 · MIDI 내보내기)에서는 program 악기로 들린다",
     )
     notes: list[Note] = Field(default_factory=list)
 
@@ -73,6 +84,7 @@ class TrackSummary(BaseModel):
     is_drum: bool
     note_count: int
     pitch_range: tuple[int, int] | None
+    sample: str | None = None
 
 
 class ProjectSummary(BaseModel):
@@ -104,6 +116,7 @@ class ProjectSummary(BaseModel):
                     is_drum=t.is_drum,
                     note_count=len(t.notes),
                     pitch_range=t.pitch_range,
+                    sample=t.sample.name if t.sample else None,
                 )
                 for t in p.tracks
             ],

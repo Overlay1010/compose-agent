@@ -134,11 +134,13 @@ def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
                 # 킷을 바꾸면 레인별로 따로 고른 소리도 새 킷 소리로 돌아간다 (DAW 드럼 킷과 같게)
                 t = t.model_copy(update={"program": args.program, "program_set": True, "drum_sounds": {}})
         elif t.id in args.track_ids and not t.is_drum:
-            if t.program == args.program and t.program_set:
+            if t.program == args.program and t.program_set and t.sample is None:
                 same.append(t.name)
             else:
-                changed.append(f"{t.name}({GM_NAMES[t.program] if t.program_set or t.program else '지정 안 됨'})")
-                t = t.model_copy(update={"program": args.program, "program_set": True})
+                was = f"내 샘플 '{t.sample.name}'" if t.sample else GM_NAMES[t.program] if t.program_set or t.program else "지정 안 됨"
+                changed.append(f"{t.name}({was})")
+                # GM 악기를 고르면 내 샘플은 뺀다 (샘플이 있으면 악기 번호보다 샘플이 들리므로)
+                t = t.model_copy(update={"program": args.program, "program_set": True, "sample": None})
         tracks.append(t)
 
     if not changed and not kits_changed:

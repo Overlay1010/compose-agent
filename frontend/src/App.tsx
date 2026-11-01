@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ChatPanel } from './components/ChatPanel'
 import { PianoRoll } from './components/PianoRoll'
 import { ShortcutHelp } from './components/ShortcutHelp'
+import { SamplePack } from './components/SamplePack'
+import { useSamplePack } from './store/samplePack'
 import { TopBar } from './components/TopBar'
 import { TrackList } from './components/TrackList'
 import { VersionPanel } from './components/VersionPanel'
@@ -9,6 +11,7 @@ import { reopen } from './store/chat'
 import { usePlayer } from './store/player'
 import { useProject } from './store/project'
 import { handleShortcut } from './shortcuts'
+import { useSamples } from './samples/library'
 
 const isMidi = (f: File) => /\.midi?$/i.test(f.name)
 
@@ -29,6 +32,11 @@ export default function App() {
     return () => window.removeEventListener('hashchange', openFromHash)
   }, [])
 
+  // 이 브라우저에 넣어 둔 내 샘플 이름표 (트랙 메뉴 추천 · 채팅 · 재생이 쓴다)
+  useEffect(() => {
+    void useSamples.getState().load()
+  }, [])
+
   // 단축키 (shortcuts.ts). 글자를 입력하는 칸에서는 무시한다.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -43,7 +51,7 @@ export default function App() {
       className="app"
       // 창 어디에든 .mid를 끌어다 놓으면 연다
       onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes('Files')) return
+        if (!e.dataTransfer.types.includes('Files') || useSamplePack.getState().open) return // 샘플팩 창은 따로 받는다
         e.preventDefault()
         setDragging(true)
       }}
@@ -53,9 +61,11 @@ export default function App() {
       onDrop={(e) => {
         e.preventDefault()
         setDragging(false)
+        if (useSamplePack.getState().open) return
         const file = [...e.dataTransfer.files].find(isMidi)
         if (file) void useProject.getState().upload(file)
-        else if (e.dataTransfer.files.length) useProject.setState({ error: '.mid 또는 .midi 파일만 열 수 있어요.' })
+        else if (e.dataTransfer.files.length)
+          useProject.setState({ error: ".mid 또는 .midi 파일만 열 수 있어요. 샘플(WAV)은 위쪽 '내 샘플' 버튼에서 넣어요." })
       }}
     >
       <TopBar />
@@ -73,6 +83,7 @@ export default function App() {
       </main>
       <VersionPanel />
       <ShortcutHelp />
+      <SamplePack />
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
           <span>여기에 놓으면 열어요</span>

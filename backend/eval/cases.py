@@ -1,4 +1,4 @@
-"""정답 있는 명령 102개.
+"""정답 있는 명령 108개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from eval.spec import ALL, Call, Case, OneOf, Pitches, Range
+from app.tools.samples import SampleInfo
+from eval.spec import ALL, Call, Case, Has, OneOf, Pitches, Range
 
 HATS = Pitches(frozenset({42, 44, 46}), frozenset({42}))
 SOFTER = Range(0.5, 0.85)  # "좀 약하게"
@@ -38,14 +39,31 @@ def octave(track: str, n: int, **extra) -> Answer:
 
 
 def case(id, category, sample, command, spec: list[Call] | Answer = (), alt=(), note="", selection=None, reads=(), reply_has=(),
-         reply_lacks=(), english=False) -> Case:
+         reply_lacks=(), english=False, samples=False) -> Case:
     """spec은 정답 호출 목록(list)이나, velocity() · octave()가 만든 (정답, 다른 정답들) 묶음(tuple)."""
     if isinstance(spec, tuple) and spec:
         spec, alt = spec
-    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection, tuple(reads), tuple(reply_has), tuple(reply_lacks), english)
+    return Case(id, category, sample, command, tuple(spec), tuple(alt), note, selection, tuple(reads), tuple(reply_has),
+                tuple(reply_lacks), english, samples)
+
+
+def _pack(name: str, kind: str, root: int | None, length: float, sustained: bool = False, brightness: float = 0.5) -> SampleInfo:
+    return SampleInfo(id=name.lower().replace(" ", "-"), name=name, kind=kind, root=root, length=length, sustained=sustained,
+                      brightness=brightness)
+
+
+# samples=True인 명령에서 사용자 브라우저에 있다고 치는 샘플팩 (원샷 이름표만)
+PACK = [
+    _pack("Dark 808 C1", "bass", 24, 2.5, brightness=0.1), _pack("Sub Bass F2", "bass", 41, 1.5, brightness=0.2),
+    _pack("Warm Pad C3", "pad", 48, 6, True, 0.3), _pack("Glass Pad C5", "pad", 72, 6, True, 0.9),
+    _pack("Dusty Keys C4", "keys", 60, 2.0, brightness=0.25), _pack("Bright Keys C4", "keys", 60, 2.0, brightness=0.85),
+    _pack("Pluck E4", "pluck", 64, 0.6, brightness=0.6), _pack("Bell A5", "bell", 81, 3.0, brightness=0.9),
+    _pack("Keys Chord Cmin", "chord", 60, 2.0), _pack("Melody Loop 140 Am", "loop", 57, 6.9), _pack("Kick 01", "drum", None, 0.4),
+]
 
 
 NO_KO_KEY = ("장조", "단조")
+PITCH_CLAIMS = ("음높이가", "음 높이가", "높게 들", "낮게 들")  # 샘플로 바꿔도 음은 트랙 그대로 (녹음된 음은 옮겨 연주할 뿐)
 TRACK_IDS = ("t1", "t2", "t3", "t4", "t5")  # 답에서 트랙은 이름으로
 V_HATS = velocity("t1", SOFTER, SOFTER_OFFSET, pitches=HATS)
 O_LEAD_DOWN = octave("t5", -1)
@@ -266,6 +284,19 @@ CASES: list[Case] = [
     case("B19", "만들기", "waltz_3_4", "킥만 깔아줘", [Call("generate_drums", {"parts": ["kick"]})]),
     case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
          [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
+    # ---------- 내 샘플 (샘플팩 이름표가 있을 때 use_sample, GM 악기 set_instrument가 아님) ----------
+    case("U01", "내 샘플", "lofi_groove", "베이스를 내 샘플로 바꿔줘", [Call("use_sample", {"track_ids": ["t2"], "sample": None})], samples=True),
+    case("U02", "내 샘플", "lofi_groove", "Rhodes 소리를 내 샘플팩에서 좀 더 어두운 걸로 해줘",
+         [Call("use_sample", {"track_ids": ["t3"], "prefer": "darker"})], samples=True),
+    case("U03", "내 샘플", "lofi_groove", "패드를 Glass Pad 샘플로 바꿔줘", [Call("use_sample", {"track_ids": ["t4"], "sample": Has("glass")})],
+         samples=True, reply_lacks=PITCH_CLAIMS, note="두 옥타브 위에서 녹음된 샘플 — 음 높이가 달라진다고 말하면 틀림 (음은 트랙 그대로)"),
+    case("U04", "내 샘플", "lofi_groove", "내 샘플로 베이스 하나 더 깔아줘",
+         [Call("generate_bassline", {"track_id": None}), Call("use_sample", {"track_ids": ["t6"]})], samples=True, reply_lacks=PITCH_CLAIMS,
+         note="만든 뒤 결과에 나온 새 트랙(t6)에 샘플"),
+    case("U05", "내 샘플", "lofi_groove", "베이스를 내 샘플로 바꿔줘", reply_has=["샘플팩"],
+         note="샘플팩을 안 넣었으면 바꾸지 말고 넣는 곳을 알려 준다 (GM 악기로 대신하지 않음)"),
+    case("U06", "내 샘플", "lofi_groove", "드럼도 내 샘플로 바꿔줘", reply_has=["드럼"], samples=True,
+         note="드럼에는 아직 못 쓴다 — 킷을 바꾸거나 다른 트랙을 대신 바꾸지 않는다"),
     # ---------- 영어로 묻기 (답도 영어로, 조성 이름은 그대로 "C major") ----------
     case("L01", "영어", "lofi_groove", "what key is this song in?", reads=["analyze_harmony"], reply_has=["C major"], english=True),
     case("L02", "영어", "lofi_groove", "raise the bass by 2 semitones", [Call("transpose", {"track_ids": ["t2"], "semitones": 2})],
@@ -274,4 +305,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 102 and len({c.id for c in CASES}) == 102
+assert len(CASES) == 108 and len({c.id for c in CASES}) == 108
