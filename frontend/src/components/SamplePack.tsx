@@ -69,7 +69,7 @@ function resultText(r: ImportResult): string {
 
 export function SamplePack() {
   const { open, setOpen } = useSamplePack()
-  const { samples, importing, add, update, remove, clear } = useSamples()
+  const { samples, importing, upgrading, add, update, remove, clear } = useSamples()
   const [message, setMessage] = useState('')
   const [over, setOver] = useState(false)
   const folder = useRef<HTMLInputElement>(null)
@@ -124,6 +124,11 @@ export function SamplePack() {
         {importing && (
           <p className="sample-status">
             <span className="spinner" aria-hidden="true" /> 분석하는 중… {importing.done} / {importing.total}
+          </p>
+        )}
+        {upgrading && !importing && (
+          <p className="sample-status">
+            <span className="spinner" aria-hidden="true" /> 예전 방식으로 읽은 샘플을 다시 분석하는 중… {upgrading.done} / {upgrading.total} (루프 먼저)
           </p>
         )}
         {message && !importing && <p className="sample-status">{message}</p>}

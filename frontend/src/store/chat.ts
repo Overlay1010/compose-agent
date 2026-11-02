@@ -4,7 +4,7 @@ import type { LogEntry, ToolStep } from '../api/types'
 import { changedTrackIds } from '../diff'
 import { selectionLabel } from '../selection'
 import { useProject } from './project'
-import { sampleInfos } from '../samples/library'
+import { freshSampleInfos, loopsStale } from '../samples/library'
 
 export type LiveStep = ToolStep & { running?: boolean }
 
@@ -93,6 +93,8 @@ export const useChat = create<ChatState>((set, get) => ({
     const startedAt = performance.now()
     try {
       const sent = picked && { track_ids: picked.trackIds, beats: picked.beats, pitches: picked.pitches, label: picked.label }
+      if (loopsStale()) update((m) => ({ ...m, status: '내 루프를 새 방식으로 다시 읽는 중…' }))
+      const samples = await freshSampleInfos()
       const r = await chatStream(project.id, text, (e) => {
         if (e.kind === 'thinking') {
           update((m) => ({ ...m, status: e.round === 1 ? '생각하는 중…' : '결과를 보고 다음 할 일을 정하는 중…' }))
@@ -110,7 +112,7 @@ export const useChat = create<ChatState>((set, get) => ({
             return { ...m, steps }
           })
         }
-      }, sent, sampleInfos())
+      }, sent, samples)
       const secs = ((performance.now() - startedAt) / 1000).toFixed(1)
       update(() => ({
         id: liveId,

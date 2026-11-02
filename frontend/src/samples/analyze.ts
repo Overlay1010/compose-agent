@@ -51,7 +51,7 @@ export const DRUM_ROLE_NAMES: Record<DrumRole, string> = {
 export const PLAYABLE: SampleKind[] = ['bass', 'keys', 'pluck', 'pad', 'lead', 'bell']
 
 /** 분석 규칙을 바꾸면 올린다 → 이미 넣은 샘플도 다음에 열 때 다시 분석 (2: 드럼 역할 · 최대 크기, 3: 루프를 드럼보다 먼저) */
-export const ANALYSIS_VERSION = 6 // 4: 루프의 리듬(groove), 5: 1마디짜리 짧은 루프도 루프로, 6: 드럼 루프에서 하이햇만 · 자르는 자리 따로
+export const ANALYSIS_VERSION = 7 // 4: 루프의 리듬(groove), 5: 1마디짜리 짧은 루프도 루프로, 6: 드럼 루프에서 하이햇만 · 자르는 자리 따로, 7: 킥과 같이 친 하이햇도
 
 /** 루프에 녹음된 리듬 — 격자에 맞추지 않은 그대로.
  * hits: 하이햇 타격 [루프 안 박, 세기 1~127, 열림(오래 울림) 1 · 아님 0]. cuts: 모든 타격의 박 (오디오로 깔 때 자르는 자리) */
@@ -336,7 +336,7 @@ const energy = (env: Float32Array, f: number, n = 6) => {
 const HAT_HIGH = 7000 // Hz. 하이햇은 이 위가 대부분
 const UPPER_MID = 3000 // Hz. 스네어의 쇳소리는 여기가 세다
 const HAT_RATIO = 1.2 // 높은 대역 / 중고역이 이보다 크면 하이햇
-const WITH_SNARE = 0.8 // 스네어와 같은 순간이어도 높은 대역이 다른 하이햇의 이만큼이면 하이햇도 함께 친 것
+const WITH_SNARE = 0.65 // 킥 · 스네어와 같은 순간이어도 높은 대역이 다른 하이햇의 이만큼이면 하이햇도 함께 친 것 (0.8은 킥과 같이 친 하이햇을 놓쳤다)
 
 /**
  * 루프의 리듬 읽기. 드럼 루프에는 킥 · 스네어 · 하이햇이 섞여 있어서(처음에는 그걸 다 하이햇으로 옮겼다) 대역을 나눈다:

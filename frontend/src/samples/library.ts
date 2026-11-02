@@ -66,6 +66,7 @@ interface LibraryState {
   loaded: boolean
   samples: SampleMeta[]
   importing: { done: number; total: number } | null
+  upgrading: { done: number; total: number } | null // 예전 규칙으로 읽은 샘플을 다시 분석하는 중
   load: () => Promise<void>
   add: (files: File[]) => Promise<ImportResult>
   update: (id: string, patch: Partial<Pick<SampleMeta, 'kind' | 'root' | 'drum'>>) => Promise<void>
@@ -79,18 +80,21 @@ const byKindName = (a: SampleMeta, b: SampleMeta) =>
   KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name)
 
 let loading: Promise<void> | null = null
+let loopsReady: Promise<void> = Promise.resolve() // 루프를 다 다시 읽으면 풀린다 (채팅이 옛 리듬을 보내지 않게)
 const buffers = new Map<string, Promise<AudioBuffer | null>>() // 풀어 둔 소리 (id → 재생용)
 
 export const useSamples = create<LibraryState>((set, get) => ({
   loaded: false,
   samples: [],
   importing: null,
+  upgrading: null,
 
+  // 이름표만 읽으면 끝난다. 다시 분석은 뒤에서 (샘플이 수천 개면 몇 분 걸려서 재생을 막지 않게)
   load: () => {
     loading ??= tx<Stored[]>('readonly', (s) => s.getAll())
-      .then(async (rows) => {
+      .then((rows) => {
         set({ samples: (rows ?? []).map((r) => r.meta).sort(byKindName), loaded: true })
-        await upgrade(rows ?? [])
+        loopsReady = upgrade(rows ?? [])
       })
       .catch(() => set({ loaded: true })) // 사생활 보호 창 등에서 IndexedDB를 못 쓰면 빈 샘플팩
     return loading
@@ -173,25 +177,53 @@ export const sampleInfos = () =>
     groove: kind === 'loop' && groove ? { bpm: groove.bpm, beats: groove.beats, hits: groove.hits } : null,
   }))
 
-/** 예전 규칙으로 분석한 샘플(ANALYSIS_VERSION이 다름)을 다시 분석한다. 사용자가 고친 종류 · 드럼 역할 · 기준음은 그대로 */
-async function upgrade(rows: Stored[]) {
+/** 채팅에 보낼 이름표. 루프를 다시 읽는 중이면 끝날 때까지 기다린다 — 기다리지 않았더니 새로고침 직후 옛 분석의 리듬
+ * (킥 · 스네어까지 하이햇으로 읽은 것)이 서버로 갔다 */
+export async function freshSampleInfos() {
+  await useSamples.getState().load()
+  await loopsReady
+  return sampleInfos()
+}
+
+/** 다시 읽을 루프가 남았는지 (채팅 진행 문구용) */
+export const loopsStale = () => useSamples.getState().samples.some((s) => s.kind === 'loop' && s.v !== ANALYSIS_VERSION)
+
+/** 예전 규칙으로 분석한 샘플(ANALYSIS_VERSION이 다름)을 다시 분석한다. 사용자가 고친 종류 · 드럼 역할 · 기준음은 그대로.
+ * 루프부터 (리듬이 채팅으로 나가서). 돌려주는 약속은 루프를 다 읽으면 풀리고, 나머지는 그 뒤에 이어서 읽는다 */
+function upgrade(rows: Stored[]): Promise<void> {
   const old = rows.filter((r) => r.meta.v !== ANALYSIS_VERSION)
-  for (const row of old) {
-    try {
-      const buffer = await decode(await row.blob.arrayBuffer())
-      const fresh = analyze(row.meta.id, `${row.meta.name}.wav`, row.meta.folder, mono(buffer), buffer.sampleRate)
-      const meta: SampleMeta = {
-        ...fresh,
-        ...(row.meta.kindFrom === 'user' ? { kind: row.meta.kind, drum: row.meta.drum ?? null, kindFrom: 'user' as const } : {}),
-        ...(row.meta.rootFrom === 'user' ? { root: row.meta.root, rootFrom: 'user' as const } : {}),
-      }
-      if (meta.kind !== 'drum') meta.drum = null
-      else meta.drum ??= 'perc'
-      await tx('readwrite', (s) => s.put({ ...row, meta }))
-      useSamples.setState((st) => ({ samples: st.samples.map((s) => (s.id === meta.id ? meta : s)).sort(byKindName) }))
-    } catch {
-      // 못 읽은 파일은 그대로 둔다 (재생할 때 트랙 악기 · 킷 소리로)
+  const loops = old.filter((r) => r.meta.kind === 'loop')
+  const rest = old.filter((r) => r.meta.kind !== 'loop')
+  if (!old.length) return Promise.resolve()
+  let done = 0
+  useSamples.setState({ upgrading: { done, total: old.length } })
+  const run = async (list: Stored[]) => {
+    for (const row of list) {
+      await reanalyze(row)
+      useSamples.setState({ upgrading: { done: ++done, total: old.length } })
+      if (done % 8 === 0) await new Promise((r) => setTimeout(r, 0)) // 화면이 멈추지 않게
     }
+  }
+  const first = run(loops)
+  void first.then(() => run(rest)).finally(() => useSamples.setState({ upgrading: null }))
+  return first
+}
+
+async function reanalyze(row: Stored) {
+  try {
+    const buffer = await decode(await row.blob.arrayBuffer())
+    const fresh = analyze(row.meta.id, `${row.meta.name}.wav`, row.meta.folder, mono(buffer), buffer.sampleRate)
+    const meta: SampleMeta = {
+      ...fresh,
+      ...(row.meta.kindFrom === 'user' ? { kind: row.meta.kind, drum: row.meta.drum ?? null, kindFrom: 'user' as const } : {}),
+      ...(row.meta.rootFrom === 'user' ? { root: row.meta.root, rootFrom: 'user' as const } : {}),
+    }
+    if (meta.kind !== 'drum') meta.drum = null
+    else meta.drum ??= 'perc'
+    await tx('readwrite', (s) => s.put({ ...row, meta }))
+    useSamples.setState((st) => ({ samples: st.samples.map((s) => (s.id === meta.id ? meta : s)).sort(byKindName) }))
+  } catch {
+    // 못 읽은 파일은 그대로 둔다 (재생할 때 트랙 악기 · 킷 소리로)
   }
 }
 
