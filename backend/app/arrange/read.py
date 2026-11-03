@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from statistics import median
 from typing import Literal
 
+from app.arrange.sections import Structure, describe, read_structure
 from app.generate.check import playable
 from app.models.project import Project, Track
 from app.tools.instrument import heard_program
@@ -60,6 +61,8 @@ class SongMap:
     flavor: Literal["acoustic", "electronic", "neutral"]
     gaps: list[tuple[int, int]] = field(default_factory=list)  # 아무 멜로디 트랙도 안 쓰는 높이 [아래, 위] (베이스 아래는 뺌)
     missing: list[Role] = field(default_factory=list)  # 곡에 없는 역할 (베이스 · 화음 · 위 선율 순으로 중요)
+    structure: Structure | None = None  # 구간 · 프레이즈 · 멜로디가 쉬는 곳 (app/arrange/sections.py)
+    beats_per_bar: float = 4.0
 
     @property
     def melodic(self) -> list[TrackProfile]:
@@ -79,6 +82,8 @@ class SongMap:
             lines.append("- 빈 높이: " + ", ".join(f"{note_name(a)}~{note_name(b)}{' (맨 위)' if b == CEILING else ''}" for a, b in self.gaps))
         if self.missing:
             lines.append("- 없는 역할: " + ", ".join(ROLE_KO[r] for r in self.missing))
+        if self.structure:
+            lines += describe(self.structure, self.beats_per_bar)
         return "\n".join(lines)
 
 
@@ -177,7 +182,11 @@ def read_song(project: Project, samples: list[object] | tuple[object, ...] | Non
     # 위 선율: 리드 역할이 없고, 가장 높은 트랙도 C5 아래면
     if "lead" not in roles and max((t.high or 0 for t in melodic), default=0) < 72:
         missing.append("lead")
-    return SongMap(tracks=tracks, bars=bars, flavor=_flavor(project), gaps=_gaps(melodic), missing=missing)
+    # 멜로디가 쉬는 곳은 리드(여럿이면 가장 높은 것), 리드가 없으면 가장 높은 멜로디 트랙으로 본다
+    leads = [t for t in melodic if t.role == "lead" and t.center is not None] or [t for t in melodic if t.center is not None and t.role != "bass"]
+    lead = max(leads, key=lambda t: t.center or 0).id if leads else None
+    return SongMap(tracks=tracks, bars=bars, flavor=_flavor(project), gaps=_gaps(melodic), missing=missing,
+                   structure=read_structure(project, bars, lead), beats_per_bar=bpb)
 
 
 def fits(program: int, low: int, high: int) -> bool:

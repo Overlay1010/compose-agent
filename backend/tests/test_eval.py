@@ -46,7 +46,8 @@ def step(name, args, ok=True, changed=3):
 def test_every_answer_is_reachable(case: Case):
     # 정답 호출을 실제로 실행하면 음이 바뀌고, 그 기록이 정답으로 채점돼야 한다
     project = midi_bytes_to_project(make_samples.SAMPLES[f"{case.sample}.mid"]())
-    steps = []
+    # 먼저 읽어야 하는 도구(예: 구간을 읽는 get_project_info)도 부른 것으로 친다
+    steps = [ToolStep(name=tool, args={}, ok=True, summary="", changed_notes=0, changed_settings=False) for tool in case.reads]
     for call in case.expect:
         args = concrete(call)
         with library(PACK if case.samples else None):

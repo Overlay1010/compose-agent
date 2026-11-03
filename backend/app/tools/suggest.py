@@ -10,9 +10,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.arrange import read_song
-from app.arrange.read import ROLE_KO, note_name
-from app.arrange.suggest import HOW, suggest
 from app.models.project import Project
 from app.tools.base import ToolResult
 from app.tools.instrument import display_name
@@ -30,6 +27,11 @@ class SuggestInstrumentsArgs(BaseModel):
 
 
 def suggest_instruments(project: Project, args: SuggestInstrumentsArgs) -> ToolResult:
+    # 늦게 불러온다: app.arrange가 도구 모듈(악기 이름 등)을 불러서, 먼저 불리면 돌고 도는 import가 된다
+    from app.arrange import read_song
+    from app.arrange.read import ROLE_KO, note_name
+    from app.arrange.suggest import HOW, suggest
+
     library = current_library()
     song = read_song(project, library)
     used = {t.sample.id for t in project.tracks if t.sample}

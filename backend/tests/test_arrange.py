@@ -117,3 +117,36 @@ def test_generators_avoid_the_same_family_at_the_same_height_and_vary_by_song():
     # 베이스를 하나 더 깔 때 같은 소리는 겹치지 않게
     finger = Track(id="t2", name="Bass", program=33, program_set=True, notes=notes((36, 0, 1)))
     assert bass_program(Project(id="x", tracks=[piano, finger])) != 33
+
+
+def song_with_sections() -> Project:
+    """1~4 인트로(피아노만) · 5~12 벌스(+ 베이스 · 드럼) · 13~16 후렴(+ 리드, 드럼 촘촘), 리드는 15마디에서 쉼"""
+    piano = Track(id="t1", name="Piano", program=0, program_set=True, notes=notes(*[(60, b * 4.0, 4.0) for b in range(16)]))
+    bass = Track(id="t2", name="Bass", program=33, notes=notes(*[(36, b * 4.0 + i, 1.0) for b in range(4, 16) for i in range(4)]))
+    drums = Track(id="t3", name="Drums", is_drum=True, notes=[
+        Note(pitch=42, start=b * 4.0 + i * (0.25 if b >= 12 else 0.5), duration=0.1, velocity=80)
+        for b in range(4, 16) for i in range(16 if b >= 12 else 8)])
+    lead = Track(id="t4", name="Lead", program=80, notes=notes(*[(76, b * 4.0 + i, 1.0) for b in range(12, 16) if b != 14 for i in range(4)]))
+    return Project(id="s", tracks=[piano, bass, drums, lead])
+
+
+def test_read_song_finds_sections_phrases_and_melody_rests():
+    st = read_song(song_with_sections()).structure
+    assert st.phrase == 4 and st.phrase_ends == [4, 8, 12, 16]
+    assert [(s.start, s.end, s.label) for s in st.sections] == [(1, 4, "intro"), (5, 12, "verse"), (13, 16, "chorus")]
+    assert st.sections[1].entered == ["Bass", "Drums"] and st.sections[2].entered == ["Lead"]
+    assert st.rest_track == "Lead" and (56.0, 60.0) in st.rests  # 15마디 (박 56~60)
+    text = read_song(song_with_sections()).summary()
+    assert "13~16마디 후렴(가장 꽉 참 · Lead 들어옴)" in text and "Lead가 쉬는 곳: 1마디~12마디 끝, 15마디~15마디 끝" in text
+
+
+def test_sections_come_from_project_info_not_the_prompt():
+    from app.agent.prompt import project_summary
+
+    loop = band()
+    st = read_song(loop).structure
+    assert [s.label for s in st.sections] == ["loop"]
+    assert "한 구간짜리 루프" in run_tool(loop, "get_project_info").summary
+    # 늘 보이는 프롬프트에는 넣지 않는다 (구간을 말하지 않은 편집에서 혼자 트랙을 빼는 일이 있었다)
+    assert "구간" not in project_summary(song_with_sections())
+    assert "- 구간: 1~4마디 인트로" in run_tool(song_with_sections(), "get_project_info").summary

@@ -1,4 +1,4 @@
-"""정답 있는 명령 123개.
+"""정답 있는 명령 126개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -209,6 +209,10 @@ CASES: list[Case] = [
          note="왈츠 피아노 두 손뿐 — 첫 자리는 베이스"),
     case("J02", "악기 추천", "lofi_groove", "베이스로는 뭐가 어울려?", reads=["suggest_instruments"]),
     case("J03", "악기 추천", "fl_style_loose", "뭐가 비어 있는지 보고 어울리는 소리 추천해줘", reads=["suggest_instruments"]),
+    # 곡 구간 — lofi_groove: 1~8 벌스 / 9~12 (Lead 쉼 · Pad 들어옴) / 13~16 후렴 (곡 읽기의 짐작)
+    case("J04", "악기 추천", "lofi_groove", "후렴만 드럼 좀 세게 해줘", velocity("t1", LOUDER, LOUDER_OFFSET, bars=[13, 16]), reads=["get_project_info"]),
+    case("J05", "악기 추천", "lofi_groove", "리드가 쉬는 구간이 어디야?", reads=["get_project_info"], reply_has=["9"], note="편집 없이 9~12마디라고 답"),
+    case("J06", "악기 추천", "fl_style_loose", "후렴만 베이스 세게 해줘", note="한 구간짜리 루프 — 구간을 지어내지 말고 몇 마디인지 물어봄"),
     # 트랙째 지우기 (E02 "하이햇 전부 지워줘"처럼 소리만 말하면 음만 지우는 delete_notes)
     case("K05", "트랙", "lofi_groove", "Pad 트랙 지워줘", [Call("delete_track", {"track_ids": ["t4"]})]),
     case("K06", "트랙", "lofi_groove", "리드랑 패드 트랙 삭제해줘", [Call("delete_track", {"track_ids": ["t4", "t5"]})]),
@@ -334,4 +338,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 123 and len({c.id for c in CASES}) == 123
+assert len(CASES) == 126 and len({c.id for c in CASES}) == 126
