@@ -55,9 +55,24 @@ def test_more_space_removes_more_than_little():
     assert more > little > 0
 
 
-def test_open_more_turns_offbeats_into_open_hats_and_lets_them_ring():
+def test_open_more_adds_open_hats_and_keeps_every_closed_hat():
     p = hat_song()
     r = run_tool(p, "vary_hats", {"open_hats": "more"})
+    assert hats(r.project) == hats(p)  # 닫힌 햇은 하나도 안 바뀜
+    opened = hats(r.project, 46)
+    assert len(opened) >= 4 and all((b % 4) in (0.5, 1.5, 2.5, 3.5) for b in opened)
+    assert not any(6.8 < b < 8.0 for b in opened)  # 2마디 4박의 롤 안에는 안 넣음
+    assert "닫힌 햇은 그대로" in r.summary
+    # 비운 자리가 있으면 빈 뒷박을 먼저 채운다
+    spaced = run_tool(p, "vary_hats", {"space": "more"}).project
+    filled = run_tool(spaced, "vary_hats", {"open_hats": "more"})
+    assert hats(filled.project) == hats(spaced)
+    assert "빈 뒷박" in filled.summary
+
+
+def test_open_swap_turns_offbeats_into_open_hats_and_lets_them_ring():
+    p = hat_song()
+    r = run_tool(p, "vary_hats", {"open_hats": "swap"})
     opened = hats(r.project, 46)
     assert len(opened) >= 4
     assert all((b % 4) in (0.5, 1.5, 2.5, 3.5) for b in opened)
@@ -68,7 +83,7 @@ def test_open_more_turns_offbeats_into_open_hats_and_lets_them_ring():
 
 
 def test_open_fewer_and_version_and_bars():
-    p = run_tool(hat_song(), "vary_hats", {"open_hats": "more"}).project
+    p = run_tool(hat_song(), "vary_hats", {"open_hats": "swap"}).project
     fewer = run_tool(p, "vary_hats", {"open_hats": "fewer"})
     assert 0 < len(hats(fewer.project, 46)) < len(hats(p, 46))
     a = run_tool(hat_song(), "vary_hats", {"space": "little", "version": 1}).project

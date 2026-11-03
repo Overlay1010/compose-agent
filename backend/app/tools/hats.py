@@ -2,7 +2,7 @@
 
 "햇을 중간중간 듬성듬성 · 오픈햇 조금 더"를 처음에는 할 도구가 없어서, 에이전트가 3~6마디 닫힌 햇을 통째로 지우거나
 (delete_notes) 단순하게 다시 만들었다 (8분 간격 그대로라 여전히 일정). 여기서는 있는 하이햇을 그대로 두고
-마디마다 다른 자리에서 한두 개씩 비우거나, 닫힌 햇 몇 개를 열린 햇으로 바꾼다.
+마디마다 다른 자리에서 한두 개씩 비우거나, 열린 햇을 더하거나(닫힌 햇은 그대로), 닫힌 햇을 열린 햇으로 바꾼다.
 """
 
 from __future__ import annotations
@@ -33,7 +33,10 @@ class VaryHatsArgs(BaseModel):
     space: Literal["none", "little", "more"] = Field(
         default="none", description="닫힌 햇을 군데군데 비우기 — little = 마디마다 한두 개, more = 더 듬성듬성, none = 안 비움"
     )
-    open_hats: Literal["same", "more", "fewer"] = Field(default="same", description="열린 햇 더 · 덜 (닫힌 햇을 바꾼다)")
+    open_hats: Literal["same", "more", "swap", "fewer"] = Field(
+        default="same",
+        description="more = 닫힌 햇은 그대로 두고 열린 햇을 더한다, swap = 닫힌 햇 몇 개를 열린 햇으로 바꾼다, fewer = 열린 햇을 줄인다",
+    )
     version: int = Field(default=1, ge=1, le=99, description="같은 요청을 다른 자리로 = +1")
 
     @model_validator(mode="after")
@@ -100,8 +103,34 @@ def _open_bar(hats: list[Note], gone: set[int], bar_start: float, rng: Random, b
     return rng.choices(cands, [OPEN_SPOTS[_slot(hats[i].start - bar_start)] for i in cands])[0]
 
 
-def _vary(track: Track, args: VaryHatsArgs, bpb: float) -> tuple[list[Note], int, int, int]:
-    """(새 음, 군데군데 비운 수, 연 수, 닫은 수)"""
+def _add_open(hats: list[Note], gone: set[int], opens: list[Note], bar_start: float, rng: Random,
+              before: float | None) -> tuple[float, int, bool] | None:
+    """닫힌 햇은 그대로 두고 열린 햇을 더할 자리 (박, 세기, 빈자리였나). 뒷박 8분 중 비어 있는 자리를 먼저 (비운 햇 자리 포함),
+    없으면 그 자리의 닫힌 햇에 겹친다. 롤 안 · 이미 열린 햇이 있는 자리 · 앞 마디에서 더한 자리는 피한다.
+    "오픈햇 추가"를 닫힌 햇을 바꾸는 것으로만 했더니 "닫힌 햇은 안 건드리면서 열린 햇 추가"를 못 했다."""
+    rolled = _rolled(hats)
+    kept = [n for i, n in enumerate(hats) if i not in gone]
+    level = round(sum(n.velocity for n in kept) / len(kept)) if kept else 90
+    cands: list[tuple[float, int, bool]] = []
+    weights: list[int] = []
+    for spot, weight in OPEN_SPOTS.items():
+        at = bar_start + spot
+        if spot == before or any(abs(o.start - at) < 0.1 for o in opens):
+            continue
+        if any(abs(hats[i].start - at) < ROLL_GAP for i in rolled):
+            continue
+        near = next((n for n in kept if abs(n.start - at) < 0.07), None)
+        if near is None:
+            cands.append((round(at, 4), level, True))
+            weights.append(weight * 3)
+        else:  # 닫힌 햇과 같은 순간 (손으로 친 곡은 그 햇의 어긋난 박 그대로)
+            cands.append((near.start, near.velocity, False))
+            weights.append(weight)
+    return rng.choices(cands, weights)[0] if cands else None
+
+
+def _vary(track: Track, args: VaryHatsArgs, bpb: float) -> tuple[list[Note], int, int, int, int, int]:
+    """(새 음, 군데군데 비운 수, 바꾼 수, 빈자리에 더한 수, 겹쳐 더한 수, 닫은 수)"""
     def bar_of(n: Note) -> int:
         return math.floor(n.start / bpb + 1e-9) + 1
 
@@ -113,6 +142,8 @@ def _vary(track: Track, args: VaryHatsArgs, bpb: float) -> tuple[list[Note], int
     drop: set[int] = set()  # id(note)
     spaced = 0
     opened: dict[int, Note] = {}
+    extra: list[Note] = []
+    filled = 0
     spaced_before: set[float] = set()
     opened_before: float | None = None
     for bar in sorted(by_bar):
@@ -124,8 +155,16 @@ def _vary(track: Track, args: VaryHatsArgs, bpb: float) -> tuple[list[Note], int
         drop |= {id(hats[i]) for i in gone}
         spaced += len(gone)
         has_open = any(n.pitch == OPEN and bar_of(n) == bar for n in track.notes)
-        # 더: 4마디 중 3마디쯤 (이미 열린 햇이 있는 마디는 반쯤만 하나 더)
+        # 더 · 바꾸기: 4마디 중 3마디쯤 (이미 열린 햇이 있는 마디는 반쯤만 하나 더)
         if args.open_hats == "more" and rng.random() < (0.4 if has_open else 0.75):
+            opens = [n for n in track.notes if n.pitch == OPEN and bar_of(n) == bar]
+            spot = _add_open(hats, gone, opens, start, rng, opened_before)
+            opened_before = None if spot is None else _slot(spot[0] - start)
+            if spot is not None:
+                at, velocity, empty = spot
+                extra.append(Note(pitch=OPEN, start=at, duration=0.25, velocity=max(velocity, OPEN_MIN_VELOCITY)))
+                filled += empty
+        if args.open_hats == "swap" and rng.random() < (0.4 if has_open else 0.75):
             i = _open_bar(hats, gone, start, rng, opened_before)
             if i is not None:
                 n = hats[i]
@@ -138,7 +177,7 @@ def _vary(track: Track, args: VaryHatsArgs, bpb: float) -> tuple[list[Note], int
     closed = 0
     notes: list[Note] = []
     open_seen = 0
-    for n in sorted(track.notes, key=lambda n: (n.start, n.pitch)):
+    for n in sorted([*track.notes, *extra], key=lambda n: (n.start, n.pitch)):
         if id(n) in drop:
             continue
         if id(n) in opened:
@@ -152,7 +191,7 @@ def _vary(track: Track, args: VaryHatsArgs, bpb: float) -> tuple[list[Note], int
                 closed += 1
                 continue
         notes.append(n)
-    return notes, spaced, len(opened), closed
+    return notes, spaced, len(opened), filled, len(extra) - filled, closed
 
 
 def vary_hats(project: Project, args: VaryHatsArgs) -> ToolResult:
@@ -177,16 +216,19 @@ def vary_hats(project: Project, args: VaryHatsArgs) -> ToolResult:
     parts: list[str] = []
     total = 0
     for track in targets:
-        notes, spaced, opened, closed = _vary(track, args, bpb)
-        if not (spaced or opened or closed):
+        notes, spaced, opened, filled, layered, closed = _vary(track, args, bpb)
+        if not (spaced or opened or filled or layered or closed):
             continue
         new_tracks[track.id] = notes
-        total += len(track.notes) - len(notes) + opened + closed
+        total += spaced + opened + filled + layered + closed
         what = []
         if spaced:
             what.append(f"닫힌 햇 {spaced}개를 군데군데 비웠어요 (마디마다 다른 자리, 마디 첫 박과 롤은 그대로).")
+        if filled or layered:
+            where_ = " · ".join(x for x in [f"빈 뒷박 {filled}곳" if filled else "", f"닫힌 햇에 겹쳐 {layered}곳" if layered else ""] if x)
+            what.append(f"열린 햇 {filled + layered}개를 더했어요 ({where_}, 닫힌 햇은 그대로).")
         if opened:
-            what.append(f"닫힌 햇 {opened}개를 열린 햇으로 바꿨어요 (울리도록 바로 뒤 16분 햇은 뺌).")
+            what.append(f"닫힌 햇 {opened}개를 열린 햇으로 바꿨어요 (닫힌 햇이 그만큼 줄고, 울리도록 바로 뒤 16분 햇은 뺌).")
         if closed:
             what.append(f"열린 햇 {closed}개를 닫힌 햇으로 바꿨어요.")
         parts.append(f"{track.name}{where}: {' '.join(what)}")

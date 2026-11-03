@@ -227,7 +227,7 @@ TOOLS: dict[str, Tool] = {
         Tool(
             "vary_hats",
             "깔린 하이햇을 다시 만들지 않고 손본다: 닫힌 햇을 마디마다 다른 자리에서 한두 개씩 비우거나(space), "
-            "닫힌 햇을 열린 햇으로 바꿔 열린 햇을 늘리거나 줄인다(open_hats). 마디 첫 박 · 롤은 그대로. 같은 요청을 다른 자리로면 version + 1.",
+            "열린 햇을 더하거나(more, 닫힌 햇은 그대로) 닫힌 햇을 열린 햇으로 바꾸거나(swap) 줄인다(fewer). 마디 첫 박 · 롤은 그대로. 같은 요청을 다른 자리로면 version + 1.",
             VaryHatsArgs,
             vary_hats,
         ),
