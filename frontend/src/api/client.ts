@@ -115,6 +115,11 @@ export interface TrackChange {
 }
 
 /** 화면에서 악기를 바꾼다. 바로 새 버전이 되고, 미리보기가 있으면 미리보기에도 들어간다. */
+/** 트랙 지우기 (× 버튼). 바로 새 버전이고 미리보기에서도 빠진다 */
+export async function deleteTrack(projectId: string, trackId: string): Promise<TrackChange> {
+  return parse(await fetch(`${BASE}/projects/${projectId}/tracks/${trackId}`, { method: 'DELETE' }))
+}
+
 export async function setInstrument(
   projectId: string,
   trackId: string,

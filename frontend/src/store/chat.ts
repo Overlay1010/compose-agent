@@ -54,6 +54,7 @@ const TOOL_LABELS: Record<string, string> = {
   set_mix: '볼륨 · 팬 바꾸기',
   duplicate_track: '트랙 복제',
   set_drum_sound: '드럼 소리 바꾸기',
+  vary_hats: '하이햇 손보기',
   get_project_info: '트랙 확인',
   analyze_harmony: '화성 분석',
   suggest_reharmonization: '리하모니 제안',
@@ -65,6 +66,7 @@ const TOOL_LABELS: Record<string, string> = {
   groove_from_loop: '루프 리듬 옮기기',
   add_loop: '루프 깔기',
   add_track: '트랙 추가',
+  delete_track: '트랙 지우기',
   start_over: '미리보기 버리고 다시 시작',
 }
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name

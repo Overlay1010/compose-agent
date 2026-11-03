@@ -185,7 +185,9 @@ class TrackChangeOut(BaseModel):
 def _change_text(before: Project, after: Project, track_id: str) -> str:
     """화면에서 바꾼 트랙 설정을 사람 말로 (대화 기록 · 화면 알림에 같은 문장을 쓴다)."""
     old = next(t for t in before.tracks if t.id == track_id)
-    new = next(t for t in after.tracks if t.id == track_id)
+    new = next((t for t in after.tracks if t.id == track_id), None)
+    if new is None:
+        return f"{old.name} 트랙을 지웠어요 (음 {len(old.notes)}개)"
     if old.drum_samples != new.drum_samples and old.program == new.program:
         p = min(p for p in {*old.drum_samples, *new.drum_samples} if old.drum_samples.get(p) != new.drum_samples.get(p))
         lane = ROLE_NAMES.get(ROLES.get(p, ""), DRUM_NAMES.get(p, str(p)))
@@ -235,13 +237,23 @@ def _change_track(project_id: str, tool: str, args: dict) -> TrackChangeOut:
     new = store.add_version(result.project, text)  # 히스토리에도 화면 알림과 같은 쉬운 문장으로
     store.add_log(project_id, note(text))
     if pending is not None:
-        pending = store.rebase_preview(project_id, run_tool(pending.project, tool, args).project or pending.project)
+        try:
+            rebased = run_tool(pending.project, tool, args).project or pending.project
+        except ToolError:  # 미리보기에서 이미 지운 트랙 등 — 미리보기는 그대로
+            rebased = pending.project
+        pending = store.rebase_preview(project_id, rebased)
     return TrackChangeOut(project=new, preview=pending.project if pending else None, note=text)
 
 
 @router.post("/{project_id}/tracks/{track_id}/instrument", response_model=TrackChangeOut)
 def set_track_instrument(project_id: str, track_id: str, body: InstrumentIn) -> TrackChangeOut:
     return _change_track(project_id, "set_instrument", {"track_ids": [track_id], "program": body.program})
+
+
+@router.delete("/{project_id}/tracks/{track_id}", response_model=TrackChangeOut)
+def delete_track(project_id: str, track_id: str) -> TrackChangeOut:
+    """트랙 목록의 × 버튼: 바로 새 버전으로 (히스토리에서 되돌리기 가능)."""
+    return _change_track(project_id, "delete_track", {"track_ids": [track_id]})
 
 
 @router.post("/{project_id}/tracks/{track_id}/mix", response_model=TrackChangeOut)

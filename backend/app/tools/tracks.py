@@ -1,4 +1,4 @@
-"""트랙 도구: duplicate_track.
+"""트랙 도구: duplicate_track, delete_track.
 
 트랙을 복사해 새 트랙을 만든다. 옥타브를 옮기거나 악기를 바꿔 겹치기("멜로디를 스트링으로 한 옥타브 아래 겹쳐줘")에 쓴다.
 voice로 화음에서 맨 위 음만(탑노트) · 맨 아래 음만(베이스 라인) 뽑아 새 트랙으로 만들 수도 있다.
@@ -107,4 +107,31 @@ def duplicate_track(project: Project, args: DuplicateTrackArgs) -> ToolResult:
         project=project.model_copy(update={"tracks": [*project.tracks, copy]}),
         changed_notes=len(copy.notes),
         summary=f"{source.name} 트랙을 복사해 새 트랙 {name}({new_id})을 만들었어요{detail}. 음 {len(copy.notes)}개.",
+    )
+
+
+class DeleteTrackArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    track_ids: list[str] = Field(min_length=1, description='지울 트랙 id들 (예: ["t9"])')
+
+
+def delete_track(project: Project, args: DeleteTrackArgs) -> ToolResult:
+    """트랙을 통째로 지운다 (음만 지우는 delete_notes와 달리 트랙 목록에서 빠진다). 미리보기 · 히스토리로 되돌릴 수 있다."""
+    by_id = {t.id: t for t in project.tracks}
+    unknown = [i for i in args.track_ids if i not in by_id]
+    if unknown:
+        valid = ", ".join(f"{t.id}({t.name})" for t in project.tracks)
+        raise ToolError(f"없는 트랙 id예요: {', '.join(unknown)}. 쓸 수 있는 트랙: {valid}", code="unknown_track")
+    gone = [by_id[i] for i in dict.fromkeys(args.track_ids)]
+    kept = [t for t in project.tracks if t.id not in args.track_ids]
+    if not kept:
+        raise ToolError("트랙을 모두 지울 수는 없어요. 하나는 남아야 해요.", code="last_track")
+    notes = sum(len(t.notes) for t in gone)
+    names = ", ".join(f"{t.name}({t.id})" for t in gone)
+    return ToolResult(
+        project=project.model_copy(update={"tracks": kept}),
+        changed_notes=notes,
+        changed_settings=True,  # 빈 트랙을 지워도 바뀐 것
+        summary=f"{names} 트랙을 지웠어요 (음 {notes}개). 남은 트랙 {len(kept)}개.",
     )

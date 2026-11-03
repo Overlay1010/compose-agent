@@ -34,6 +34,7 @@ interface ProjectState {
   undo: () => Promise<Project | null>
   /** 트랙 악기 바꾸기 (미리보기는 그대로 둔다). 성공하면 새 버전 */
   setInstrument: (trackId: string, program: number) => Promise<api.TrackChange | null>
+  deleteTrack: (trackId: string) => Promise<api.TrackChange | null>
   /** 드럼 레인 하나의 소리를 내 샘플로 (null이면 킷 소리로). 성공하면 새 버전 */
   setDrumSample: (trackId: string, pitch: number, sample: api.SampleInfo | null) => Promise<api.TrackChange | null>
   /** 트랙 소리를 내 샘플로 (null이면 원래 악기로). 성공하면 새 버전 */
@@ -168,6 +169,12 @@ export const useProject = create<ProjectState>((set, get) => {
     undo: () => changeVersion(api.undo),
 
     setInstrument: (trackId, program) => changeTrack((id) => api.setInstrument(id, trackId, program)),
+    deleteTrack: async (trackId) => {
+      const r = await changeTrack((id) => api.deleteTrack(id, trackId))
+      const project = get().project
+      if (r && project) set({ selectedTrackId: keepSelection(project) }) // 고른 트랙을 지웠으면 첫 트랙으로
+      return r
+    },
     setSample: (trackId, sample) => changeTrack((id) => api.setSample(id, trackId, sample)),
     setDrumSample: (trackId, pitch, sample) => changeTrack((id) => api.setDrumSample(id, trackId, pitch, sample)),
     setMix: (trackId, mix) => changeTrack((id) => api.setMix(id, trackId, mix)),

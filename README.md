@@ -113,7 +113,7 @@ npm run dev
 
 `http://localhost:5174`를 열고 **MIDI 열기**나 처음 화면의 샘플을 누른다. 프로젝트는 `backend/data/compose.db`에 저장된다(공개 저장소에 올라가지 않음).
 
-**한 번에 켜기** (Windows, 1 · 2를 한 번 해 둔 뒤): `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1` — 8100 · 5174를 잡고 있던 옛 서버를 끄고 백엔드 · 프론트엔드를 각각 새 창으로 연다. 끌 때는 창을 닫는다.
+**한 번에 켜기** (Windows, 1 · 2를 한 번 해 둔 뒤): `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1` — 8100 · 5174를 잡고 있던 옛 서버를 끄고 백엔드 · 프론트엔드를 각각 새 창으로 연다. 끌 때는 창을 닫는다. 백엔드는 코드가 바뀌면 watchfiles가 다시 켠다 (Windows에서는 `--reload`가 다시 켜는 중에 멈춰 옛 코드로 계속 도는 일이 있었다).
 
 **테스트 · 평가**
 

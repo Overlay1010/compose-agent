@@ -126,6 +126,8 @@ select.instrument:disabled { opacity: 0.5; cursor: default; }
 .ms { width: 34px; min-height: 40px; padding: 0; font-size: 12px; font-weight: 700; color: var(--text-quiet); }
 .ms.mute.on { background: var(--text); color: #141518; border-color: var(--text); }
 .ms.solo.on { background: #4fd1b8; color: #06231d; border-color: #4fd1b8; }
+.ms.del { font-size: 16px; font-weight: 400; }
+.ms.del:hover:not(:disabled) { color: #ff8a80; border-color: #ff8a80; }
 .meter { display: block; height: 3px; margin-top: 3px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
 .meter > span { display: block; height: 3px; width: 0%; border-radius: 3px; }
 

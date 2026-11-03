@@ -13,7 +13,7 @@ import { sampleInfos, sampleMeta, useSamples } from '../samples/library'
 import { useSamplePack } from '../store/samplePack'
 
 export function TrackList() {
-  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument, setSample } = useProject()
+  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument, setSample, deleteTrack } = useProject()
   const { sending, note } = useChat()
   const { muted, solo, toggleMute, toggleSolo, playing } = usePlayer()
   const picks = useSamplePicks()
@@ -24,7 +24,13 @@ export function TrackList() {
   // 미리보기에서 새로 생기는 트랙 (트랙 복제 등). 적용하기 전에는 목록 끝에 따로 보인다
   const added = preview ? preview.tracks.filter((t) => !project.tracks.some((o) => o.id === t.id)) : []
   const isNew = (id: string) => added.some((t) => t.id === id)
+  // 미리보기에서 지워지는 트랙 (delete_track). 적용하기 전에는 흐리게 남겨 둔다
+  const isGone = (id: string) => !!preview && !preview.tracks.some((t) => t.id === id)
 
+  const remove = async (trackId: string) => {
+    const changed = await deleteTrack(trackId)
+    if (changed?.note) note(changed.note, true)
+  }
   const changeInstrument = async (trackId: string, program: number) => {
     const changed = await setInstrument(trackId, program)
     if (changed?.note) note(changed.note, true)
@@ -46,7 +52,7 @@ export function TrackList() {
           트랙 {project.tracks.length}
           {added.length > 0 && <span className="new-count"> + 새 {added.length}</span>}
         </h2>
-        <span className="hint">M 음소거 · S 솔로</span>
+        <span className="hint">M 음소거 · S 솔로 · × 지우기</span>
       </div>
       <ul>
         {[...project.tracks, ...added].map((t) => (
@@ -54,7 +60,7 @@ export function TrackList() {
             key={t.id}
             className={[
               t.id === selectedTrackId ? 'selected' : '',
-              off[t.id] || (isNew(t.id) && !hearPreview) ? 'silent' : '',
+              off[t.id] || (isNew(t.id) && !hearPreview) || (isGone(t.id) && hearPreview) ? 'silent' : '',
               isNew(t.id) ? 'new' : '',
             ].join(' ')}
           >
@@ -65,6 +71,8 @@ export function TrackList() {
                   <span className="label">{t.name}</span>
                   {isNew(t.id) ? (
                     <span className="badge">새 트랙</span>
+                  ) : isGone(t.id) ? (
+                    <span className="badge">지워짐</span>
                   ) : (
                     changed.has(t.id) && <span className="badge">미리보기</span>
                   )}
@@ -95,6 +103,17 @@ export function TrackList() {
             >
               S
             </button>
+            {!isNew(t.id) && project.tracks.length > 1 && (
+              <button
+                className="ms del"
+                onClick={() => void remove(t.id)}
+                disabled={busy || sending}
+                aria-label={`${t.name} 트랙 지우기`}
+                title="트랙 지우기 (바로 저장돼요 · 히스토리에서 되돌리기 가능)"
+              >
+                ×
+              </button>
+            )}
             {isNew(t.id) || t.audio ? (
               // 아직 없는 트랙이라 악기 · 볼륨은 적용한 뒤에 바꿀 수 있다. 오디오 루프는 고를 악기가 없다
               <span

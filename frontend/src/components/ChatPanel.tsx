@@ -113,6 +113,13 @@ export function ChatPanel() {
           <p>
             <strong>미리보기</strong> · 다음 명령도 이 위에 이어서 쌓여요
           </p>
+          {project.tracks
+            .filter((t) => !preview.tracks.some((p) => p.id === t.id))
+            .map((t) => (
+              <p className="tempo-change" key={`gone-${t.id}`}>
+                {t.name} <strong>트랙 지움</strong>
+              </p>
+            ))}
           {preview.tracks
             .filter((t) => {
               const before = project.tracks.find((o) => o.id === t.id)

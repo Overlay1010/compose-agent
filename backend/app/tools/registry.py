@@ -41,7 +41,7 @@ from app.tools.generate import (
     generate_drums,
 )
 from app.tools.samples import AddLoopArgs, GrooveFromLoopArgs, UseSampleArgs, add_loop, groove_from_loop, use_sample
-from app.tools.tracks import DuplicateTrackArgs, duplicate_track
+from app.tools.tracks import DeleteTrackArgs, DuplicateTrackArgs, delete_track, duplicate_track
 
 TOOLS: dict[str, Tool] = {
     t.name: t
@@ -211,6 +211,12 @@ TOOLS: dict[str, Tool] = {
             "음이 없는 빈 트랙을 하나 만든다 (악기 · 드럼 킷은 고를 수 있음). 음을 지어 넣지는 않는다.",
             AddTrackArgs,
             add_track,
+        ),
+        Tool(
+            "delete_track",
+            "트랙을 통째로 지운다 (트랙 목록에서 빠짐). 음만 지우고 트랙은 남기려면 delete_notes.",
+            DeleteTrackArgs,
+            delete_track,
         ),
         Tool(
             "set_drum_sound",

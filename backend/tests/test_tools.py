@@ -270,7 +270,7 @@ def test_registry_has_all_tools_with_schemas():
     assert set(TOOLS) == {
         "transpose", "shift_octave", "quantize", "adjust_velocity", "swing", "get_project_info", "set_tempo", "set_instrument",
         "delete_notes", "set_length", "copy_bars", "humanize", "velocity_ramp", "set_mix", "duplicate_track", "set_drum_sound", "vary_hats", "use_sample", "groove_from_loop", "add_loop",
-        "analyze_harmony", "suggest_reharmonization", "apply_chords", "generate_chords", "generate_bassline", "generate_drums", "add_track",
+        "analyze_harmony", "suggest_reharmonization", "apply_chords", "generate_chords", "generate_bassline", "generate_drums", "add_track", "delete_track",
     }
     specs = tool_specs()
     for spec in specs:
@@ -430,6 +430,43 @@ def test_instrument_endpoint_makes_version_and_keeps_preview(client):
     assert applied.status_code == 200 and applied.json()["tracks"][1]["program"] == 38  # 충돌 없이 적용
 
     assert client.post(f"/api/v1/projects/{pid}/tracks/t9/instrument", json={"program": 1}).status_code == 400
+
+
+# ---------- delete_track ----------
+
+def test_delete_track_removes_tracks_but_not_the_last():
+    p = song(track("t1", (60, 0, 1, 80), name="Keys"), track("t2", name="Hats"), track("t3", (40, 0, 1, 80), name="Bass"))
+    r = run_tool(p, "delete_track", {"track_ids": ["t2"]})
+    assert [t.id for t in r.project.tracks] == ["t1", "t3"]
+    assert r.changed_settings and "Hats(t2) 트랙을 지웠어요 (음 0개)" in r.summary  # 빈 트랙도 바뀐 것
+    two = run_tool(p, "delete_track", {"track_ids": ["t1", "t3"]})
+    assert [t.id for t in two.project.tracks] == ["t2"] and two.changed_notes == 2
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "delete_track", {"track_ids": ["t1", "t2", "t3"]})
+    assert e.value.code == "last_track"
+    with pytest.raises(ToolError) as e:
+        run_tool(p, "delete_track", {"track_ids": ["t9"]})
+    assert e.value.code == "unknown_track"
+    assert [t.id for t in p.tracks] == ["t1", "t2", "t3"]  # 원래 곡은 그대로
+
+
+def test_delete_track_endpoint_makes_version_and_updates_preview(client):
+    from tests.test_agent import upload_lofi
+    from app.store.memory import store
+
+    pid = upload_lofi(client)
+    edited = run_tool(store.current(pid), "transpose", {"track_ids": ["t2"], "semitones": 2}).project
+    store.set_preview(pid, edited, "베이스 2키 올림")
+
+    r = client.delete(f"/api/v1/projects/{pid}/tracks/t4")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["project"]["version"] == 2 and "t4" not in [t["id"] for t in body["project"]["tracks"]]
+    assert "t4" not in [t["id"] for t in body["preview"]["tracks"]]  # 미리보기에서도 빠지고
+    assert body["preview"]["tracks"][1]["notes"] == [n.model_dump() for n in edited.tracks[1].notes]  # 미리보기 편집은 그대로
+    assert "트랙을 지웠어요" in body["note"]
+    assert client.post(f"/api/v1/projects/{pid}/undo").json()["tracks"][3]["id"] == "t4"  # 되돌리기
+    assert client.delete(f"/api/v1/projects/{pid}/tracks/t9").status_code == 400
 
 
 # ---------- delete_notes ----------
