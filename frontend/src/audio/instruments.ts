@@ -26,9 +26,21 @@ export function createVoice(track: Track, tempo = 120): Voice {
   if (track.audio) return new AudioLoopVoice(track.audio, tempo)
   if (track.is_drum) return new SampledDrumVoice(track)
   const mine = track.sample ? sampleMeta(track.sample.id) : undefined
-  if (mine && mine.root !== null) return new UserSampleVoice(track, mine)
-  return gmVoice(track) // 내 샘플이 이 브라우저에 없으면(다른 브라우저 · 지운 샘플) 트랙 악기로
+  const usable = mine && mine.root !== null ? mine : undefined
+  // 내 샘플이 이 브라우저에 없으면(다른 브라우저 · 지운 샘플) 트랙 악기로
+  const voice = usable ? new UserSampleVoice(track, usable) : gmVoice(track)
+  const bass = usable ? usable.kind === 'bass' : isBassProgram(gmProgramOf(track))
+  if (bass && voice.output instanceof Tone.Gain) voice.output.gain.value = BASS_GAIN
+  return voice
 }
+
+/**
+ * 베이스 트랙은 6dB 키운다. 악기 크기는 음 하나 기준으로 맞췄는데(GM 베이스 7종 · 다른 악기 8종이 첫 1초 RMS · K-가중 모두 1dB 안),
+ * 곡에서는 베이스만 한 음씩 치고 패드 · 건반은 3~4음을 겹쳐 쳐서(4음이면 +6dB) 베이스가 묻혔다 — 낮은 음은 귀에도 작게 들린다.
+ * GM 핑거 베이스 · 내 베이스 샘플 모두 "약하게 들린다"는 말로 찾았다. 마스터가 -4dB라 키워도 넘치지 않는다.
+ */
+const BASS_GAIN = Math.pow(10, 6 / 20)
+const isBassProgram = (program: number) => program >= 32 && program <= 39
 
 function gmVoice(track: Track): Voice {
   return sustains(gmProgramOf(track)) ? new LoopedVoice(track) : new SampledVoice(track)
