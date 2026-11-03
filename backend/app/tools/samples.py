@@ -14,6 +14,7 @@ import math
 import re
 from contextlib import contextmanager
 from contextvars import ContextVar
+from random import Random
 from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -197,13 +198,51 @@ def _prefer(sample: SampleInfo, prefer: Prefer | None) -> tuple[float, list[str]
     return bonus, ["어두운 소리" if sample.brightness < 0.4 else "밝은 소리" if sample.brightness > 0.6 else "중간 밝기"]
 
 
-def recommend(track: Track, tempo: float, samples: tuple[SampleInfo, ...] | list[SampleInfo], prefer: Prefer | None = None) -> list[Pick]:
-    """이 트랙에 어울리는 순서. 같은 점수면 이름 순 (결과가 매번 같게)."""
+CLOSE = 3  # 점 — 다른 트랙까지 본 점수가 1등과 이만큼 안이면 곡마다 순서를 바꾼다 (말로 고른 쪽이 있으면 안 섞음).
+# 5로 두고 "빛깔이 비슷하면 -5"까지 했더니 lofi 패드 트랙에서 0.8초짜리 짧은 패드가 길게 끄는 패드와 동점이 돼 1등이 됐다
+
+
+def _with_neighbors(pick: Pick, track: Track, project: Project, samples: dict[str, SampleInfo]) -> Pick:
+    """다른 트랙 보기 (app/arrange): 다른 트랙이 이미 쓰는 샘플은 뒤로, 같은 높이 트랙과 빛깔이 다르면 앞으로."""
+    from app.arrange.read import FAMILY_BRIGHTNESS  # 늦게 (돌고 도는 import)
+
+    value, why = pick.score, [pick.reason]
+    others = [t for t in project.tracks if t.id != track.id and not t.is_drum and t.audio is None]
+    owner = next((t for t in others if t.sample and t.sample.id == pick.sample.id), None)
+    if owner is not None:
+        value -= 15
+        why.append(f"{owner.name} 트랙이 이미 씀")
+    mine = track.pitch_range
+    near = [t for t in others if mine and t.pitch_range and t.pitch_range[0] <= mine[1] and mine[0] <= t.pitch_range[1]]
+    if near:
+        def bright(t: Track) -> float:
+            info = samples.get(t.sample.id) if t.sample else None
+            return info.brightness if info else FAMILY_BRIGHTNESS[heard_program(t) // 8]
+
+        around = sum(bright(t) for t in near) / len(near)
+        if abs(pick.sample.brightness - around) >= 0.25:
+            value += 5
+            why.append("같은 높이 트랙과 빛깔이 달라 잘 들림")
+    return pick.model_copy(update={"score": round(value, 1), "reason": " · ".join(why)})
+
+
+def recommend(track: Track, tempo: float, samples: tuple[SampleInfo, ...] | list[SampleInfo], prefer: Prefer | None = None,
+              project: Project | None = None) -> list[Pick]:
+    """이 트랙에 어울리는 순서. 같은 점수면 이름 순 (결과가 매번 같게).
+    project를 주면 다른 트랙까지 보고, 점수가 비슷한 후보는 곡마다 순서를 바꾼다 (같은 곡이면 늘 같다)."""
     role = role_of(track)
     if role is None:
         return []
     picks = [p for s in samples if (p := score(s, role, track, tempo, prefer))]
-    return sorted(picks, key=lambda p: (-p.score, p.sample.name))
+    if project is not None:
+        by_id = {s.id: s for s in samples}
+        picks = [_with_neighbors(p, track, project, by_id) for p in picks]
+    ordered = sorted(picks, key=lambda p: (-p.score, p.sample.name))
+    if project is None or prefer is not None or not ordered:
+        return ordered
+    close = [p for p in ordered if ordered[0].score - p.score <= CLOSE]
+    Random(f"{project.id}:{track.id}").shuffle(close)
+    return close + ordered[len(close):]
 
 
 # ---------- 드럼 레인 ----------
@@ -348,7 +387,7 @@ def use_sample(project: Project, args: UseSampleArgs) -> ToolResult:
                 tracks[t.id] = new
                 lines.append(line or "")
             continue
-        picks = recommend(t, project.tempo, pool, args.prefer)
+        picks = recommend(t, project.tempo, pool, args.prefer, project)
         if args.different and t.sample:
             picks = [p for p in picks if p.sample.id != t.sample.id]
         if args.sample and not picks:

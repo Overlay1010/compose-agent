@@ -67,6 +67,7 @@ const TOOL_LABELS: Record<string, string> = {
   add_loop: '루프 깔기',
   add_track: '트랙 추가',
   delete_track: '트랙 지우기',
+  suggest_instruments: '악기 추천',
   start_over: '미리보기 버리고 다시 시작',
 }
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name

@@ -42,6 +42,7 @@ from app.tools.generate import (
 )
 from app.tools.samples import AddLoopArgs, GrooveFromLoopArgs, UseSampleArgs, add_loop, groove_from_loop, use_sample
 from app.tools.tracks import DeleteTrackArgs, DuplicateTrackArgs, delete_track, duplicate_track
+from app.tools.suggest import SuggestInstrumentsArgs, suggest_instruments
 
 TOOLS: dict[str, Tool] = {
     t.name: t
@@ -217,6 +218,13 @@ TOOLS: dict[str, Tool] = {
             "트랙을 통째로 지운다 (트랙 목록에서 빠짐). 음만 지우고 트랙은 남기려면 delete_notes.",
             DeleteTrackArgs,
             delete_track,
+        ),
+        Tool(
+            "suggest_instruments",
+            "곡 전체를 읽어 비어 있는 자리(없는 역할 · 빈 높이 · 소리 성격)를 찾고, 자리마다 어울리는 악기 후보 · 내 샘플을 이유와 함께 알려 준다. "
+            "프로젝트는 바꾸지 않는다 — 사용자가 고르면 결과의 '만들기' 도구로 깐다. \"다른 추천\"이면 version + 1.",
+            SuggestInstrumentsArgs,
+            suggest_instruments,
         ),
         Tool(
             "set_drum_sound",

@@ -302,7 +302,7 @@ def recommend_samples(project_id: str, body: RecommendIn) -> dict[str, list[Pick
     """트랙마다 어울리는 내 샘플 (좋은 순 최대 8개). 트랙 악기 메뉴가 쓴다. 드럼 트랙은 없음."""
     project = _get(project_id)
     return {
-        t.id: [PickOut(id=p.sample.id, name=p.sample.name, reason=p.reason) for p in recommend(t, project.tempo, body.samples)[:8]]
+        t.id: [PickOut(id=p.sample.id, name=p.sample.name, reason=p.reason) for p in recommend(t, project.tempo, body.samples, project=project)[:8]]
         for t in project.tracks
         if not t.is_drum and t.audio is None
     }
