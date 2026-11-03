@@ -54,10 +54,15 @@ def test_pad_sound_fits_the_band():
     def band(*tracks):
         return Project(id="p", tracks=[Track(id=f"t{i}", name=n, program=prog, program_set=True) for i, (n, prog) in enumerate(tracks, 1)])
 
-    assert pad_program(band(("Keys", 4), ("Bass", 33))) == 89  # 건반 · 로파이 → 따뜻한 패드
-    assert pad_program(band(("Violin", 40), ("Cello", 42))) == 48  # 현악 편성 → 스트링 앙상블
-    assert pad_program(band(("Lead", 81), ("Bass", 38))) == 90  # 신스 → 폴리신스 패드
-    assert pad_program(band(("Keys", 4), ("Pad", 89))) == 90  # 이미 따뜻한 패드가 있으면 다른 패드
+    # 분위기마다 어울리는 후보 셋 중 곡마다 하나 (늘 같은 소리만 나오지 않게, 같은 곡이면 같게 — app/arrange/suggest.choose_program)
+    assert pad_program(band(("Keys", 4), ("Bass", 33))) in {89, 88, 92}  # 건반 · 로파이 → 따뜻한 · 뉴에이지 · 보우드 패드
+    assert pad_program(band(("Violin", 40), ("Cello", 42))) in {48, 49, 52}  # 현악 편성 → 스트링 · 느린 스트링 · 합창
+    assert pad_program(band(("Lead", 81), ("Bass", 38))) in {90, 94, 88}  # 신스 → 폴리신스 · 헤일로 · 뉴에이지 패드
+    again = pad_program(band(("Keys", 4), ("Pad", 89)))
+    assert again != 89 and 88 <= again <= 95  # 이미 따뜻한 패드가 있으면 다른 패드
+    assert pad_program(band(("Keys", 4), ("Bass", 33))) == pad_program(band(("Keys", 4), ("Bass", 33)))  # 같은 곡이면 같다
+    picks = {pad_program(Project(id=i, tracks=band(("Keys", 4), ("Bass", 33)).tracks)) for i in "abcdefgh"}
+    assert len(picks) > 1  # 곡이 다르면 달라질 수 있다
 
 
 def test_pad_respects_the_range():
@@ -92,7 +97,7 @@ def test_pad_on_samples_stays_in_its_window():
     _, pad = pad_of(p)
     bass = next(t for t in p.tracks if t.name == "Bass")
     top = sorted(n.pitch for n in bass.notes)[int(0.9 * len(bass.notes))]
-    assert min(n.pitch for n in pad.notes) > top - 12 and pad.program == 90  # 이미 Pad(따뜻한 패드)가 있어 폴리신스
+    assert min(n.pitch for n in pad.notes) > top - 12 and pad.program != 89 and 88 <= pad.program <= 95  # 이미 Pad(따뜻한 패드)가 있어 다른 패드
 
 
 @pytest.mark.parametrize("name", [n.removesuffix(".mid") for n in make_samples.SAMPLES])
@@ -198,7 +203,8 @@ def chord_tones(chord):
 def test_stab_strikes_the_chord_in_a_rhythm():
     p = song(C, AM, F, G)
     r, stab = pad_of(p, pattern="stab")
-    assert (stab.name, stab.program) == ("Chords", 0) and r.checks == []  # 건반 편성 → 전자 피아노인데 Keys가 이미 Rhodes라 피아노
+    # 건반 편성 → 전자 피아노인데 Keys가 이미 Rhodes라, 같은 높이의 같은 건반 계열(피아노)도 피해 비브라폰 (곡 읽기, 2026-11-04)
+    assert (stab.name, stab.program) == ("Chords", 11) and r.checks == []
     groups = by_start(stab)
     assert [g[0].start for g in groups[:4]] == [0, 1, 2, 3] and all(n.duration == 0.5 for n in stab.notes)  # 버전 1: 박마다
     assert groups[0][0].velocity > groups[1][0].velocity  # 마디 첫 박을 세게
@@ -272,11 +278,12 @@ def test_comp_sound_fits_the_band():
             tracks.append(Track(id="d", name="Drums", is_drum=True, program=kit))
         return Project(id="p", tracks=tracks)
 
-    assert comp_program(band(0, 33), "stab") == 4 and comp_program(band(0, 33), "arpeggio") == 4  # 건반 → 전자 피아노
-    assert comp_program(band(4, 38), "arpeggio") == 11  # 로파이(Rhodes 있음, 신스 베이스만) → 비브라폰, 톱니파 리드 아님
-    assert comp_program(band(80, 38, kit=25), "arpeggio") == 81  # 신스 리드 · 808 킷 → 톱니파 리드
-    assert comp_program(band(81, 38), "arpeggio") == 4  # 톱니파 리드가 이미 있으면 다음 후보
-    assert comp_program(band(40, 42), "stab") == 0 and comp_program(band(40, 42), "arpeggio") == 46  # 현악 → 피아노 · 하프
+    # 생성기 규칙이 먼저 고른 소리 + 분위기별 후보 중 곡마다 하나 (이미 쓴 소리는 빼고)
+    assert comp_program(band(0, 33), "stab") in {4, 5, 11} and comp_program(band(0, 33), "arpeggio") in {4, 24, 11}  # 건반 편성
+    assert comp_program(band(4, 38), "arpeggio") in {24, 11, 46}  # 로파이(Rhodes 있음, 신스 베이스만) → 톱니파 리드 · 신스 소리 아님
+    assert comp_program(band(80, 38, kit=25), "arpeggio") in {81, 98, 11}  # 신스 리드 · 808 킷 → 톱니파 리드 · 크리스털 · 비브라폰
+    assert comp_program(band(81, 38), "arpeggio") != 81  # 톱니파 리드가 이미 있으면 다른 소리
+    assert comp_program(band(40, 42), "stab") in {0, 4, 11} and comp_program(band(40, 42), "arpeggio") in {46, 24, 45}  # 현악 → 피아노 · 하프 쪽
 
 
 @pytest.mark.parametrize("pattern", ["stab", "arpeggio"])

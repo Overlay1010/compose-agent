@@ -63,10 +63,15 @@ def bass_program(project: Project, style: str = "root") -> int:
     heard = [heard_program(t) for t in project.tracks if not t.is_drum]
     kits = {t.program for t in project.tracks if t.is_drum}
     if any(80 <= p <= 87 or p in (38, 39) for p in heard) or kits & ELECTRONIC_KITS:
-        return SYNTH_BASS_2 if style == "octave" else SYNTH_BASS
-    if any(40 <= p <= 79 for p in heard):
-        return ACOUSTIC_BASS
-    return STYLE_SOUNDS.get(style, FINGER)
+        want = SYNTH_BASS_2 if style == "octave" else SYNTH_BASS
+    elif any(40 <= p <= 79 for p in heard):
+        want = ACOUSTIC_BASS
+    else:
+        want = STYLE_SOUNDS.get(style, FINGER)
+    from app.arrange.suggest import choose_program  # 곡 읽기 (늦게)
+
+    # 베이스를 하나 더 깔 때 같은 소리가 겹치지 않게 (지금 베이스가 핑거면 다음 후보)
+    return choose_program(project, "bass", [want])
 
 
 def kick_hits(project: Project, start: float, end: float) -> list[float]:

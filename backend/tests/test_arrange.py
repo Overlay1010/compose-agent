@@ -101,3 +101,19 @@ def test_suggest_lists_my_samples_for_the_slot():
     with library(PACK):
         r = run_tool(p, "suggest_instruments", {"role": "pad"})
     assert r.data["slots"][0]["my_samples"] and r.data["slots"][0]["my_samples"][0]["name"].endswith("Pad C4")
+
+
+def test_generators_avoid_the_same_family_at_the_same_height_and_vary_by_song():
+    from app.generate.bass import bass_program
+    from app.generate.chords import comp_program
+
+    piano = Track(id="t1", name="Piano", program=0, program_set=True, notes=notes(*[(60 + i % 7, i * 1.0, 1.0) for i in range(16)]))
+    picks = {comp_program(Project(id=i, tracks=[piano]), "stab") for i in "abcdefghij"}
+    assert picks and all(p // 8 != 0 for p in picks)  # 피아노 곡의 반주에 전자 피아노 · 피아노(같은 건반 계열)는 안 고름
+    assert len(picks) > 1  # 곡마다 다르게
+    # 베이스는 스타일마다 정한 소리를 지킨다 (옥타브 → 슬랩, 워킹 → 콘트라베이스)
+    assert bass_program(Project(id="x", tracks=[piano]), "octave") == 36
+    assert bass_program(Project(id="x", tracks=[piano]), "walking") == 32
+    # 베이스를 하나 더 깔 때 같은 소리는 겹치지 않게
+    finger = Track(id="t2", name="Bass", program=33, program_set=True, notes=notes((36, 0, 1)))
+    assert bass_program(Project(id="x", tracks=[piano, finger])) != 33

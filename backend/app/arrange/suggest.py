@@ -189,3 +189,30 @@ def suggest(song: SongMap, project_id: str, role: Role | None = None, count: int
         slot.samples = _samples(song, r, low, high, library, used_samples or set(), seed)[:2]
         out.append(slot)
     return out
+
+
+# 생성기가 스스로 소리를 고를 때 같은 높이의 같은 계열을 피하는 역할 (패드 · 베이스는 사용자가 그 악기를 원한 거라 계열을 바꾸지 않는다)
+AVOID_TWINS: set[Role] = {"keys", "pluck"}
+# 곡마다 다르게 고를 후보 수. 베이스는 스타일마다 정한 소리(옥타브 → 슬랩, 워킹 → 콘트라베이스)가 기능이라 섞지 않는다
+CHOICES: dict[Role, int] = {"pad": 3, "keys": 3, "pluck": 3, "lead": 3, "bass": 1}
+
+
+def choose_program(project, role: Role, head: list[int], flavor: str | None = None) -> int:
+    """생성기 소리. 생성기 규칙이 먼저 고른 소리(head[0]) 뒤에 분위기별 후보 묶음을 잇고, 이미 쓴 악기 · 그 높이를 못 내는 악기는
+    건너뛰고, 건반 · 플럭은 같은 높이에 같은 계열(예: 피아노 곡의 전자 피아노 반주)을 피한다. 남은 좋은 후보 몇 개 중에서
+    곡마다 다르게 고른다 — 곡 읽기만으로는 샘플팩 37곡(모두 피아노 한 트랙)에서 반주가 37곡 모두 같은 소리였다.
+    같은 곡이면 늘 같다 (다시 만들기 · 다른 버전은 트랙 소리를 그대로 쓴다).
+    flavor: 생성기가 따로 정한 분위기 (반주는 신스 베이스만으로는 전자로 보지 않는다 — 로파이 아르페지오가 톱니파 리드로 나왔다)."""
+    from app.arrange.read import read_song  # 생성기가 이 모듈을 불러서 늦게
+
+    song = read_song(project)
+    low, high = REGISTER[role]
+    used = {t.program for t in song.melodic}
+    near = _overlapping(song, low, high)
+    order = list(dict.fromkeys([head[0], *POOLS[role][flavor or song.flavor], *head[1:]]))
+    playable = [p for p in order if fits(p, low, high)] or order
+    free = [p for p in playable if p not in used] or playable
+    if role in AVOID_TWINS:
+        free = [p for p in free if not any(t.family == p // 8 for t in near)] or free
+    picks = free[:CHOICES[role]]
+    return picks[Random(f"{project.id}:{role}").randrange(len(picks))]

@@ -62,8 +62,9 @@ def pad_program(project: Project) -> int:
         want = POLYSYNTH_PAD
     else:
         want = WARM_PAD
-    used = set(heard)
-    return next((p for p in [want, WARM_PAD, POLYSYNTH_PAD, *OTHER_PADS] if p not in used), want)
+    from app.arrange.suggest import choose_program  # 곡 읽기 (늦게 — 도구 목록과 돌고 도는 import)
+
+    return choose_program(project, "pad", [want, WARM_PAD, POLYSYNTH_PAD, *OTHER_PADS])
 
 
 def _percentile(values: list[int], q: float) -> int:
@@ -182,8 +183,11 @@ def comp_program(project: Project, pattern: str) -> int:
         want = [POLYSYNTH_PAD, E_PIANO] if electronic else [PIANO, E_PIANO] if acoustic else [E_PIANO, PIANO]
     else:
         want = [SAW_LEAD, E_PIANO] if electronic else [HARP, PIANO] if acoustic else [E_PIANO, VIBES, HARP]
-    used = set(heard)
-    return next((p for p in [*want, PIANO, VIBES] if p not in used), want[0])
+    from app.arrange.suggest import choose_program
+
+    # 이미 쓴 소리 · 같은 높이의 같은 계열(로즈 옆 피아노 반주)은 피해 같은 역할의 후보 묶음에서 다음 것 (app/arrange/suggest.py)
+    flavor = "electronic" if electronic else "acoustic" if acoustic else "neutral"
+    return choose_program(project, "keys" if pattern == "stab" else "pluck", [*want, PIANO, VIBES], flavor)
 
 
 # ---------- 직접 말한 진행 ----------
