@@ -1,4 +1,4 @@
-"""정답 있는 명령 113개.
+"""정답 있는 명령 116개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -288,6 +288,11 @@ CASES: list[Case] = [
     case("B19", "만들기", "waltz_3_4", "킥만 깔아줘", [Call("generate_drums", {"parts": ["kick"]})]),
     case("B20", "만들기", "lofi_groove", "하이햇 롤 들어간 팝 드럼 깔아줘", [Call("generate_drums", {"style": "pop", "rolls": True})]),
     case("B21", "만들기", "fl_style_loose", "롤 없이 트랩 비트 만들어줘", [Call("generate_drums", {"style": "trap", "rolls": False})]),
+    # 깔린 하이햇 손보기 — 구간을 통째로 지우거나(delete_notes) 다시 만들지(generate_drums) 않고 vary_hats
+    case("B22", "만들기", "lofi_groove", "하이햇이 너무 8비트로 일정한데 중간중간 좀 비워줘", [Call("vary_hats", {"space": "little", "open_hats": OneOf(frozenset({None, "same"}))})]),
+    case("B23", "만들기", "fl_style_loose", "햇 중간중간 듬성듬성 나오게 하고 오픈햇도 조금 더 넣어줘",
+         [Call("vary_hats", {"space": "little", "open_hats": "more"})]),
+    case("B24", "만들기", "lofi_groove", "오픈햇 좀 더 넣어줘", [Call("vary_hats", {"open_hats": "more", "space": OneOf(frozenset({None, "none"}))})]),
     case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
          [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
     # ---------- 내 샘플 (샘플팩 이름표가 있을 때 use_sample, GM 악기 set_instrument가 아님) ----------
@@ -318,4 +323,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 113 and len({c.id for c in CASES}) == 113
+assert len(CASES) == 116 and len({c.id for c in CASES}) == 116

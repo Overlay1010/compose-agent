@@ -21,6 +21,7 @@ from app.tools.edits import (
     transpose,
 )
 from app.tools.drums import SetDrumSoundArgs, set_drum_sound
+from app.tools.hats import VaryHatsArgs, vary_hats
 from app.tools.harmony import (
     AnalyzeHarmonyArgs,
     ApplyChordsArgs,
@@ -216,6 +217,13 @@ TOOLS: dict[str, Tool] = {
             "드럼 트랙에서 소리 하나(레인)만 다른 소리로 바꾼다 (예: 탐만 808 탐으로). 같은 역할의 소리끼리만. 킷 전체는 set_instrument.",
             SetDrumSoundArgs,
             set_drum_sound,
+        ),
+        Tool(
+            "vary_hats",
+            "깔린 하이햇을 다시 만들지 않고 손본다: 닫힌 햇을 마디마다 다른 자리에서 한두 개씩 비우거나(space), "
+            "닫힌 햇을 열린 햇으로 바꿔 열린 햇을 늘리거나 줄인다(open_hats). 마디 첫 박 · 롤은 그대로. 같은 요청을 다른 자리로면 version + 1.",
+            VaryHatsArgs,
+            vary_hats,
         ),
     ]
 }
