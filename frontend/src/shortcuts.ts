@@ -21,6 +21,8 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['↑', '↓'], label: '고른 음 반음 올리기 · 내리기 (Shift = 옥타브)' },
   { keys: ['Ctrl', 'A'], label: '그 트랙 음 모두 고르기' },
   { keys: ['Q'], label: '정박에 맞추기 (고른 음, 없으면 트랙 전체)' },
+  { keys: ['=', '-'], label: '피아노롤 가로 확대 · 축소 (Shift = 세로, Ctrl+휠 · Ctrl+Shift+휠도 돼요)' },
+  { keys: ['0'], label: '곡 전체가 한 화면에 들어오게' },
   { keys: ['/'], label: '채팅 입력칸으로' },
   { keys: ['?'], label: '단축키 목록' },
 ]

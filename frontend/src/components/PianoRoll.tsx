@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Note, Track } from '../api/types'
 import { DRUM_NAMES, DRUM_ROLES, DRUM_SOUNDS, drumSoundOf } from '../audio/catalog'
 import * as player from '../audio/engine'
@@ -18,12 +18,27 @@ import { ChordStrip, KeyBadge } from './ChordStrip'
 import { EmptyState } from './EmptyState'
 import { Overview } from './Overview'
 
-const BEAT_PX = 24 // 1박의 가로 길이
-const ROW_PX = 12 // 반음 1칸의 세로 길이
 const KEY_PX = 48 // 왼쪽 건반 영역
 // 드럼 트랙은 DAW 드럼 에디터처럼 쓰인 소리만 이름 붙은 레인으로 보여 준다
-const DRUM_ROW_PX = 18
 const DRUM_KEY_PX = 92
+
+// 확대 · 축소: x = 1박의 가로 길이, y = 반음 1칸의 세로 길이 (px). 드럼 레인은 반음 칸의 1.5배
+type Zoom = { x: number; y: number }
+const DEFAULT_ZOOM: Zoom = { x: 24, y: 12 }
+const ZOOM_STEP = 1.25
+const clampZoom = (z: Zoom): Zoom => ({
+  x: Math.round(Math.min(120, Math.max(8, z.x)) * 100) / 100,
+  y: Math.round(Math.min(32, Math.max(6, z.y))),
+})
+const drumRow = (y: number) => Math.max(12, Math.round(y * 1.5))
+const loadZoom = (): Zoom => {
+  try {
+    const z = JSON.parse(localStorage.getItem('roll-zoom') ?? 'null')
+    return z && Number.isFinite(z.x) && Number.isFinite(z.y) ? clampZoom(z) : DEFAULT_ZOOM
+  } catch {
+    return DEFAULT_ZOOM
+  }
+}
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const noteName = (pitch: number) => `${NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}`
@@ -42,6 +57,30 @@ const GRIDS: { value: number; label: string }[] = [
   { value: 0, label: '끔' },
 ]
 const gridName = (g: number) => GRIDS.find((x) => Math.abs(x.value - g) < 1e-6)?.label ?? `${g}박`
+/** 그린 캔버스의 왼쪽 건반 띠를 왼쪽에 붙어 있는 캔버스로 복사 (확대해서 가로로 스크롤해도 어느 음 줄인지 보이게) */
+function copyKeys(from: HTMLCanvasElement, to: HTMLCanvasElement | null, keyPx: number, height: number) {
+  if (!to) return
+  const dpr = window.devicePixelRatio || 1
+  to.width = keyPx * dpr
+  to.height = height * dpr
+  to.style.width = `${keyPx}px`
+  to.style.height = `${height}px`
+  if (keyPx && height) to.getContext('2d')!.drawImage(from, 0, 0, keyPx * dpr, height * dpr, 0, 0, keyPx * dpr, height * dpr)
+}
+const LENGTHS: Record<number, string> = {
+  4: '온음표', 3: '점2분음표', 2: '2분음표', 1.5: '점4분음표', 1: '4분음표', 0.75: '점8분음표', 0.5: '8분음표', 0.25: '16분음표', 0.125: '32분음표',
+}
+const num = (v: number) => String(Math.round(v * 100) / 100)
+/** 마우스 아래 음 설명: "D4 · 3마디 2.5박 · 8분음표 · 세기 90" */
+const describeNote = (n: Note, beatsPerBar: number, drum: boolean) =>
+  [
+    drum ? (DRUM_NAMES[n.pitch] ?? noteName(n.pitch)) : noteName(n.pitch),
+    `${Math.floor(n.start / beatsPerBar + 1e-6) + 1}마디 ${num((n.start % beatsPerBar) + 1)}박`,
+    drum ? null : (LENGTHS[round4(n.duration)] ?? `${num(n.duration)}박`),
+    `세기 ${n.velocity}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 /** 가장 가까운 격자선으로 (격자 끔이면 그대로) */
 const toGrid = (beat: number, grid: number) => (grid > 0 ? round4(Math.round(beat / grid) * grid) : round4(beat))
 const MIN_LENGTH = 0.0625
@@ -81,6 +120,52 @@ export function PianoRoll() {
       /* 저장 못 해도 이번 화면에서는 쓴다 */
     }
   }
+  // 확대 · 축소 (브라우저에 기억). 바꾼 뒤에도 마우스(버튼이면 화면 가운데) 아래 박 · 음이 그 자리에 남게 스크롤을 맞춘다
+  const [zoom, setZoomState] = useState(loadZoom)
+  const beatPx = zoom.x
+  const pendingScroll = useRef<{ left: number; top: number } | null>(null)
+  const zoomTo = (want: Zoom, at?: { clientX: number; clientY: number }) => {
+    const next = clampZoom(want)
+    const box = scroller.current
+    const el = canvas.current
+    const L = layout.current
+    if (next.x === zoom.x && next.y === zoom.y) return
+    if (box && el && L) {
+      const b = box.getBoundingClientRect()
+      const r = el.getBoundingClientRect()
+      const cx = (at?.clientX ?? b.left + b.width / 2) - r.left
+      const cy = (at?.clientY ?? b.top + b.height / 2) - r.top
+      const nextRow = track?.is_drum ? drumRow(next.y) : next.y
+      const nx = L.keyPx + ((cx - L.keyPx) / zoom.x) * next.x
+      const ny = 20 + ((cy - 20) / L.rowPx) * nextRow
+      pendingScroll.current = { left: box.scrollLeft + nx - cx, top: box.scrollTop + ny - cy }
+    }
+    setZoomState(next)
+    try {
+      localStorage.setItem('roll-zoom', JSON.stringify(next))
+    } catch {
+      /* 저장 못 해도 이번 화면에서는 쓴다 */
+    }
+  }
+  const zoomBy = (axis: 'x' | 'y', step: number, at?: { clientX: number; clientY: number }) =>
+    zoomTo({ ...zoom, [axis]: axis === 'y' ? zoom.y + step * 2 : zoom.x * ZOOM_STEP ** step }, at)
+  /** 곡 전체가 가로로 한 화면에 들어오게 */
+  const fitWidth = () => {
+    const box = scroller.current
+    const L = layout.current
+    if (!box || !L) return
+    const x = clampZoom({ ...zoom, x: (box.clientWidth - L.keyPx - 8) / L.lengthBeats }).x
+    if (x === zoom.x) {
+      box.scrollLeft = 0
+      return
+    }
+    zoomTo({ ...zoom, x })
+    pendingScroll.current = { left: 0, top: box.scrollTop }
+  }
+  const zoomRef = useRef({ zoomBy })
+  zoomRef.current = { zoomBy }
+  // 마우스 아래 음 (음 이름 · 위치 · 길이 · 세기). 끄는 동안은 옮겨 갈 자리
+  const [hover, setHover] = useState('')
   const [draft, setDraft] = useState<Selection | null>(null)
   // 코드 띠: 미리보기를 듣는 중이면 미리보기의 코드, 리하모니 제안 카드를 눌렀으면 그 제안 (원래와 달라진 코드 표시)
   const harmony = useHarmony()
@@ -99,6 +184,7 @@ export function PianoRoll() {
   const playing = usePlayer((s) => s.playing)
   const cursor = usePlayer((s) => s.cursor)
   const canvas = useRef<HTMLCanvasElement>(null)
+  const keysCanvas = useRef<HTMLCanvasElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
   const realTrack = project?.tracks.find((t) => t.id === selectedTrackId)
@@ -174,21 +260,22 @@ export function PianoRoll() {
     if (!L || !realTrack) return null
     const rowIndex = new Map(L.rows.map((p, i) => [p, i]))
     const box = (n: Note) => {
-      const w = realTrack.is_drum ? 6 : Math.max(n.duration * BEAT_PX - 2, 2)
-      return { x: L.keyPx + n.start * BEAT_PX + 1, y: 20 + (rowIndex.get(n.pitch) ?? -99) * L.rowPx, w, h: L.rowPx }
+      const w = realTrack.is_drum ? 6 : Math.max(n.duration * beatPx - 2, 2)
+      return { x: L.keyPx + n.start * beatPx + 1, y: 20 + (rowIndex.get(n.pitch) ?? -99) * L.rowPx, w, h: L.rowPx }
     }
     const hit = (x: number, y: number) => {
       const notes = realTrack.notes
       for (let i = notes.length - 1; i >= 0; i--) {
         const b = box(notes[i])
         if (x >= b.x - 2 && x <= b.x + Math.max(b.w, 8) + 2 && y >= b.y && y < b.y + b.h) {
-          return { i, edge: !realTrack.is_drum && b.w > 12 && x > b.x + b.w - 6 }
+          // 끝 부분(음 길이의 1/3, 최대 8px)을 잡으면 길이 바꾸기
+          return { i, edge: !realTrack.is_drum && b.w > 10 && x > b.x + b.w - Math.min(8, b.w / 3) }
         }
       }
       return null
     }
     const rowAt = (y: number) => Math.min(L.rows.length - 1, Math.max(0, Math.floor((y - 20) / L.rowPx)))
-    return { L, rowIndex, hit, rowAt, beatAt: (x: number) => Math.max(0, (x - L.keyPx) / BEAT_PX) }
+    return { L, rowIndex, hit, rowAt, beatAt: (x: number) => Math.max(0, (x - L.keyPx) / beatPx) }
   }
 
   // 음을 골랐을 때의 키 (Delete · ↑↓ · Ctrl+A · Esc). 단축키보다 먼저 받는다 (shortcuts.ts)
@@ -206,6 +293,18 @@ export function PianoRoll() {
       if (e.code === 'KeyQ' && !e.ctrlKey && !e.metaKey && !e.altKey && editable) {
         quantizeNow()
         return true
+      }
+      // = · - 가로 확대 · 축소 (Shift = 세로), 0 = 곡 전체 보기. Ctrl 조합은 브라우저 확대라 건드리지 않는다
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const step = { Equal: 1, NumpadAdd: 1, Minus: -1, NumpadSubtract: -1 }[e.code]
+        if (step) {
+          zoomBy(e.shiftKey ? 'y' : 'x', step)
+          return true
+        }
+        if (e.code === 'Digit0' || e.code === 'Numpad0') {
+          fitWidth()
+          return true
+        }
       }
       if (!picked.size || !editable) return false
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -246,6 +345,7 @@ export function PianoRoll() {
       el.height = 0
       el.style.width = '0px'
       el.style.height = '0px'
+      copyKeys(el, keysCanvas.current, 0, 0)
       setRollBeats(0)
       return
     }
@@ -254,12 +354,12 @@ export function PianoRoll() {
     const rows = track.is_drum
       ? [...new Set(pitches)].sort((a, b) => b - a)
       : Array.from({ length: Math.max(...pitches) - Math.min(...pitches) + 5 }, (_, i) => Math.max(...pitches) + 2 - i)
-    const rowPx = track.is_drum ? DRUM_ROW_PX : ROW_PX
+    const rowPx = track.is_drum ? drumRow(zoom.y) : zoom.y
     const keyPx = track.is_drum ? DRUM_KEY_PX : KEY_PX
     const rowIndex = new Map(rows.map((p, i) => [p, i]))
     const lengthBeats = Math.ceil(Math.max(...[...basis, ...shown].map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
 
-    const width = keyPx + lengthBeats * BEAT_PX
+    const width = keyPx + lengthBeats * beatPx
     const height = rows.length * rowPx + 20
     layout.current = { keyPx, rowPx, rows, lengthBeats }
     setRollBeats(lengthBeats)
@@ -268,6 +368,12 @@ export function PianoRoll() {
     el.height = height * dpr
     el.style.width = `${width}px`
     el.style.height = `${height}px`
+    // 확대 · 축소한 뒤 기준점이 그 자리에 남게 (크기를 바꾼 다음에 스크롤해야 끝까지 갈 수 있다)
+    if (pendingScroll.current && scroller.current) {
+      scroller.current.scrollLeft = pendingScroll.current.left
+      scroller.current.scrollTop = pendingScroll.current.top
+      pendingScroll.current = null
+    }
 
     const ctx = el.getContext('2d')!
     ctx.scale(dpr, dpr)
@@ -304,9 +410,14 @@ export function PianoRoll() {
           ctx.fillStyle = color('--key-line')
           ctx.fillRect(0, y(p) + rowPx - 1, keyPx - 1, 1)
         }
-        if (p % 12 === 0) {
+        if (p % 12 === 0 || (!black && rowPx >= 16)) {
+          // C마다 음 이름, 세로로 크게 보면 흰건반 모두
           ctx.fillStyle = color('--key-label')
-          ctx.fillText(noteName(p), 4, y(p) + rowPx - 1)
+          ctx.globalAlpha = p % 12 === 0 ? 1 : 0.6
+          ctx.fillText(noteName(p), 4, y(p) + rowPx - Math.max(1, (rowPx - 10) / 2))
+          ctx.globalAlpha = 1
+        }
+        if (p % 12 === 0) {
           // 옥타브 경계선
           ctx.fillStyle = color('--grid-strong')
           ctx.fillRect(keyPx, y(p) + rowPx - 1, width - keyPx, 1)
@@ -314,9 +425,19 @@ export function PianoRoll() {
       }
     }
 
+    // 크게 보면 편집 격자선도 흐리게 (선 사이가 8px 넘을 때만)
+    if (grid > 0 && grid < 1 && grid * beatPx >= 8) {
+      ctx.fillStyle = color('--grid')
+      ctx.globalAlpha = 0.45
+      for (let i = 1; i * grid < lengthBeats; i++) {
+        if (Math.abs(i * grid - Math.round(i * grid)) > 1e-6) ctx.fillRect(keyPx + Math.round(i * grid * beatPx), 20, 1, height - 20)
+      }
+      ctx.globalAlpha = 1
+    }
+
     // 마디·박 세로선 + 마디 번호
     for (let b = 0; b <= lengthBeats; b++) {
-      const x = keyPx + b * BEAT_PX
+      const x = keyPx + b * beatPx
       const isBar = b % beatsPerBar === 0
       ctx.strokeStyle = color(isBar ? '--grid-strong' : '--grid')
       ctx.beginPath()
@@ -332,9 +453,9 @@ export function PianoRoll() {
 
     // 음표 (세기가 셀수록 진하게). 드럼은 길이보다 치는 순간이 중요해서 짧게 그린다.
     const box = (n: Note) => {
-      const w = track.is_drum ? 6 : Math.max(n.duration * BEAT_PX - 2, 2)
+      const w = track.is_drum ? 6 : Math.max(n.duration * beatPx - 2, 2)
       const inset = track.is_drum ? 3 : 1
-      return [keyPx + n.start * BEAT_PX + 1, y(n.pitch) + inset, w, rowPx - inset * 2] as const
+      return [keyPx + n.start * beatPx + 1, y(n.pitch) + inset, w, rowPx - inset * 2] as const
     }
     const plain = showDiff && diff ? diff.same : shown
     const noteColor = trackColor(project, track.id)
@@ -345,6 +466,16 @@ export function PianoRoll() {
       ctx.fillRect(...box(n))
     }
     ctx.globalAlpha = 1
+    // 크게 보면 음 안에 음 이름 (음을 고칠 때 어느 음인지 바로 보이게)
+    if (!track.is_drum && rowPx >= 14) {
+      ctx.font = `${Math.min(11, rowPx - 4)}px system-ui`
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.72)'
+      for (const n of plain) {
+        const [x, by, w, h] = box(n)
+        if (rowIndex.has(n.pitch) && w >= 26) ctx.fillText(noteName(n.pitch), x + 3, by + h - Math.max(3, (h - 9) / 2))
+      }
+      ctx.font = '10px system-ui'
+    }
     // 고른 음: 밝은 테두리
     if (!showDiff) {
       ctx.strokeStyle = color('--text')
@@ -378,7 +509,8 @@ export function PianoRoll() {
         ctx.strokeRect(x + 0.5, by + 0.5, w - 1, h - 1)
       }
     }
-  }, [project, track, diff, showDiff, editNotes, picked])
+    copyKeys(el, keysCanvas.current, keyPx, height)
+  }, [project, track, diff, showDiff, editNotes, picked, beatPx, zoom.y, grid])
 
   // 재생선: 매 프레임 지금 들리는 위치로 옮기고, 화면 밖으로 나가면 따라가며 스크롤한다.
   useEffect(() => {
@@ -389,7 +521,7 @@ export function PianoRoll() {
     if (!playing) {
       // 멈춰 있을 때는 시작 위치에 재생선을 두고, 화면 밖이면 그쪽으로 스크롤
       el.style.display = cursor > 0 ? 'block' : 'none'
-      const x = keyPx + cursor * BEAT_PX
+      const x = keyPx + cursor * beatPx
       el.style.transform = `translateX(${x}px)`
       if (cursor > 0 && (x > box.scrollLeft + box.clientWidth - 40 || x < box.scrollLeft + keyPx)) box.scrollLeft = x - keyPx - 40
       return
@@ -397,7 +529,7 @@ export function PianoRoll() {
     el.style.display = 'block'
     let raf = 0
     const frame = () => {
-      const x = keyPx + positionBeats() * BEAT_PX
+      const x = keyPx + positionBeats() * beatPx
       el.style.transform = `translateX(${x}px)`
       if (x > box.scrollLeft + box.clientWidth - 40 || x < box.scrollLeft + keyPx) {
         box.scrollLeft = x - keyPx
@@ -406,9 +538,25 @@ export function PianoRoll() {
     }
     frame()
     return () => cancelAnimationFrame(raf)
-  }, [playing, track, cursor])
+  }, [playing, track, cursor, beatPx])
+
+  // Ctrl + 휠 = 가로 확대 · 축소, Ctrl + Shift (또는 Alt) + 휠 = 세로. 브라우저 확대를 막아야 해서 passive가 아닌 리스너로 단다
+  useEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) return
+      e.preventDefault()
+      const d = e.deltaY || e.deltaX // Shift를 누르면 브라우저가 가로 휠(deltaX)로 바꿔 보낸다
+      if (!d) return
+      zoomRef.current.zoomBy(e.shiftKey || e.altKey ? 'y' : 'x', d < 0 ? 1 : -1, e)
+    }
+    box.addEventListener('wheel', wheel, { passive: false })
+    return () => box.removeEventListener('wheel', wheel)
+  }, [project, track])
 
   if (!project) return <EmptyState />
+  const beatsPerBar = (project.time_signature[0] * 4) / project.time_signature[1]
   if (!track) return <section className="empty">트랙을 선택해 주세요.</section>
 
   return (
@@ -438,12 +586,39 @@ export function PianoRoll() {
         >
           정박에 맞추기 {picked.size ? `· 고른 음 ${picked.size}개` : '· 트랙 전체'}
         </button>
+        <span className="zoom" role="group" aria-label="확대 · 축소">
+          가로
+          <button onClick={() => zoomBy('x', -1)} disabled={zoom.x <= 8} aria-label="가로 축소" title="가로 축소 (- · Ctrl+휠)">
+            −
+          </button>
+          <button onClick={() => zoomBy('x', 1)} disabled={zoom.x >= 120} aria-label="가로 확대" title="가로 확대 (= · Ctrl+휠)">
+            +
+          </button>
+          세로
+          <button onClick={() => zoomBy('y', -1)} disabled={zoom.y <= 6} aria-label="세로 축소" title="세로 축소 (Shift+- · Ctrl+Shift+휠)">
+            −
+          </button>
+          <button onClick={() => zoomBy('y', 1)} disabled={zoom.y >= 32} aria-label="세로 확대" title="세로 확대 (Shift+= · Ctrl+Shift+휠)">
+            +
+          </button>
+          <button onClick={fitWidth} title="곡 전체가 가로로 한 화면에 들어오게 (0)">
+            전체 보기
+          </button>
+          <button
+            onClick={() => zoomTo(DEFAULT_ZOOM)}
+            disabled={zoom.x === DEFAULT_ZOOM.x && zoom.y === DEFAULT_ZOOM.y}
+            title="기본 크기로"
+          >
+            {Math.round((zoom.x / DEFAULT_ZOOM.x) * 100)}% × {Math.round((zoom.y / DEFAULT_ZOOM.y) * 100)}%
+          </button>
+        </span>
         <KeyBadge current={harmony.current} preview={harmony.preview} hearPreview={hearPreview} />
       </div>
       <p className={lockedByPreview ? (nudge ? 'roll-help locked nudge' : 'roll-help locked') : 'roll-help'} key={nudge}>
         {lockedByPreview
           ? '미리보기가 이 트랙의 음을 바꾸고 있어서 직접 고칠 수 없어요 — 채팅 아래 미리보기를 적용하거나 취소하면 돼요 · 빈 곳 끌기로 부분 고르기는 돼요'
-          : '더블클릭 음 추가 · 음 끌기 옮기기 · 끝 끌기 길이 · 오른쪽 클릭 · Delete 지우기 · 빈 곳 끌기 고르기 (Shift 더하기)'}
+          : hover ||
+            '더블클릭 음 추가 · 음 끌기 옮기기 · 끝 끌기 길이 · 오른쪽 클릭 · Delete 지우기 · 빈 곳 끌기 고르기 (Shift 더하기) · Ctrl+휠 확대'}
       </p>
       {showDiff && diff && (
         <p className="legend">
@@ -483,7 +658,7 @@ export function PianoRoll() {
             base={baseHarmony}
             label={suggested ? '제안' : '코드'}
             keyPx={track.is_drum ? DRUM_KEY_PX : KEY_PX}
-            beatPx={BEAT_PX}
+            beatPx={beatPx}
             lengthBeats={rollBeats}
             onPick={(c) => {
               // 그 코드 구간을 모든 트랙에서 고르고 재생 위치도 옮긴다
@@ -529,9 +704,11 @@ export function PianoRoll() {
               const x = e.clientX - r.left
               const y = e.clientY - r.top
               if (!d) {
-                // 마우스만 올렸을 때는 보통 화살표. 음 끝(길이 바꾸기)에서만 좌우 화살표
-                const hit = g && editable ? g.hit(x, y) : null
-                e.currentTarget.style.cursor = hit?.edge ? 'ew-resize' : ''
+                // 마우스만 올렸을 때는 보통 화살표. 음 끝(길이 바꾸기)에서만 좌우 화살표, 음 위면 손
+                const hit = g ? g.hit(x, y) : null
+                e.currentTarget.style.cursor = editable && hit ? (hit.edge ? 'ew-resize' : 'grab') : ''
+                const text = hit ? describeNote(realTrack!.notes[hit.i], beatsPerBar, realTrack!.is_drum) : ''
+                if (text !== hover) setHover(text)
                 return
               }
               const L = layout.current
@@ -541,30 +718,30 @@ export function PianoRoll() {
               if (d.mode !== 'range') {
                 const notes = realTrack!.notes
                 const a = notes[d.anchor ?? 0]
-                const raw = (x - d.x) / BEAT_PX
+                const raw = (x - d.x) / beatPx
                 const minLen = grid > 0 ? grid : MIN_LENGTH
                 if (d.mode === 'resize') {
                   // 잡은 음의 끝을 격자선에 붙이고, 나머지 고른 음도 같은 만큼 늘이거나 줄인다
                   const delta = Math.max(minLen, toGrid(a.start + a.duration + raw, grid) - a.start) - a.duration
-                  setEditNotes(
-                    notes.map((n, i) => (d.picked!.has(i) ? { ...n, duration: Math.max(minLen, round4(n.duration + delta)) } : n)),
-                  )
+                  const next = notes.map((n, i) => (d.picked!.has(i) ? { ...n, duration: Math.max(minLen, round4(n.duration + delta)) } : n))
+                  setEditNotes(next)
+                  setHover(`길이 → ${describeNote(next[d.anchor ?? 0], beatsPerBar, false)}`)
                 } else {
                   // 잡은 음의 시작을 격자선에 붙이고, 나머지 고른 음은 같은 만큼 따라간다
                   const delta = Math.max(0, toGrid(a.start + raw, grid)) - a.start
                   const dr = Math.round((y - d.y) / L.rowPx)
-                  setEditNotes(
-                    notes.map((n, i) => {
-                      if (!d.picked!.has(i)) return n
-                      const row = Math.min(L.rows.length - 1, Math.max(0, (g.rowIndex.get(n.pitch) ?? 0) + dr))
-                      return { ...n, start: Math.max(0, round4(n.start + delta)), pitch: L.rows[row] }
-                    }),
-                  )
+                  const next = notes.map((n, i) => {
+                    if (!d.picked!.has(i)) return n
+                    const row = Math.min(L.rows.length - 1, Math.max(0, (g.rowIndex.get(n.pitch) ?? 0) + dr))
+                    return { ...n, start: Math.max(0, round4(n.start + delta)), pitch: L.rows[row] }
+                  })
+                  setEditNotes(next)
+                  setHover(`옮기는 중 → ${describeNote(next[d.anchor ?? 0], beatsPerBar, track.is_drum)}`)
                 }
                 return
               }
               d.lastY = y
-              const toBeat = (px: number) => Math.min(L.lengthBeats, Math.max(0, (px - L.keyPx) / BEAT_PX))
+              const toBeat = (px: number) => Math.min(L.lengthBeats, Math.max(0, (px - L.keyPx) / beatPx))
               const start = Math.floor(Math.min(toBeat(d.x), toBeat(x)) * 4) / 4 // 16분음표 단위
               const end = Math.max(start + 0.25, Math.ceil(Math.max(toBeat(d.x), toBeat(x)) * 4) / 4)
               let pitches: number[] | null = null
@@ -612,6 +789,7 @@ export function PianoRoll() {
               setDraft(null)
               setEditNotes(null)
             }}
+            onPointerLeave={() => !drag.current && setHover('')}
             onDoubleClick={(e) => {
               // 빈 곳 더블클릭 = 그 자리에 음 추가 (16분음표 격자, 길이는 마지막으로 바꾼 길이)
               const g = geom()
@@ -634,15 +812,20 @@ export function PianoRoll() {
           <SelectionBox
             selection={draft ?? selection}
             trackId={track.id}
-            layout={{ keyPx: track.is_drum ? DRUM_KEY_PX : KEY_PX, rowPx: track.is_drum ? DRUM_ROW_PX : ROW_PX, rows: drumRows }}
+            beatPx={beatPx}
+            layout={{ keyPx: track.is_drum ? DRUM_KEY_PX : KEY_PX, rowPx: track.is_drum ? drumRow(zoom.y) : zoom.y, rows: drumRows }}
           />
           <div className="playhead" ref={head} />
+          <div className="sticky-keys" aria-hidden="true">
+            <canvas ref={keysCanvas} />
+          </div>
         </div>
       </div>
       {realTrack && !realTrack.is_drum && realTrack.notes.length > 0 && (
         <VelocityLane
           track={realTrack}
-          beatsPerBar={(project.time_signature[0] * 4) / project.time_signature[1]}
+          beatsPerBar={beatsPerBar}
+          beatPx={beatPx}
           scroller={scroller}
           locked={lockedByPreview}
         />
@@ -656,15 +839,17 @@ export function PianoRoll() {
 function SelectionBox({
   selection,
   trackId,
+  beatPx,
   layout,
 }: {
   selection: Selection | null
   trackId: string
+  beatPx: number
   layout: { keyPx: number; rowPx: number; rows: number[] } | null
 }) {
   if (!selection || !layout || (selection.trackIds && !selection.trackIds.includes(trackId))) return null
-  const left = layout.keyPx + selection.beats[0] * BEAT_PX
-  const width = (selection.beats[1] - selection.beats[0]) * BEAT_PX
+  const left = layout.keyPx + selection.beats[0] * beatPx
+  const width = (selection.beats[1] - selection.beats[0]) * beatPx
   let top = 20
   let height: number | undefined
   if (selection.pitches?.length) {
@@ -688,23 +873,26 @@ const BAR_PX = 4 // 막대 폭
 function VelocityLane({
   track,
   beatsPerBar,
+  beatPx,
   scroller,
   locked,
 }: {
   track: Track
   beatsPerBar: number
+  beatPx: number
   scroller: React.RefObject<HTMLDivElement | null>
   locked: boolean // 미리보기가 이 트랙의 음을 바꾸고 있을 때
 }) {
   const { project, busy, setVelocities } = useProject()
   const { sending, note } = useChat()
   const canvas = useRef<HTMLCanvasElement>(null)
+  const keysCanvas = useRef<HTMLCanvasElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<Map<number, number>>(new Map())
   const drag = useRef<{ lastX: number } | null>(null)
   const lengthBeats = Math.ceil(Math.max(...track.notes.map((n) => n.start + n.duration)) / beatsPerBar) * beatsPerBar
-  const width = KEY_PX + lengthBeats * BEAT_PX
-  const barX = (n: Note) => KEY_PX + n.start * BEAT_PX + 1
+  const width = KEY_PX + lengthBeats * beatPx
+  const barX = useCallback((n: Note) => KEY_PX + n.start * beatPx + 1, [beatPx])
 
   // 피아노롤을 가로로 스크롤하면 같이 따라간다
   useEffect(() => {
@@ -735,7 +923,7 @@ function VelocityLane({
     // 마디선 + 세기 64 · 127 기준선
     for (let b = 0; b <= lengthBeats; b += beatsPerBar) {
       ctx.fillStyle = color('--grid-strong')
-      ctx.fillRect(KEY_PX + b * BEAT_PX, 0, 1, VEL_PX)
+      ctx.fillRect(KEY_PX + b * beatPx, 0, 1, VEL_PX)
     }
     ctx.fillStyle = color('--grid')
     ctx.fillRect(KEY_PX, Math.round(VEL_PX / 2), width - KEY_PX, 1)
@@ -758,7 +946,8 @@ function VelocityLane({
       ctx.fillRect(x - 1, VEL_PX - h, BAR_PX + 1, 2) // 머리
     })
     ctx.globalAlpha = 1
-  }, [project, track, draft, width, lengthBeats, beatsPerBar, locked])
+    copyKeys(el, keysCanvas.current, KEY_PX, VEL_PX)
+  }, [project, track, draft, width, lengthBeats, beatsPerBar, locked, barX, beatPx])
 
   const velocityAt = (y: number) => Math.max(1, Math.min(127, Math.round((1 - (y - 3) / (VEL_PX - 6)) * 127)))
 
@@ -795,31 +984,36 @@ function VelocityLane({
         </span>
       </div>
       <div className="vel-scroll" ref={box}>
-        <canvas
-          ref={canvas}
-          className={disabled ? 'locked' : undefined}
-          aria-label={`${track.name} 벨로시티 편집`}
-          onPointerDown={(e) => {
-            if (disabled || e.button !== 0) return
-            e.currentTarget.setPointerCapture(e.pointerId)
-            const r = e.currentTarget.getBoundingClientRect()
-            const x = e.clientX - r.left
-            drag.current = { lastX: x }
-            paint(x, x, velocityAt(e.clientY - r.top))
-          }}
-          onPointerMove={(e) => {
-            if (!drag.current) return
-            const r = e.currentTarget.getBoundingClientRect()
-            const x = e.clientX - r.left
-            paint(drag.current.lastX, x, velocityAt(e.clientY - r.top))
-            drag.current.lastX = x
-          }}
-          onPointerUp={() => void commit()}
-          onPointerCancel={() => {
-            drag.current = null
-            setDraft(new Map())
-          }}
-        />
+        <div className="roll-canvas">
+          <canvas
+            ref={canvas}
+            className={disabled ? 'locked' : undefined}
+            aria-label={`${track.name} 벨로시티 편집`}
+            onPointerDown={(e) => {
+              if (disabled || e.button !== 0) return
+              e.currentTarget.setPointerCapture(e.pointerId)
+              const r = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - r.left
+              drag.current = { lastX: x }
+              paint(x, x, velocityAt(e.clientY - r.top))
+            }}
+            onPointerMove={(e) => {
+              if (!drag.current) return
+              const r = e.currentTarget.getBoundingClientRect()
+              const x = e.clientX - r.left
+              paint(drag.current.lastX, x, velocityAt(e.clientY - r.top))
+              drag.current.lastX = x
+            }}
+            onPointerUp={() => void commit()}
+            onPointerCancel={() => {
+              drag.current = null
+              setDraft(new Map())
+            }}
+          />
+          <div className="sticky-keys" aria-hidden="true">
+            <canvas ref={keysCanvas} />
+          </div>
+        </div>
       </div>
     </div>
   )

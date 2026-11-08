@@ -151,6 +151,9 @@ select.instrument:disabled { opacity: 0.5; cursor: default; }
 .roll-scroll { overflow: auto; border: 1px solid var(--border); border-radius: 12px; max-height: 72vh; background: var(--surface); }
 .roll canvas { display: block; }
 .roll-canvas { position: relative; width: max-content; }
+/* 왼쪽 건반 칸: 가로로 스크롤해도 왼쪽에 붙어 있다 (그린 캔버스의 왼쪽 띠를 복사한 것). 누르면 아무 일도 없게 이벤트를 받는다 */
+.sticky-keys { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; z-index: 2; pointer-events: none; }
+.sticky-keys canvas { position: sticky; left: 0; pointer-events: auto; box-shadow: 1px 0 0 var(--border-strong); }
 .playhead {
   display: none; position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
   margin-left: -1px; background: var(--playhead); box-shadow: 0 0 8px rgba(245, 243, 238, 0.35); pointer-events: none;
@@ -233,10 +236,12 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 
 /* ---------- 고른 부분 ---------- */
 .roll-grid { cursor: default; touch-action: none; }
-.roll-tools { display: flex; align-items: center; gap: 8px; margin: -2px 0 6px; font-size: 12px; color: var(--text-2); }
+.roll-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -2px 0 6px; font-size: 12px; color: var(--text-2); }
 .roll-tools label { display: flex; align-items: center; gap: 6px; }
 .roll-tools select { min-height: 28px; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--border); background: #17191d; color: var(--text); font: inherit; }
 .roll-tools button { min-height: 28px; padding: 2px 10px; font-size: 12px; }
+.roll-tools .zoom { display: flex; align-items: center; gap: 4px; margin-left: 6px; }
+.roll-tools .zoom button { min-width: 28px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
 .roll-help { margin: -4px 0 8px; font-size: 11px; color: var(--text-quiet); }
 .roll-help.locked { color: #f2e2a8; }
 .roll-help.nudge { animation: nudge 0.5s ease-in-out 3; }
@@ -351,7 +356,7 @@ kbd { min-width: 24px; padding: 2px 7px; border-radius: 6px; border: 1px solid v
 
 /* 코드 띠 (피아노롤 위, 세로로 스크롤해도 붙어 있음) */
 .chord-strip { position: sticky; top: 0; z-index: 3; height: 36px; background: var(--surface-2); border-bottom: 1px solid var(--border-strong); }
-.chord-label { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; padding-left: 8px; font-size: 10px; color: var(--text-quiet); }
+.chord-label { position: sticky; left: 0; z-index: 2; height: 100%; box-sizing: border-box; display: flex; align-items: center; padding-left: 8px; font-size: 10px; color: var(--text-quiet); background: var(--surface-2); box-shadow: 1px 0 0 var(--border-strong); }
 .chord {
   --fn: var(--fn-nc);
   position: absolute; top: 3px; bottom: 3px; min-height: 0; padding: 0 6px; margin: 0; overflow: hidden;
