@@ -15,7 +15,7 @@ from app.models.project import Note, Project, ProjectSummary, Track
 from app.agent.prompt import DRUM_NAMES, note_name
 from app.agent.session import note
 from app.tools.instrument import display_name, heard_program, kit_name
-from app.tools.samples import SampleInfo, library, recommend
+from app.tools.samples import Pick, SampleInfo, library, recommend, recommend_drum
 from app.tools.drums import ROLE_NAMES, ROLES, sound_name
 from app.tools.mix import pan_text
 from app.store.memory import ProjectNotFound, short, store
@@ -188,6 +188,8 @@ def _change_text(before: Project, after: Project, track_id: str) -> str:
     new = next((t for t in after.tracks if t.id == track_id), None)
     if new is None:
         return f"{old.name} 트랙을 지웠어요 (음 {len(old.notes)}개)"
+    if len(old.drum_samples) > 1 and not new.drum_samples and old.program == new.program:
+        return f"{new.name}에서 내 샘플 {len(old.drum_samples)}개를 빼고 킷 소리로 돌렸어요"
     if old.drum_samples != new.drum_samples and old.program == new.program:
         p = min(p for p in {*old.drum_samples, *new.drum_samples} if old.drum_samples.get(p) != new.drum_samples.get(p))
         lane = ROLE_NAMES.get(ROLES.get(p, ""), DRUM_NAMES.get(p, str(p)))
@@ -295,17 +297,30 @@ class PickOut(BaseModel):
     id: str
     name: str
     reason: str
+    pitch: int | None = Field(default=None, description="드럼 트랙이면 이 샘플을 넣을 레인(음 번호)")
+
+
+def _pick_out(pick: Pick, pitch: int | None = None) -> PickOut:
+    return PickOut(id=pick.sample.id, name=pick.sample.name, reason=pick.reason, pitch=pitch)
 
 
 @router.post("/{project_id}/samples/recommend", response_model=dict[str, list[PickOut]])
 def recommend_samples(project_id: str, body: RecommendIn) -> dict[str, list[PickOut]]:
-    """트랙마다 어울리는 내 샘플 (좋은 순 최대 8개). 트랙 악기 메뉴가 쓴다. 드럼 트랙은 없음."""
+    """트랙마다 어울리는 내 샘플 (좋은 순 최대 8개, 드럼 트랙은 쓰인 레인마다 8개). 트랙 악기 · 드럼 킷 메뉴가 쓴다."""
     project = _get(project_id)
-    return {
-        t.id: [PickOut(id=p.sample.id, name=p.sample.name, reason=p.reason) for p in recommend(t, project.tempo, body.samples, project=project)[:8]]
-        for t in project.tracks
-        if not t.is_drum and t.audio is None
-    }
+    picks: dict[str, list[PickOut]] = {}
+    for t in project.tracks:
+        if t.audio is not None:
+            continue
+        if t.is_drum:
+            picks[t.id] = [
+                _pick_out(p, pitch)
+                for pitch in sorted({n.pitch for n in t.notes})
+                for p in recommend_drum(pitch, body.samples, seed=f"{project.id}:{t.id}:{pitch}")[:8]
+            ]
+        else:
+            picks[t.id] = [_pick_out(p) for p in recommend(t, project.tempo, body.samples, project=project)[:8]]
+    return picks
 
 
 class NotesIn(BaseModel):

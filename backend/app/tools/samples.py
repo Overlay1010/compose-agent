@@ -257,8 +257,10 @@ DRUM_FIT: dict[str, dict[str, float]] = {
 }
 
 
-def recommend_drum(pitch: int, samples: tuple[SampleInfo, ...] | list[SampleInfo], prefer: Prefer | None = None) -> list[Pick]:
-    """드럼 레인(음 번호) 하나에 어울리는 내 드럼 샘플 순서."""
+def recommend_drum(pitch: int, samples: tuple[SampleInfo, ...] | list[SampleInfo], prefer: Prefer | None = None,
+                   seed: str | None = None) -> list[Pick]:
+    """드럼 레인(음 번호) 하나에 어울리는 내 드럼 샘플 순서. 같은 점수면 이름 순.
+    seed를 주면 같은 점수끼리 그 값마다 순서를 바꾼다 (메뉴에 늘 이름이 앞선 샘플만 나오지 않게)."""
     role = ROLES.get(pitch)
     picks = []
     for s in samples:
@@ -266,7 +268,10 @@ def recommend_drum(pitch: int, samples: tuple[SampleInfo, ...] | list[SampleInfo
         if fit:
             bonus, why = _prefer(s, prefer)
             picks.append(Pick(sample=s, score=round(100 * fit + bonus, 1), reason=" · ".join([f"{DRUM_KO[s.drum]} 샘플", *why])))
-    return sorted(picks, key=lambda p: (-p.score, p.sample.name))
+    ordered = sorted(picks, key=lambda p: p.sample.name)
+    if seed is not None:
+        Random(seed).shuffle(ordered)
+    return sorted(ordered, key=lambda p: -p.score)  # 안정 정렬이라 같은 점수끼리는 위 순서 그대로
 
 
 # ---------- 도구 ----------

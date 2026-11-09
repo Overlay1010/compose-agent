@@ -173,9 +173,10 @@ export interface SamplePick {
   id: string
   name: string
   reason: string
+  pitch?: number | null // 드럼 트랙이면 이 샘플을 넣을 레인(음 번호)
 }
 
-/** 트랙마다 어울리는 내 샘플 (좋은 순). 드럼 트랙은 없음 */
+/** 트랙마다 어울리는 내 샘플 (좋은 순). 드럼 트랙은 쓰인 레인마다 */
 export async function recommendSamples(projectId: string, samples: SampleInfo[]): Promise<Record<string, SamplePick[]>> {
   return parse(
     await fetch(`${BASE}/projects/${projectId}/samples/recommend`, {

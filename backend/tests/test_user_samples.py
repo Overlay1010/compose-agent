@@ -7,7 +7,7 @@ from app.agent.prompt import system_prompt
 from app.main import app
 from app.models.project import Note, SampleRef, Track
 from app.tools import ToolError, run_tool
-from app.tools.samples import SampleInfo, library, recommend, role_of
+from app.tools.samples import SampleInfo, library, recommend, recommend_drum, role_of
 
 from tests.test_agent import FakeLLM, calls, lofi, say, upload_lofi  # noqa: F401 (lofi는 fixture)
 
@@ -142,8 +142,28 @@ def test_recommend_endpoint_lists_melodic_tracks(client):
     pid = upload_lofi(client)
     r = client.post(f"/api/v1/projects/{pid}/samples/recommend", json={"samples": as_json(PACK)})
     picks = r.json()
-    assert set(picks) == {"t2", "t3", "t4", "t5"}  # 드럼 빼고
-    assert picks["t4"][0]["name"] == "Warm Pad C3" and picks["t4"][0]["reason"]
+    assert set(picks) == {"t1", "t2", "t3", "t4", "t5"}
+    assert picks["t4"][0]["name"] == "Warm Pad C3" and picks["t4"][0]["reason"] and picks["t4"][0]["pitch"] is None
+
+
+def test_recommend_endpoint_lists_drum_samples_by_used_lane(client):
+    pid = upload_lofi(client)
+    picks = client.post(f"/api/v1/projects/{pid}/samples/recommend", json={"samples": as_json(PACK)}).json()["t1"]
+    kicks = [p["name"] for p in picks if p["pitch"] == 36]
+    assert sorted(kicks) == ["Kick 01", "Kick Punchy"]
+    assert [p["name"] for p in picks if p["pitch"] == 42] == ["Closed Hat"]
+    assert not any(p["name"] in ("Warm Pad C3", "Melody Loop 140 Am") for p in picks)  # 드럼 원샷만
+
+
+def test_drum_recommend_seed_changes_only_the_order_of_ties():
+    hats = [info(f"Hat {i:02}", "drum", None, drum="hat") for i in range(20)]
+    named = [p.sample.name for p in recommend_drum(42, hats)]
+    assert named == sorted(named)  # seed 없으면 이름 순 (use_sample 결과가 매번 같게)
+    one, two = ([p.sample.name for p in recommend_drum(42, hats, seed=s)] for s in ("a", "b"))
+    assert one != named and one != two and sorted(one) == named
+    assert one == [p.sample.name for p in recommend_drum(42, hats, seed="a")]  # 같은 곡이면 늘 같다
+    snare_lane = [p.sample.name for p in recommend_drum(38, [info("Clap", "drum", None, drum="clap"), info("Zed Snare", "drum", None, drum="snare")], seed="a")]
+    assert snare_lane == ["Zed Snare", "Clap"]  # 딱 맞는 역할이 먼저
 
 
 def test_chat_passes_the_pack_to_the_tools(client):
@@ -212,6 +232,18 @@ def test_drum_sample_endpoint(client):
     assert next(t for t in r.json()["project"]["tracks"] if t["id"] == "t1")["drum_samples"] == {"36": {"id": "kick-01", "name": "Kick 01"}}
     r = client.post(f"/api/v1/projects/{pid}/tracks/t1/drum-sample", json={"pitch": 36, "sample": None})
     assert r.json()["note"] == "Drums 킥에서 내 샘플을 빼고 킷 소리로 돌렸어요"
+
+
+def test_picking_the_current_kit_removes_my_drum_samples(client):
+    pid = upload_lofi(client)
+    url = f"/api/v1/projects/{pid}/tracks/t1"
+    for pitch, name in ((36, "Kick 01"), (42, "Closed Hat")):
+        client.post(f"{url}/drum-sample", json={"pitch": pitch, "sample": next(s for s in PACK if s.name == name).model_dump()})
+    kit = next(t for t in client.get(f"/api/v1/projects/{pid}").json()["tracks"] if t["id"] == "t1")["program"]
+    r = client.post(f"{url}/instrument", json={"program": kit})
+    assert r.status_code == 200 and r.json()["note"] == "Drums에서 내 샘플 2개를 빼고 킷 소리로 돌렸어요"
+    assert next(t for t in r.json()["project"]["tracks"] if t["id"] == "t1")["drum_samples"] == {}
+    assert client.post(f"{url}/instrument", json={"program": kit}).json()["note"] is None  # 샘플이 없으면 그대로
 
 
 # ---------- 루프 리듬 → 하이햇 ----------

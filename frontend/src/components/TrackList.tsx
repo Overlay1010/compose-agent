@@ -6,14 +6,14 @@ import { silenced, usePlayer } from '../store/player'
 import { useProject } from '../store/project'
 import { useChat } from '../store/chat'
 import { GM_GROUPS, soundName, programName, trackColor } from '../theme'
-import { DRUM_KITS, gmProgramOf } from '../audio/catalog'
+import { DRUM_KITS, DRUM_NAMES, gmProgramOf } from '../audio/catalog'
 import { Meter } from './Meter'
 import { recommendSamples, type SamplePick } from '../api/client'
 import { sampleInfos, sampleMeta, useSamples } from '../samples/library'
 import { useSamplePack } from '../store/samplePack'
 
 export function TrackList() {
-  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument, setSample, deleteTrack } = useProject()
+  const { project, preview, hearPreview, selectedTrackId, selectTrack, busy, setInstrument, setSample, setDrumSample, deleteTrack } = useProject()
   const { sending, note } = useChat()
   const { muted, solo, toggleMute, toggleSolo, playing } = usePlayer()
   const picks = useSamplePicks()
@@ -42,6 +42,16 @@ export function TrackList() {
     const info = sampleInfos().find((s) => s.id === value.slice(7))
     if (!info) return
     const changed = await setSample(trackId, info)
+    if (changed?.note) note(changed.note, true)
+  }
+  // 드럼 킷 메뉴 값: 킷 번호 또는 "sample:<레인>:<id>" (그 레인에 넣을 내 샘플)
+  const changeDrumSound = async (trackId: string, value: string) => {
+    if (value === 'pack') return useSamplePack.getState().setOpen(true)
+    const sample = /^sample:(\d+):(.+)$/.exec(value)
+    if (!sample) return changeInstrument(trackId, Number(value))
+    const info = sampleInfos().find((s) => s.id === sample[2])
+    if (!info) return
+    const changed = await setDrumSample(trackId, Number(sample[1]), info)
     if (changed?.note) note(changed.note, true)
   }
 
@@ -126,17 +136,20 @@ export function TrackList() {
             ) : t.is_drum ? (
               <select
                 className="instrument"
-                value={DRUM_KITS.some((k) => k.program === t.program) ? t.program : 0}
+                value={usedDrumSamples(t).length ? 'mine' : DRUM_KITS.some((k) => k.program === t.program) ? t.program : 0}
                 disabled={busy || sending}
-                onChange={(e) => void changeInstrument(t.id, Number(e.target.value))}
+                onChange={(e) => void changeDrumSound(t.id, e.target.value)}
                 aria-label={`${t.name} 드럼 킷`}
-                title="드럼 킷 바꾸기 (바로 저장돼요 · 히스토리에서 되돌리기 가능)"
+                title="드럼 킷 · 내 샘플 바꾸기 (바로 저장돼요 · 히스토리에서 되돌리기 가능). 지금 킷을 다시 고르면 내 샘플을 빼요"
               >
-                {DRUM_KITS.map((k) => (
-                  <option key={k.program} value={k.program}>
-                    드럼 킷 · {k.name}
-                  </option>
-                ))}
+                <DrumSampleOptions track={t} picks={picks[t.id] ?? []} />
+                <optgroup label="드럼 킷">
+                  {DRUM_KITS.map((k) => (
+                    <option key={k.program} value={k.program}>
+                      드럼 킷 · {k.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             ) : (
               <select
@@ -217,6 +230,45 @@ function SampleOptions({ track, picks }: { track: Track; picks: SamplePick[] }) 
           ))}
         </optgroup>
       )}
+      {!count && <option value="pack">내 샘플 넣기…</option>}
+    </>
+  )
+}
+
+/** 이 드럼 트랙에서 실제로 치는 레인에 넣은 내 샘플 */
+function usedDrumSamples(track: Track) {
+  const lanes = new Set(track.notes.map((n) => String(n.pitch)))
+  return Object.entries(track.drum_samples ?? {}).filter(([pitch]) => lanes.has(pitch))
+}
+
+/** 드럼 킷 메뉴 맨 위: 지금 쓰는 내 샘플 · 레인마다 어울리는 내 샘플 · 샘플팩 열기 */
+function DrumSampleOptions({ track, picks }: { track: Track; picks: SamplePick[] }) {
+  const count = useSamples((s) => s.samples.length)
+  const mine = usedDrumSamples(track).map(([, ref]) => ref)
+  const lanes = [...new Set(picks.map((p) => p.pitch!))]
+  const kit = DRUM_KITS.find((k) => k.program === track.program)?.name ?? DRUM_KITS[0].name
+  return (
+    <>
+      {mine.length > 0 && (
+        <option value="mine">
+          {mine.length === 1 ? `내 샘플 · ${mine[0].name}` : `내 샘플 ${mine.length}개 · ${kit}`}
+          {mine.some((s) => !sampleMeta(s.id)) ? ' (이 브라우저에 없음)' : ''}
+        </option>
+      )}
+      {lanes.map((pitch) => {
+        const listed = picks.filter((p) => p.pitch === pitch && p.id !== track.drum_samples?.[pitch]?.id)
+        return (
+          listed.length > 0 && (
+            <optgroup key={pitch} label={`내 샘플 · ${DRUM_NAMES[pitch] ?? pitch}`}>
+              {listed.map((p) => (
+                <option key={p.id} value={`sample:${pitch}:${p.id}`} title={p.reason}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+          )
+        )
+      })}
       {!count && <option value="pack">내 샘플 넣기…</option>}
     </>
   )

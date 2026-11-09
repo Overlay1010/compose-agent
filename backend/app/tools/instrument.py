@@ -126,11 +126,16 @@ def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
     changed: list[str] = []
     kits_changed: list[str] = []
     same: list[str] = []
+    samples_removed: list[str] = []
     tracks = []
     for t in project.tracks:
         if t.id in args.track_ids and t.is_drum and kit:
             # 드럼은 이름으로 악기를 짐작하지 않으니 번호만 비교한다
-            if t.program == args.program:
+            if t.program == args.program and t.drum_samples:
+                # 지금 킷을 다시 고르면 내 샘플을 빼고 그 킷 소리로 (레인별로 고른 킷 소리는 그대로)
+                samples_removed.append(t.name)
+                t = t.model_copy(update={"drum_samples": {}})
+            elif t.program == args.program:
                 same.append(t.name)
             else:
                 kits_changed.append(t.name)
@@ -146,7 +151,7 @@ def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
                 t = t.model_copy(update={"program": args.program, "program_set": True, "sample": None})
         tracks.append(t)
 
-    if not changed and not kits_changed:
+    if not changed and not kits_changed and not samples_removed:
         what = kit_name(args.program) if all(t.is_drum for t in targets) else gm_name(args.program)
         return ToolResult(project=project, summary=f"{', '.join(same)} 트랙은 이미 {what}이라 바뀐 게 없어요.")
     parts = []
@@ -154,6 +159,8 @@ def set_instrument(project: Project, args: SetInstrumentArgs) -> ToolResult:
         parts.append(f"{', '.join(changed)} 악기를 {gm_name(args.program)}(으)로 바꿨어요.")
     if kits_changed:
         parts.append(f"{', '.join(kits_changed)} 드럼 킷을 {kit_name(args.program)}({args.program})(으)로 바꿨어요.")
+    if samples_removed:
+        parts.append(f"{', '.join(samples_removed)}에서 내 샘플을 빼고 {kit_name(args.program)} 킷 소리로 돌렸어요.")
     skipped = [t.name for t in targets if t.is_drum and not kit]
     if skipped:
         parts.append(f"드럼 트랙({', '.join(skipped)})은 건너뛰었어요.")
