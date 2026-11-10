@@ -308,6 +308,14 @@ CASES: list[Case] = [
     case("B25", "만들기", "fl_style_loose", "닫힌 햇은 건드리지 말고 열린 햇만 추가해줘", [Call("vary_hats", {"open_hats": "more", "space": OneOf(frozenset({None, "none"}))})],
          note="swap(닫힌 햇을 바꿈)이면 틀림"),
     case("B26", "만들기", "lofi_groove", "닫힌 햇 몇 개를 오픈햇으로 바꿔줘", [Call("vary_hats", {"open_hats": "swap", "space": OneOf(frozenset({None, "none"}))})]),
+    # 실제 연주 스타일 (Groove MIDI) · 기계처럼 = 손으로 쓴 격자 패턴
+    case("B27", "만들기", "fl_style_loose", "펑키한 드럼 하나 더 깔아줘", [Call("generate_drums", {"style": "funk", "track_id": None})]),
+    case("B28", "만들기", "lofi_groove", "보사노바 느낌으로 드럼 만들어줘", [Call("generate_drums", {"style": "latin", "track_id": None})]),
+    case("B29", "만들기", "waltz_3_4", "스윙 재즈 드럼 깔아줘", [Call("generate_drums", {"style": "jazz", "track_id": None})]),
+    case("B30", "만들기", "fl_style_loose", "기계처럼 격자에 딱 맞는 록 드럼 깔아줘",
+         [Call("generate_drums", {"style": "rock", "real_groove": False, "track_id": None})]),
+    case("B31", "만들기", "lofi_groove", "소울 드럼 깔아줘", [Call("generate_drums", {"style": "soul", "real_groove": OneOf(frozenset({None, True})), "track_id": None})],
+         note="말이 없으면 실제 연주(real_groove 기본값)"),
     case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
          [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
     # ---------- 내 샘플 (샘플팩 이름표가 있을 때 use_sample, GM 악기 set_instrument가 아님) ----------
@@ -338,4 +346,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 126 and len({c.id for c in CASES}) == 126
+assert len(CASES) == 131 and len({c.id for c in CASES}) == 131

@@ -9,6 +9,8 @@
 - 스윙: 로파이 57% · 붐뱁 54% (8분음표 — DAW처럼 뒷 8분음표만 늦춘다. 16분으로 했더니 8분 햇에는 스윙이 안 걸렸다).
   사람 느낌은 세기만 조금 흔든다 (타이밍은 격자 그대로 — 더 흔들려면 humanize)
 - 3/4처럼 4박이 아닌 박자는 마디 첫 박 킥 + 나머지 박 스네어(약하게) + 8분 햇
+- 실제 연주 (2026-11-11): 록 · 붐뱁 · 로파이 · 팝 · 펑크 · 소울 · 재즈 · 라틴은 위 패턴 대신 실제 드러머 연주 루프를 찾아 쓴다
+  (app/generate/grooves.py, Groove MIDI Dataset · CC BY 4.0). 하우스 · 트랩 · 4박이 아닌 박자 · 하이햇 롤 · "마디마다 똑같이"는 위 패턴
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import math
 from dataclasses import dataclass, field
 from random import Random
 
+from app.generate.grooves import GROOVE_STYLES, Groove, candidates, groove_notes, has_style
 from app.models.project import Note, Project
 from app.tools.instrument import heard_program
 
@@ -52,6 +55,23 @@ PATTERNS: dict[str, list[dict[int, str]]] = {
     "rock": [
         {KICK: "X.....x.X.......", SNARE: "....X.......X...", HAT: "x.x.x.x.x.x.x.x."},
         {KICK: "X.x.....X.x.....", SNARE: "....X.......X...", HAT: "x.x.x.x.x.x.x.x."},
+    ],
+    # 아래 넷은 보통 실제 연주를 쓰고, 이 패턴은 롤 · "마디마다 똑같이"일 때만
+    "funk": [
+        {KICK: "X.x....x..x..x..", SNARE: "....X..g.g..X..g", HAT: "x.x.x.x.x.x.x.x."},
+        {KICK: "X..x..x...X.....", SNARE: "....X.g.....X.g.", HAT: "xxxxxxxxxxxxxxxx"},
+    ],
+    "soul": [
+        {KICK: "X.......X.x.....", SNARE: "....X.......X...", HAT: "x.x.x.x.x.x.x.x."},
+        {KICK: "X..x....X.......", SNARE: "....X.......X..g", HAT: "x.o.x.o.x.o.x.o."},
+    ],
+    "jazz": [
+        {RIDE: "x...x..xx...x..x", PEDAL: "....x.......x...", KICK: "X..............."},
+        {RIDE: "x...x..xx...x..x", PEDAL: "....x.......x...", SNARE: "......g.......g."},
+    ],
+    "latin": [
+        {KICK: "X..x....X..x....", RIM: "..x..x....x..x..", HAT: "x.x.x.x.x.x.x.x."},
+        {KICK: "X..x..x.X..x..x.", RIM: "...x..x...x..x..", HAT: "x.x.x.x.x.x.x.x."},
     ],
 }
 
@@ -90,6 +110,10 @@ PALETTES: dict[str, list[Palette]] = {
         Palette(0, {KICK: "kick_punch", CLAP: "clap", HAT: "hat_crisp"}, back=CLAP),
     ],
     "rock": [Palette(16), Palette(0), Palette(8)],
+    "funk": [Palette(0), Palette(8), Palette(0, {KICK: "kick_punch", SNARE: "snare_big", HAT: "hat_crisp"})],
+    "soul": [Palette(8), Palette(0, {KICK: "kick_soft", SNARE: "snare_soft", HAT: "hat_acoustic"}), Palette(27)],
+    "jazz": [Palette(32), Palette(32, {RIDE: "ride_jazz", KICK: "kick_soft"}), Palette(8, {RIDE: "ride_jazz"})],
+    "latin": [Palette(0), Palette(8), Palette(32)],
 }
 
 # 드럼을 소리별 트랙으로 나눌 때의 묶음 (레인 = GM 음 번호). 킷마다 소리가 달라서, 나누면 트랙마다 다른 킷을 고를 수 있다
@@ -113,7 +137,7 @@ def track_part(notes: list[Note]) -> str | None:
     return next(iter(parts)) if len(parts) == 1 and None not in parts else None
 
 
-SWING = {"lofi": 57.0, "boombap": 54.0}  # 8분음표 스윙 퍼센트 (나머지는 정박)
+SWING = {"lofi": 57.0, "boombap": 54.0, "jazz": 62.0}  # 8분음표 스윙 퍼센트 (나머지는 정박). 실제 연주는 연주의 스윙 그대로
 
 # 하이햇 롤: 말이 없으면 넣는 스타일, 그리고 롤 모양 (마디 안 시작 박, 한 칸 길이(박), 칸 수) — 32분 4개 · 16분 셋잇단 6개
 ROLL_STYLES = {"trap"}
@@ -121,7 +145,7 @@ ROLLS = [(3.5, 0.125, 4), (3.0, 1 / 6, 6), (2.5, 0.125, 4), (1.5, 0.125, 4), (2.
 HAT_JITTER = 9  # 햇 세기는 조금 더 흔든다 (같은 세기로 계속 치면 기계처럼 들림)
 SWING_GRID = 0.5  # 박. 8분음표
 ELECTRONIC_KITS = {24, 25, 26}
-KIT_STYLES = {27: "lofi", 28: "boombap", 26: "house", 25: "trap", 16: "rock"}
+KIT_STYLES = {27: "lofi", 28: "boombap", 26: "house", 25: "trap", 16: "rock", 32: "jazz"}
 
 
 def auto_style(project: Project) -> str:
@@ -152,6 +176,22 @@ class DrumPlan:
     pattern: int = 1  # 패턴 1 · 2 (결과 요약에 — LLM이 무엇이 바뀌었는지 짐작해 말하지 않게)
     rolls: bool = False  # 하이햇 롤을 넣었나 (32분 · 셋잇단 — 검사가 그 자리를 박 어긋남으로 보지 않게)
     variation: bool = False  # 하이햇을 마디마다 바꿨나
+    groove: Groove | None = None  # 실제 연주를 썼으면 그 루프 (위치가 연주 그대로라 박 검사를 하지 않는다)
+
+
+def _groove_plan(project: Project, start: float, end: float, style: str, density: str, fills: bool,
+                 swing: float | None, version: int) -> tuple[list[Note], DrumPlan] | None:
+    """실제 연주 루프로. 맞는 루프가 없으면 None (손으로 쓴 패턴으로)."""
+    cands = candidates(style, project.tempo, density if density != "mid" else None, swing, seed=project.id)
+    if not cands:
+        return None
+    groove = cands[(version - 1) % len(cands)]
+    palettes = PALETTES[style]
+    palette = palettes[((version - 1) // 2) % len(palettes)]
+    notes, filled = groove_notes(groove, start, end, fills=fills, density=density, crash=CRASH, toms=TOMS, phrase=PHRASE)
+    if palette.back is not None:  # 뒷박을 클랩으로 (팝 소리 조합)
+        notes = [n.model_copy(update={"pitch": palette.back}) if n.pitch == SNARE else n for n in notes]
+    return _untangle(notes), DrumPlan(style, palette, 50.0, filled, density, (version - 1) % len(cands) + 1, groove=groove)
 
 
 def _bar_pattern(style: str, variant: int, bpb: float) -> dict[int, str]:
@@ -216,10 +256,17 @@ def _hat_bar(row: str, k: int, rng: Random, *, rolls: bool, variation: bool, swu
 def drum_notes(
     project: Project, start: float, end: float, style: str | None = None, density: str | None = None,
     fills: bool = True, swing: float | None = None, version: int = 1, rolls: bool | None = None, variation: bool = True,
+    real: bool = True,
 ) -> tuple[list[Note], DrumPlan]:
-    """[start, end) 박에 드럼. 마디 단위로 깐다 (범위가 마디 중간에서 시작하면 그 마디의 남은 칸부터)."""
+    """[start, end) 박에 드럼. 마디 단위로 깐다 (범위가 마디 중간에서 시작하면 그 마디의 남은 칸부터).
+    real: 실제 연주가 있는 스타일이면 실제 연주로 (False = 손으로 쓴 격자 패턴)."""
     style = style or auto_style(project)
     density = density or "mid"
+    if (real and style in GROOVE_STYLES and has_style(style) and abs(project.beats_per_bar - 4) < 1e-6
+            and rolls is not True and variation):
+        made = _groove_plan(project, start, end, style, density, fills, swing, version)
+        if made is not None:
+            return made
     variant = (version - 1) % 2
     palettes = PALETTES[style]
     palette = palettes[((version - 1) // 2) % len(palettes)]
