@@ -171,7 +171,9 @@ v0.1의 제한: 템포 · 박자 변화가 있으면 첫 값만 쓴다 (화면�
 
 | 쓰는 곳 | 샘플 | 라이선스 |
 | --- | --- | --- |
-| 멜로디 악기 (General MIDI 128개) | [FluidR3 GM](https://github.com/gleitz/midi-js-soundfonts) by Frank Wen, 재생할 때 gleitz.github.io에서 불러옴 | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| 멜로디 악기 · 기본 "고음질" 세트의 피아노 | [Salamander Grand Piano](https://archive.org/details/SalamanderGrandPianoV3) by Alexander Holm, 재생할 때 tonejs.github.io에서 불러옴 | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| 멜로디 악기 · 기본 "고음질" 세트의 기타 · 베이스 · 현악 · 관악 · 하프 · 오르간 등 24개 | [tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments) by Nicholaus Brosowsky (원래 녹음: [VSCO 2 CE](https://github.com/sgossner/VSCO-2-CE) · [Karoryfer](https://www.karoryfer.com/karoryfer-samples) · freesound.org · 아이오와 대학), 재생할 때 jsDelivr에서 불러옴 (`scripts/hq_soundset.py`가 악기 목록 · 크기 보정표를 만든다) | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| 멜로디 악기 (General MIDI 128개 — 고음질 세트에 없는 악기도) | [FluidR3 GM](https://github.com/gleitz/midi-js-soundfonts) by Frank Wen, 재생할 때 gleitz.github.io에서 불러옴 | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
 | 멜로디 악기 · 고를 수 있는 세트 | [Musyng Kite](http://www.synthfont.com/SoundFonts/Musyng.sfpack) · [FatBoy](https://fatboy.site) ([midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts)에서 mp3로 바꾼 것), 화면 위 "소리"에서 고르면 재생할 때 gleitz.github.io에서 불러옴 | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) — 이 소리로 만든 음원을 배포하면 같은 조건이 붙을 수 있어 음원 내보내기 메뉴에 알린다 |
 | 내 샘플 | 사용자가 넣은 파일. 그 브라우저(IndexedDB)에만 저장되고 서버 · 저장소에는 올라가지 않는다. 곡에는 샘플 이름만 남고, 샘플이 없는 곳에서는 트랙 악기로 들린다 | 사용자 샘플의 라이선스를 따름 |
 | 드럼 (킷 9가지 · 소리 40가지) | [Sonic Pi](https://github.com/sonic-pi-net/sonic-pi/tree/dev/etc/samples) 샘플 (원본 freesound.org), `frontend/public/samples/drums/`에 포함 | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |

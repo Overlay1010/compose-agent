@@ -1,12 +1,12 @@
 import * as Tone from 'tone'
 import type { AudioClip, Note, Track } from '../api/types'
 import { DRUM_DEFAULT, GM_NAMES, drumSample, gmProgramOf, kitOf } from './catalog'
-import { fontUrl, levelGain } from './soundset'
+import { levelGain, noteSource } from './soundset'
 import { sampleBuffer, sampleMeta } from '../samples/library'
 import type { SampleMeta } from '../samples/analyze'
 
 // 트랙 하나의 소리를 내는 단위.
-// 기본은 실제 악기 샘플(멜로디: 고른 소리 세트 — 기본 FluidR3 GM, audio/soundset.ts · 드럼: Sonic Pi 샘플)이고,
+// 기본은 실제 악기 샘플(멜로디: 고른 소리 세트 — 기본 고음질 세트, audio/soundset.ts · 드럼: Sonic Pi 샘플)이고,
 // 샘플을 못 불러오면 예전 Tone.js 신스 소리로 대신한다.
 export interface Voice {
   output: Tone.ToneAudioNode
@@ -62,19 +62,51 @@ function waitLoad(start: (done: () => void, fail: () => void) => void): Promise<
 
 // ---------- 멜로디 악기 (소리 세트: audio/soundset.ts) ----------
 
-// 세트 파일은 플랫 이름을 쓴다 (Db4.mp3, Eb4.mp3 …). A0(21) ~ C8(108)
-const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
-const fileOf = (pitch: number) => `${FLAT_NAMES[pitch % 12]}${Math.floor(pitch / 12) - 1}.mp3`
-
-/** 트랙 음역(위아래 3반음 여유)에서 3반음마다 하나씩만 불러온다. 사이 음은 Sampler가 가까운 샘플의 음높이를 바꿔 낸다. */
-function sampleUrls(track: Track): Record<string, string> {
+/**
+ * 트랙 음역(위아래 3반음 여유)에 쓸 녹음 음들. 사이 음은 가까운 녹음의 음높이를 바꿔 낸다.
+ * GM 세트는 모든 음이 녹음돼 있어 3반음마다 하나씩만, 고음질 세트는 녹음된 음 중 음역 안 + 바로 바깥 하나씩
+ */
+function pickNotes(track: Track, notes: number[]): number[] {
   const pitches = track.notes.length ? track.notes.map((n) => n.pitch) : [60] // 음을 다 지운 트랙
   const low = Math.max(21, Math.min(...pitches) - 3)
   const high = Math.min(108, Math.max(...pitches) + 3)
-  const urls: Record<string, string> = {}
-  for (let p = low; p <= high; p += 3) urls[p] = fileOf(p)
-  urls[high] = fileOf(high)
-  return urls
+  if (notes.length >= 88) {
+    const out: number[] = []
+    for (let p = low; p <= high; p += 3) out.push(p)
+    if (out[out.length - 1] !== high) out.push(high)
+    return out
+  }
+  const below = notes.filter((p) => p < low).pop()
+  const above = notes.find((p) => p > high)
+  return [...(below === undefined ? [] : [below]), ...notes.filter((p) => p >= low && p <= high), ...(above === undefined ? [] : [above])]
+}
+
+const ONSET = 0.05 // 최대 크기의 이만큼을 넘는 곳이 소리의 시작
+const PREROLL = 0.01 // 초. 시작 조금 앞부터 남긴다 (어택 맨 앞이 잘리지 않게)
+
+/** 앞 무음을 잘라 낸 녹음. 관악기 녹음 몇은 소리가 60~90ms 늦게 시작해서 박보다 늦게 들렸다 (FluidR3는 18ms쯤) */
+function trimStart(buffer: Tone.ToneAudioBuffer): Tone.ToneAudioBuffer {
+  const data = buffer.getChannelData(0)
+  let peak = 0
+  for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]))
+  const first = data.findIndex((v) => Math.abs(v) > peak * ONSET)
+  return buffer.slice(Math.max(0, first / buffer.sampleRate - PREROLL))
+}
+
+/** 이 트랙 악기의 녹음들을 불러와 앞 무음을 자른다 (음 번호 → 녹음). 못 불러오면 null */
+function loadRecordings(track: Track): Promise<Map<number, Tone.ToneAudioBuffer> | null> {
+  const program = gmProgramOf(track)
+  const source = noteSource(program, GM_NAMES[program])
+  const notes = pickNotes(track, source.notes)
+  const urls = Object.fromEntries(notes.map((p) => [p, source.file(p)]))
+  let buffers: Tone.ToneAudioBuffers | null = null
+  return waitLoad((done, fail) => {
+    buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: source.baseUrl, onload: done, onerror: fail })
+  }).then((ok) => {
+    const loaded = ok && buffers ? new Map(notes.map((p) => [p, trimStart(buffers!.get(p))])) : null
+    buffers?.dispose() // 잘라 낸 사본만 남긴다
+    return loaded
+  })
 }
 
 class SampledVoice implements Voice {
@@ -84,22 +116,17 @@ class SampledVoice implements Voice {
   private sampler: Tone.Sampler | null = null
   private synth: SynthVoice | null = null
   private level: Tone.Gain
+  private disposed = false
 
   constructor(track: Track) {
     const program = gmProgramOf(track)
     this.level = new Tone.Gain(levelGain(program)).connect(this.output) // 세트마다 다른 악기 크기를 FluidR3에 맞춤
-    this.ready = waitLoad((done, fail) => {
-      this.sampler = new Tone.Sampler({
-        urls: sampleUrls(track),
-        baseUrl: fontUrl(GM_NAMES[program]),
-        release: 0.8,
-        onload: done,
-        onerror: fail,
-      }).connect(this.level)
-    }).then((ok) => {
-      if (ok) return
-      this.sampler?.dispose()
-      this.sampler = null
+    this.ready = loadRecordings(track).then((recordings) => {
+      if (this.disposed) return recordings?.forEach((b) => b.dispose()) // 불러오는 사이에 트랙이 바뀌었다
+      if (recordings) {
+        this.sampler = new Tone.Sampler({ urls: Object.fromEntries(recordings), release: 0.8 }).connect(this.level)
+        return
+      }
       this.synth = new SynthVoice(presetOf(program))
       this.synth.output.connect(this.output)
       this.fallback = true
@@ -120,6 +147,7 @@ class SampledVoice implements Voice {
   }
 
   dispose() {
+    this.disposed = true
     this.sampler?.dispose()
     this.synth?.dispose()
     this.level.dispose()
@@ -131,34 +159,58 @@ class SampledVoice implements Voice {
 
 // FluidR3 녹음은 모든 음이 3.13초이고, 소리가 줄지 않은 채 거기서 잘려 있다. 피아노 · 기타처럼 저절로 줄어드는 악기는
 // 괜찮지만 오르간 · 스트링 · 패드는 3.13초보다 긴 음이 뚝 끊긴다. Tone.Sampler는 되풀이를 못 해서 직접 튼다.
+// 고음질 세트 녹음은 3~12초로 길지만 끝에 소리가 줄어드는 부분이 있어서, 녹음마다 소리가 일정한 끝(steadyEnd)까지만 쓴다.
 // 오르간 16~23 · 바이올린~트레몰로 40~44 · 앙상블 · 합창 48~55 · 금관 · 리드 · 플룻 56~79 · 신스 리드 · 패드 80~95
 const sustains = (program: number) => (program >= 16 && program <= 23) || (program >= 40 && program <= 44) || (program >= 48 && program <= 95)
 const LOOP_FROM = 1.0 // 초. 어택(패드는 0.4초쯤)이 끝나고 소리가 안정된 곳부터 되풀이
-const RECORDED = 3.1 // 초. 녹음 끝(3.13초) 조금 앞까지만 쓴다
+const TAIL_MARGIN = 0.03 // 초. 녹음 맨 끝(FluidR3는 3.13초)에서 이만큼 앞까지만 쓴다
 const XFADE = 0.15 // 초. 되풀이 조각끼리 이만큼 겹쳐 서서히 바꾼다
 const RELEASE = 0.8 // 음이 끝난 뒤 줄어드는 시간 (SampledVoice와 같게)
+const WINDOW = 0.05 // 초. 소리 크기를 잴 조각
+
+/**
+ * 녹음에서 소리가 일정하게 울리는 끝 (초). LOOP_FROM 뒤 50ms 조각들의 크기 가운데값보다 6dB 넘게 작아지는 첫 곳.
+ * FluidR3는 소리가 줄지 않은 채 잘려 있어 녹음 끝이 되고, 따로 녹음한 샘플은 연주자가 소리를 거두기 시작하는 곳이 된다
+ * (바순 7.8초 녹음이면 6.4초쯤). 그 뒤까지 되풀이하면 소리가 1초마다 줄었다 커졌다 한다
+ */
+function steadyEnd(buffer: Tone.ToneAudioBuffer): number {
+  const data = buffer.getChannelData(0)
+  const w = Math.round(buffer.sampleRate * WINDOW)
+  const rms: number[] = []
+  for (let i = 0; i + w <= data.length; i += w) {
+    let sum = 0
+    for (let j = i; j < i + w; j++) sum += data[j] * data[j]
+    rms.push(Math.sqrt(sum / w))
+  }
+  const from = Math.ceil(LOOP_FROM / WINDOW)
+  const tail = buffer.duration - TAIL_MARGIN
+  if (rms.length <= from + 2) return tail
+  const sorted = rms.slice(from).sort((a, b) => a - b)
+  const floor = sorted[Math.floor(sorted.length / 2)] / 2
+  const drop = rms.findIndex((v, i) => i > from && v < floor)
+  return drop < 0 ? tail : Math.min(tail, drop * WINDOW)
+}
 
 class LoopedVoice implements Voice {
   output = new Tone.Gain()
   ready: Promise<void>
   fallback = false
-  private buffers: Tone.ToneAudioBuffers | null = null
-  private bases: number[]
+  /** 음 번호 → 녹음과 소리가 일정한 끝 (초) */
+  private recordings: Map<number, { buffer: Tone.ToneAudioBuffer; end: number }> | null = null
   private sources = new Set<Tone.ToneBufferSource>()
   private synth: SynthVoice | null = null
   private level: Tone.Gain
+  private disposed = false
 
   constructor(track: Track) {
     const program = gmProgramOf(track)
     this.level = new Tone.Gain(levelGain(program)).connect(this.output) // 세트마다 다른 악기 크기를 FluidR3에 맞춤
-    const urls = sampleUrls(track)
-    this.bases = Object.keys(urls).map(Number)
-    this.ready = waitLoad((done, fail) => {
-      this.buffers = new Tone.ToneAudioBuffers({ urls, baseUrl: fontUrl(GM_NAMES[program]), onload: done, onerror: fail })
-    }).then((ok) => {
-      if (ok) return
-      this.buffers?.dispose()
-      this.buffers = null
+    this.ready = loadRecordings(track).then((recordings) => {
+      if (this.disposed) return recordings?.forEach((b) => b.dispose())
+      if (recordings) {
+        this.recordings = new Map([...recordings].map(([p, buffer]) => [p, { buffer, end: steadyEnd(buffer) }]))
+        return
+      }
       this.synth = new SynthVoice(presetOf(program))
       this.synth.output.connect(this.output)
       this.fallback = true
@@ -166,18 +218,18 @@ class LoopedVoice implements Voice {
   }
 
   play(pitch: number, duration: string, time: number, velocity: number) {
-    if (!this.buffers?.loaded) {
+    if (!this.recordings) {
       this.synth?.play(pitch, duration, time, velocity)
       return
     }
     // 가장 가까운 녹음을 재생 속도로 옮겨 낸다 (Tone.Sampler와 같음)
-    const base = this.bases.reduce((a, b) => (Math.abs(b - pitch) < Math.abs(a - pitch) ? b : a))
+    const base = [...this.recordings.keys()].reduce((a, b) => (Math.abs(b - pitch) < Math.abs(a - pitch) ? b : a))
     const rate = 2 ** ((pitch - base) / 12)
-    const buffer = this.buffers.get(base)
+    const { buffer, end: steady } = this.recordings.get(base)!
     const end = time + this.output.toSeconds(duration)
     // 녹음의 LOOP_FROM ~ handover를 조각으로 이어 붙인다. 이음매를 바로 이으면(주기를 맞춰도) 오르간 · 스트링에서 1초마다
     // 딸깍 소리가 나서 조각끼리 XFADE만큼 겹친다. 어느 순간 음이 끝나도 줄어드는 소리(RELEASE)가 녹음 안에 들도록 일찍 넘긴다
-    const handover = Math.max(LOOP_FROM + 0.5, RECORDED - (RELEASE + XFADE) * rate)
+    const handover = Math.max(LOOP_FROM + 0.5, steady - (RELEASE + XFADE) * rate)
     let offset = 0
     let at = time
     for (;;) {
@@ -208,9 +260,10 @@ class LoopedVoice implements Voice {
   }
 
   dispose() {
+    this.disposed = true
     for (const s of this.sources) s.dispose()
     this.sources.clear()
-    this.buffers?.dispose()
+    this.recordings?.forEach((r) => r.buffer.dispose())
     this.synth?.dispose()
     this.level.dispose()
     this.output.dispose()
