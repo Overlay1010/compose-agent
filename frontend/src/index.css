@@ -212,6 +212,27 @@ button.link { min-height: 0; margin-left: 8px; padding: 0; border: 0; background
 .reharm-card .more { color: var(--text-quiet); }
 .reharm-card .rub { font-size: 11px; color: var(--fn-s); }
 
+.arrange-card {
+  display: flex; flex-direction: column; gap: 8px; max-width: 92%; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+}
+.arrange-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.arrange-head strong { font-size: 13px; }
+.arrange-head .hint { font-size: 11px; color: var(--text-2); }
+.arrange-parts { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.arrange-parts li { display: grid; grid-template-columns: 18px 64px 70px 1fr; align-items: baseline; gap: 6px; font-size: 12px; }
+.arrange-parts .no { font-family: var(--mono); font-size: 11px; color: var(--text-quiet); }
+.arrange-parts .bars { font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.arrange-parts .made { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arrange-parts .auto { font-style: normal; color: var(--info); }
+.arrange-parts li.failed strong, .arrange-parts li.failed .made { color: var(--fn-s); }
+.arrange-lift { margin: 0; font-size: 11px; color: var(--text-2); }
+.arrange-check { display: flex; flex-direction: column; gap: 3px; padding: 7px 9px; border-radius: 8px; font-size: 11px;
+  color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.arrange-check.warn { color: #f2e2a8; background: var(--warn-bg); }
+.arrange-check ul { margin: 0; padding-left: 16px; }
+.arrange-check .kick { color: var(--text-2); }
+
 .preview-card {
   display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 14px;
   border: 1px solid var(--change); background: linear-gradient(#1c220d, #171b0d); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);

@@ -104,13 +104,24 @@ def _rests(project: Project, track_id: str | None, end_beat: float) -> list[tupl
     return out
 
 
+def _energy(project: Project, active: list[set[str]], onsets: list[int]) -> list[float]:
+    """마디 에너지 0~1: 치는 트랙 비율 0.6 + 새로 치는 횟수(곡에서 가장 많은 마디 대비) 0.4."""
+    playing = [t for t in project.tracks if t.audio is None and t.notes]
+    top = max(onsets, default=0) or 1
+    return [round(0.6 * len(active[b]) / max(1, len(playing)) + 0.4 * onsets[b] / top, 3) for b in range(len(active))]
+
+
+def bar_energy(project: Project, bars: int) -> list[float]:
+    """마디마다 에너지 (구간 나누기와 같은 잣대 — 편곡 점검의 "더 꽉 차게"도 이걸로 잰다)."""
+    active, onsets = _bar_activity(project, bars)
+    return _energy(project, active, onsets)
+
+
 def read_structure(project: Project, bars: int, lead_id: str | None) -> Structure:
     bpb = project.beats_per_bar
     names = {t.id: t.name for t in project.tracks}
-    playing = [t for t in project.tracks if t.audio is None and t.notes]
     active, onsets = _bar_activity(project, bars)
-    top = max(onsets) or 1
-    energy = [round(0.6 * len(active[b]) / max(1, len(playing)) + 0.4 * onsets[b] / top, 3) for b in range(bars)]
+    energy = _energy(project, active, onsets)
     phrase = _phrase(active, energy, bars)
 
     # 프레이즈마다: 절반 넘는 마디에서 치는 트랙 · 평균 에너지. 앞 프레이즈와 다르면 새 구간

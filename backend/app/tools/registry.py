@@ -43,6 +43,7 @@ from app.tools.generate import (
 from app.tools.samples import AddLoopArgs, GrooveFromLoopArgs, UseSampleArgs, add_loop, groove_from_loop, use_sample
 from app.tools.tracks import DeleteTrackArgs, DuplicateTrackArgs, delete_track, duplicate_track
 from app.tools.suggest import SuggestInstrumentsArgs, suggest_instruments
+from app.tools.arrange import ArrangeArgs, arrange
 
 TOOLS: dict[str, Tool] = {
     t.name: t
@@ -207,6 +208,14 @@ TOOLS: dict[str, Tool] = {
             "다시 만들기는 track_id(한 부분) 또는 track_ids(여러 트랙) — \"다른 버전\"이면 version + 1, 버전마다 연주(패턴)나 소리 조합이 바뀐다 (무엇이 바뀌었는지는 결과에 나온다).",
             GenerateDrumsArgs,
             generate_drums,
+        ),
+        Tool(
+            "arrange",
+            "여러 파트(드럼 · 베이스 · 패드 · 반주 · 아르페지오)를 계획표대로 한 번에 깐다. 순서는 코드가 정한다 (드럼 → 킥에 맞춘 베이스 → 화음, "
+            "화음 트랙이 쌓이면 높이를 나눔). 장르를 주면 장르에 맞는 베이스 · 반주 소리, lift 구간은 드럼을 더 촘촘하게 · 단순하게. "
+            "깐 뒤 트랙끼리 점검(반음 부딪힘 · 음역 겹침 · lift 구간이 실제로 더 촘촘한지)해 결과에 적는다. 파트 하나만이면 generate_* 도구.",
+            ArrangeArgs,
+            arrange,
         ),
         Tool(
             "add_track",

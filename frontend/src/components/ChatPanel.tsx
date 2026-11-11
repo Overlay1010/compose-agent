@@ -4,7 +4,7 @@ import { toolLabel, useChat } from '../store/chat'
 import { DRUM_NAMES, DRUM_SOUNDS, drumSoundOf, gmProgramOf } from '../audio/catalog'
 import { useProject } from '../store/project'
 import { useReharm } from '../store/reharm'
-import type { ReharmView, Track } from '../api/types'
+import type { ArrangePart, ArrangeView, ReharmView, Track } from '../api/types'
 import { panLabel, sameDrumSounds, sameMix } from '../diff'
 import { selectionLabel } from '../selection'
 import { soundName } from '../theme'
@@ -96,6 +96,7 @@ export function ChatPanel() {
                   {m.steps?.map(
                     (s, i) => s.ok && s.view?.reharm && <ReharmCards key={i} id={`${m.id}-${i}`} view={s.view.reharm} />,
                   )}
+                  {m.steps?.map((s, i) => s.ok && s.view?.arrange && <ArrangeCard key={`a${i}`} view={s.view.arrange} />)}
                   <span className="meta">
                     {m.madePreview && <strong>미리보기 만들어짐 · </strong>}
                     {m.meta}
@@ -247,6 +248,54 @@ export function ChatPanel() {
 }
 
 const SHOWN_CHANGES = 3
+
+const ROLE_KO: Record<ArrangePart['role'], string> = { drums: '드럼', bass: '베이스', pad: '패드', keys: '반주', arp: '아르페지오' }
+
+/** 편곡 계획 카드: 실행한 순서대로 파트 · 마디 · 만든 트랙, 아래에 점검 결과 (트랙끼리 부딪힘 · 음역 겹침 · 꽉 차게 한 구간) */
+function ArrangeCard({ view }: { view: ArrangeView }) {
+  const head = [view.style && `장르 ${view.style}`, view.progression && `진행 ${view.progression.join(' – ')}`].filter(Boolean)
+  return (
+    <div className="arrange-card" role="group" aria-label="편곡 계획">
+      <div className="arrange-head">
+        <strong>편곡 계획</strong>
+        {head.length > 0 && <span className="hint">{head.join(' · ')}</span>}
+      </div>
+      <ol className="arrange-parts">
+        {view.parts.map((p, i) => (
+          <li key={i} className={p.ok ? '' : 'failed'} title={p.summary}>
+            <span className="no">{i + 1}</span>
+            <strong>{ROLE_KO[p.role]}</strong>
+            <span className="bars">{p.bars}</span>
+            <span className="made">
+              {p.ok ? p.tracks?.join(' · ') : '못 깔았어요'}
+              {p.auto && <em className="auto"> · 점검 뒤 더함</em>}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {view.lift.length > 0 && (
+        <p className="arrange-lift">
+          {view.lift.map((l) => `${l.bars[0]}~${l.bars[1]}마디 ${l.energy === 'higher' ? '더 꽉 차게' : '덜어 내게'}`).join(' · ')}
+        </p>
+      )}
+      <div className={view.problems.length ? 'arrange-check warn' : 'arrange-check'}>
+        {view.problems.length ? (
+          <>
+            <span>점검에서 걸린 것</span>
+            <ul>
+              {view.problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <span>점검 통과 · 트랙끼리 부딪히는 곳 · 겹치는 음역 없음</span>
+        )}
+        {view.kick_lock !== null && <span className="kick">베이스가 킥과 같이 친 비율 {Math.round(view.kick_lock * 100)}%</span>}
+      </div>
+    </div>
+  )
+}
 
 /** 리하모니 제안 카드: 누르면 코드 띠가 그 제안을 보여 주고(다시 누르면 원래 코드), "이걸로 바꾸기"는 그 코드로 음을 바꾼다 */
 function ReharmCards({ id, view }: { id: string; view: ReharmView }) {

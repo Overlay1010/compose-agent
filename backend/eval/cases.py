@@ -1,4 +1,4 @@
-"""정답 있는 명령 126개.
+"""정답 있는 명령 139개.
 
 샘플 트랙 id
 - lofi_groove: t1 Drums(36 Kick · 38 Snare · 42 Closed Hat · 46 Open Hat …) · t2 Bass · t3 Rhodes · t4 Pad · t5 Lead (16마디)
@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from app.tools.samples import Groove, SampleInfo
-from eval.spec import ALL, Call, Case, Has, OneOf, Pitches, Range
+from eval.spec import ALL, Call, Case, Has, OneOf, Parts, Pitches, Range
 
 HATS = Pitches(frozenset({42, 44, 46}), frozenset({42}))
 SOFTER = Range(0.5, 0.85)  # "좀 약하게"
@@ -318,6 +318,31 @@ CASES: list[Case] = [
          note="말이 없으면 실제 연주(real_groove 기본값)"),
     case("B18", "만들기", "tempo_change", "필인 없이 트랩 드럼 8마디 추가해줘",
          [Call("generate_drums", {"style": "trap", "fills": False, "bars": OneOf(frozenset({None, (1, 8)})), "track_id": None})]),
+    # ---------- 편곡 한 번에 (여러 파트 = arrange 하나, 순서 · 점검은 코드가) ----------
+    # lofi_melody: t1 Lead만 · lofi_melody_drums: t1 Drums · t2 Lead · lofi_melody_pad: t1 Drums · t2 Pad · t3 Lead (16마디)
+    case("O01", "편곡", "lofi_melody", "드럼이랑 베이스, 패드 깔아줘",
+         [Call("arrange", {"parts": Parts((("drums", None), ("bass", None), ("pad", None))), "lift": None})]),
+    case("O02", "편곡", "lofi_melody", "로파이 느낌으로 반주 전부 깔아줘. 9마디부터는 더 꽉 차게",
+         [Call("arrange", {"style": "lofi", "parts": Parts((("drums", None), ("bass", None), ("pad", None)), extra=frozenset({"keys", "arp"})),
+                           "lift": [{"bars": [9, 16], "energy": "higher"}]})]),
+    case("O03", "편곡", "lofi_melody", "처음 4마디는 패드만 깔고, 5마디부터 드럼이랑 베이스도 들어오게 해줘",
+         [Call("arrange", {"parts": Parts((("pad", None), ("drums", (5, 16)), ("bass", (5, 16)))), "lift": None})],
+         note="'도' = 더한다 — 패드는 끝까지 (기준선에서 패드를 지우거나 4마디에서 끊었다)"),
+    case("O04", "편곡", "lofi_melody", "재즈풍으로 워킹 베이스랑 스윙 드럼, 피아노 컴핑 깔아줘",
+         [Call("arrange", {"style": "jazz", "parts": Parts((("drums", None), ("bass", None), ("keys", None)), fields=(
+             ("bass", "bass_style", OneOf(frozenset({None, "walking"}))), ("keys", "program", OneOf(frozenset({None, 0}))))),
+         })]),
+    case("O05", "편곡", "lofi_melody", "Am - F - C - G 진행으로 팝 반주 전체 깔아줘 (패드, 베이스, 드럼)",
+         [Call("arrange", {"style": "pop", "progression": ["Am", "F", "C", "G"],
+                           "parts": Parts((("pad", None), ("bass", None), ("drums", None)))})]),
+    case("O06", "편곡", "lofi_melody_drums", "드럼은 그대로 두고 베이스랑 코드 반주만 더 깔아줘",
+         [Call("arrange", {"parts": Parts((("bass", None), ("keys", None)))})],
+         alt=[(Call("arrange", {"parts": Parts((("bass", None), ("pad", None)))}),)], note="드럼은 계획에 넣지 않는다"),
+    case("O07", "편곡", "lofi_melody_pad", "있는 패드랑 안 부딪히게 아르페지오 하나 더 깔아줘",
+         [Call("generate_chords", {"pattern": "arpeggio", "track_id": None})],
+         alt=[(Call("arrange", {"parts": Parts((("arp", None),))}),)], note="파트 하나 — 어느 쪽이든 점검은 결과에 붙는다"),
+    case("O08", "편곡", "lofi_melody", "패드 하나 깔아줘", [Call("generate_chords", {"pattern": "pad", "track_id": None})],
+         note="파트 하나는 지금처럼 generate_* (arrange로 가지 않음)"),
     # ---------- 내 샘플 (샘플팩 이름표가 있을 때 use_sample, GM 악기 set_instrument가 아님) ----------
     case("U01", "내 샘플", "lofi_groove", "베이스를 내 샘플로 바꿔줘", [Call("use_sample", {"track_ids": ["t2"], "sample": None})], samples=True),
     case("U02", "내 샘플", "lofi_groove", "Rhodes 소리를 내 샘플팩에서 좀 더 어두운 걸로 해줘",
@@ -346,4 +371,4 @@ CASES: list[Case] = [
     case("L04", "영어", "lofi_groove", "make it sound better", note="막연함 → 되묻기", english=True),
 ]
 
-assert len(CASES) == 131 and len({c.id for c in CASES}) == 131
+assert len(CASES) == 139 and len({c.id for c in CASES}) == 139

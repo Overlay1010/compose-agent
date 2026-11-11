@@ -60,7 +60,27 @@ export interface ToolStep {
   summary: string // 도구 결과 요약 또는 오류 메시지
   changed_notes: number
   changed_settings: boolean // 템포처럼 음표 말고 곡 설정이 바뀜
-  view?: { reharm?: ReharmView } | null // 화면에만 보내는 도구 결과
+  view?: { reharm?: ReharmView; arrange?: ArrangeView } | null // 화면에만 보내는 도구 결과
+}
+
+// 백엔드 app/tools/arrange.py arrange의 view: 계획표 · 실행 결과 · 점검
+
+export interface ArrangePart {
+  role: 'drums' | 'bass' | 'pad' | 'keys' | 'arp'
+  bars: string // "전체" · "5~16마디"
+  ok: boolean
+  summary: string // 생성기 결과 또는 못 깐 이유
+  tracks?: string[] // 만든 트랙 이름
+  auto?: boolean // 계획에 없었는데 점검 뒤 코드가 더한 파트 ("더 꽉 차게" 구간이 안 찼을 때)
+}
+
+export interface ArrangeView {
+  style: string | null
+  progression: string[] | null
+  parts: ArrangePart[] // 실행한 순서대로
+  lift: { bars: [number, number]; energy: 'higher' | 'lower' }[]
+  problems: string[] // 점검에서 걸린 것 (비면 깨끗)
+  kick_lock: number | null // 베이스가 킥과 같이 친 비율
 }
 
 // 백엔드 app/tools/harmony.py suggest_reharmonization의 view

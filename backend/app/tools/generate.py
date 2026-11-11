@@ -105,6 +105,15 @@ class GenerateBasslineArgs(_MakeArgs):
     )
 
 
+def _cross_check(project: Project, track_id: str) -> str:
+    """만든 트랙을 곡의 다른 트랙과 점검 (반음 부딪힘 · 음역 겹침, app/arrange/review.py). 걸린 게 있으면 결과 끝에 붙일 말.
+    트랙 하나만 만들 때도 본다 — "있는 패드랑 안 부딪히게 아르페지오"에서 패드와 14반음 겹쳐도 몰랐다 (기준선 L6)"""
+    from app.arrange.review import review  # app.arrange가 app.tools를 불러서 맨 위에 두면 순환 import
+
+    problems = review(project, {track_id}).problems
+    return f" · 점검에서 걸린 것: {' / '.join(problems)}" if problems else ""
+
+
 def _make(
     project: Project, args: _MakeArgs, make: Callable[[Project, float, float | None, int | None, int], tuple[list[Note], Any]],
     default_name: str, what: str, key_check: bool = False,
@@ -152,19 +161,22 @@ def _make(
             "notes": sorted([*kept, *notes], key=lambda n: (n.start, n.pitch)),
             "program": plan.program, "program_set": True, **({"name": args.name} if args.name else {}),
         })
+        out = project.model_copy(update={"tracks": [track if t is target else t for t in project.tracks]})
         return ToolResult(
-            project=project.model_copy(update={"tracks": [track if t is target else t for t in project.tracks]}),
+            project=out,
             changed_notes=len(notes),
-            summary=f"{track.name}({track.id}) 트랙을 {source}(코드 {len(plan.chords)}개) {what} 다시 깔았어요 · {sound}",
+            summary=f"{track.name}({track.id}) 트랙을 {source}(코드 {len(plan.chords)}개) {what} 다시 깔았어요 · {sound}"
+            + _cross_check(out, track.id),
             checks=checks,
         )
     new_id = new_track_id(project)
     name = args.name or free_name(project, default_name)
     track = Track(id=new_id, name=name, program=plan.program, program_set=True, notes=notes)
+    out = project.model_copy(update={"tracks": [*project.tracks, track]})
     return ToolResult(
-        project=project.model_copy(update={"tracks": [*project.tracks, track]}),
+        project=out,
         changed_notes=len(notes),
-        summary=f"새 트랙 {name}({new_id})에 {source}(코드 {len(plan.chords)}개)를 {what} 깔았어요 · {sound}",
+        summary=f"새 트랙 {name}({new_id})에 {source}(코드 {len(plan.chords)}개)를 {what} 깔았어요 · {sound}" + _cross_check(out, new_id),
         checks=checks,
     )
 

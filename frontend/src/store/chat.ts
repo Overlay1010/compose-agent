@@ -62,6 +62,7 @@ const TOOL_LABELS: Record<string, string> = {
   generate_chords: '코드 깔기',
   generate_bassline: '베이스 만들기',
   generate_drums: '드럼 만들기',
+  arrange: '편곡 한 번에',
   use_sample: '내 샘플로 바꾸기',
   groove_from_loop: '루프 리듬 옮기기',
   add_loop: '루프 깔기',

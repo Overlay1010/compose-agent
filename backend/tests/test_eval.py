@@ -10,7 +10,7 @@ from app.midi_io.convert import midi_bytes_to_project
 from app.tools import run_tool
 from app.tools.samples import library
 from eval.cases import CASES, PACK
-from eval.spec import ALL, Call, Case, Has, OneOf, Pitches, Range, score
+from eval.spec import ALL, Call, Case, Has, OneOf, Parts, Pitches, Range, score
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import make_samples  # noqa: E402
@@ -33,6 +33,13 @@ def concrete(call: Call) -> dict:
             out[k] = v.text
         elif isinstance(v, OneOf):
             out[k] = sorted(v.values, key=lambda x: (x is not None, str(x)))[0]  # None(비워 둠)이 있으면 그것부터
+        elif isinstance(v, Parts):  # 꼭 있어야 할 파트만, 정답 인자는 위와 같은 규칙으로
+            parts = []
+            for role, bars in v.want:
+                fields = {key: want for r, key, want in v.fields if r == role}
+                part = {"role": role, **({"bars": list(bars)} if bars else {}), **concrete(Call("", fields))}
+                parts.append(part)
+            out[k] = parts
         else:
             out[k] = v
     return {k: v for k, v in out.items() if v is not None}

@@ -74,6 +74,50 @@ class Has:
         return f"'{self.text}' 포함"
 
 
+@dataclass(frozen=True)
+class Parts:
+    """arrange 계획표의 parts: 꼭 있어야 할 파트(role)와 그 마디 · 인자. 다른 파트는 extra에 있을 때만 받는다.
+
+    want: ((role, bars), ...) — bars None은 곡 전체 (비워 두거나 [1, whole]). 같은 파트가 두 번이면 틀림.
+    fields: ((role, 인자 이름, 정답), ...) — 정답은 값이나 Range · OneOf 같은 매처.
+    """
+
+    want: tuple[tuple[str, tuple[int, int] | None], ...]
+    extra: frozenset[str] = frozenset()
+    fields: tuple[tuple[str, str, Any], ...] = ()
+    whole: int = 16
+
+    def _bars(self, bars: Any) -> tuple[int, int] | None:
+        if bars is None or tuple(bars) == (1, self.whole):
+            return None
+        return tuple(bars)  # type: ignore[return-value]
+
+    def ok(self, value: Any) -> bool:
+        if not isinstance(value, list) or not all(isinstance(p, dict) for p in value):
+            return False
+        by_role: dict[str, dict] = {}
+        for p in value:
+            role = p.get("role")
+            if role in by_role:
+                return False
+            by_role[role] = p
+        need = {r for r, _ in self.want}
+        if not need <= set(by_role) or not set(by_role) - need <= self.extra:
+            return False
+        if any(self._bars(by_role[r].get("bars")) != bars for r, bars in self.want):
+            return False
+        for role, key, want in self.fields:
+            got = by_role.get(role, {}).get(key)
+            if not (want.ok(got) if hasattr(want, "ok") else got == want):
+                return False
+        return True
+
+    def __str__(self) -> str:
+        parts = ", ".join(f"{r}{'' if b is None else list(b)}" for r, b in self.want)
+        extra = f" (+{'|'.join(sorted(self.extra))} 괜찮음)" if self.extra else ""
+        return f"[{parts}]{extra}"
+
+
 ALL = "ALL"  # track_ids를 비우거나(전체), 해당 트랙을 전부 고른 경우
 
 
@@ -94,7 +138,7 @@ class Call:
                         return False
                 elif got is None or set(got) != set(want):
                     return False
-            elif isinstance(want, (Range, Pitches, OneOf, Has)):
+            elif isinstance(want, (Range, Pitches, OneOf, Has, Parts)):
                 if not want.ok(got):
                     return False
             elif key in ("bars", "beats"):

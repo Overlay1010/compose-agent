@@ -10,6 +10,8 @@
                        타이밍·세기가 조금씩 흔들림 (퀀타이즈·세기 조절 도구 시험용)
 - waltz_3_4.mid        3/4 박자 (마디선·재생선 확인용)
 - tempo_change.mid     5마디부터 템포가 100 -> 130 으로 바뀜 (경고 문구 확인용)
+- lofi_melody.mid      lofi_groove의 멜로디만 ("멜로디만 올리고 반주 깔아줘" · 편곡 한 번에 시험용)
+- lofi_melody_drums.mid · lofi_melody_pad.mid   멜로디 + 드럼 / 멜로디 + 패드 + 드럼
 """
 
 from __future__ import annotations
@@ -267,11 +269,37 @@ def _insert_tempo(mid: mido.MidiFile, at_tick: int, bpm: float) -> bytes:
     return out.getvalue()
 
 
+# ---------- 5. lofi_groove에서 트랙만 고른 것 (편곡 한 번에 · arrange 시험용) ----------
+
+def _lofi_only(*names: str) -> bytes:
+    pm = pretty_midi.PrettyMIDI(io.BytesIO(lofi_groove()))
+    pm.instruments = [i for i in pm.instruments if i.name in names]
+    out = io.BytesIO()
+    pm.write(out)
+    return out.getvalue()
+
+
+def lofi_melody() -> bytes:
+    """멜로디(Lead)만 — "멜로디만 올리고 반주 깔아줘"."""
+    return _lofi_only("Lead")
+
+
+def lofi_melody_drums() -> bytes:
+    return _lofi_only("Lead", "Drums")
+
+
+def lofi_melody_pad() -> bytes:
+    return _lofi_only("Lead", "Pad", "Drums")
+
+
 SAMPLES = {
     "lofi_groove.mid": lofi_groove,
     "fl_style_loose.mid": fl_style_loose,
     "waltz_3_4.mid": waltz_3_4,
     "tempo_change.mid": tempo_change,
+    "lofi_melody.mid": lofi_melody,
+    "lofi_melody_drums.mid": lofi_melody_drums,
+    "lofi_melody_pad.mid": lofi_melody_pad,
 }
 
 if __name__ == "__main__":
