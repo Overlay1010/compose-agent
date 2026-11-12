@@ -3,7 +3,8 @@
 코드는 v0.2 분석 엔진이 읽은 곡의 코드, 또는 사용자가 말한 진행("C – Am – F – G")을 따라간다.
 음 고르기는 무늬와 상관없이 같다 (아래). 무늬는 고른 4음을 어떤 리듬으로 치느냐만 다르다.
 - 음역: 베이스 위쪽과 멜로디 아래쪽 사이 빈 곳 — 다른 악기와 같은 높이에서 겹치지 않게
-- 보이싱: 4음. 첫 코드는 음역 가운데, 다음 코드부터는 앞 코드에서 가장 덜 움직이게 (패드가 코드마다 뛰지 않게)
+- 보이싱: 4음. 첫 코드는 음역 가운데, 다음 코드부터는 앞 코드에서 가장 덜 움직이게 (패드가 코드마다 뛰지 않게).
+  그동안 같이 울리는 멜로디 · 다른 트랙 음과 반음(단2 · 단9)으로 부딪히는 음은 피하고, 3음이라도 많이 부딪히면 뺀다
 - 소리: 곡 편성에 맞춰 — 스트링 · 관악기가 있으면 스트링 앙상블, 신스 리드 · 신스 베이스 · 일렉트로닉 킷이 있으면
   폴리신스 패드, 그 밖(건반 · 로파이 · 피아노)은 따뜻한 패드. 이미 같은 소리가 있으면 다른 패드.
   템포로는 고르지 않는다 (150 BPM 피아노 왈츠에 신스 패드가 깔렸다)
@@ -15,7 +16,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import product
 from random import Random
 from statistics import mean, median
@@ -37,6 +38,12 @@ DRIFT = 5  # 반음. 보이싱 가운데가 음역 가운데에서 이만큼 넘
 SOFTER = 0.75  # 원래 곡 세기에 곱한다
 CLUSTER = 6  # 반음 붙은 두 음의 벌점 (움직임 반음 수로)
 HEIGHT_SHIFT = {"low": -7, "mid": 0, "high": 7}
+# 다른 트랙과 반음(단2 · 단9)으로 부딪히는 음 피하기 — 편곡 점검(app/arrange/review.py)과 같은 잣대.
+# 점검에 가장 많이 걸린 게 멜로디가 C를 끄는 동안 패드가 B를 누르는 것이었다 (Am-F-C-G 진행 팝 반주 12.5박)
+OVERLAP = 0.5  # 박. 이보다 짧게 겹치면 지나가는 음으로 본다 (점검과 같은 값)
+RUB = 16  # 반음 움직임 몇 개만큼의 벌점: 다른 트랙 음과 반음으로 1박 같이 울릴 때
+HEAVY = 1.0  # 박. 꼭 넣을 음(3음 · 7음)이라도 어느 높이에 두든 이만큼 부딪히면 뺀다 (멜로디가 4음을 끌면 3음 대신 4음 = sus4)
+SUS = {"": "sus4", "7": "7sus4"}  # 장3음 대신 4음을 넣으면 바뀌는 코드 (검사 · 결과에 바뀐 이름으로)
 SHAPES = [(-7, -3, 2, 6), (-10, -3, 4, 9), (-4, 0, 5, 9), (-12, -5, 0, 7)]  # 버전마다 첫 코드를 짤 모양 (음역 가운데에서 반음)
 
 WARM_PAD, POLYSYNTH_PAD, STRINGS = 89, 90, 48
@@ -107,21 +114,59 @@ def _must(chord: ChordSpan) -> set[int]:
     return {(chord.root + i) % 12 for i in picked}
 
 
-def lead(prev: list[int], chord: ChordSpan, low: int, high: int) -> list[int]:
+def heard_with(project: Project, chords: list[ChordSpan], start: float, end: float) -> list[dict[int, float]]:
+    """코드마다 그동안 같이 울리는 다른 트랙(드럼 말고) 음: {음 높이: 겹친 박}. OVERLAP보다 짧게 겹친 음은 뺀다."""
+    notes = sorted((n for t in project.tracks if not t.is_drum for n in t.notes), key=lambda n: n.start)
+    out = []
+    for c in chords:
+        s, e = max(c.start, start), min(c.end, end)
+        heard: dict[int, float] = {}
+        for n in notes:
+            if n.start >= e:
+                break
+            ov = min(e, n.start + n.duration) - max(s, n.start)
+            if ov >= OVERLAP:
+                heard[n.pitch] = heard.get(n.pitch, 0.0) + ov
+        out.append(heard)
+    return out
+
+
+def rub(pitch: int, heard: dict[int, float]) -> float:
+    """pitch가 heard의 음들과 반음(단2 · 단9 — 위 음이 아래 음보다 반음 + 옥타브들)으로 같이 울리는 박."""
+    return sum(beats for m, beats in heard.items() if abs(m - pitch) % 12 == 1)
+
+
+def lead(prev: list[int], chord: ChordSpan, low: int, high: int, heard: dict[int, float] | None = None) -> list[int]:
     """prev(4음)에서 가장 덜 움직여 chord로 가는 4음. 목소리마다 코드 음 중 가까운 후보를 두고, 겹치지 않고 음역 안이며
     꼭 넣을 음을 다 넣는 조합 중 움직임 합이 가장 작은 것 (후보가 적어 다 따져 본다).
-    v0.2 보이싱 규칙(3음부터 겹치기)을 그대로 쓰면 Am에서 C를 겹치느라 한 음이 음역 밖으로 뛰고, 안으로 들이면 같은 음이 둘이 됐다."""
-    pcs = {(chord.root + i) % 12 for i in INTERVALS.get(chord.quality, (0, 4, 7))}
+    v0.2 보이싱 규칙(3음부터 겹치기)을 그대로 쓰면 Am에서 C를 겹치느라 한 음이 음역 밖으로 뛰고, 안으로 들이면 같은 음이 둘이 됐다.
+    heard(같이 울리는 다른 트랙 음)가 있으면 그 음들과 반음으로 부딪히는 음에 벌점을 주고, 어느 높이에 둬도 많이 부딪히는
+    꼭 넣을 음은 뺀다 (멜로디가 C를 끄는 G 코드면 B를 빼 G · D만)."""
+    ivs = INTERVALS.get(chord.quality, (0, 4, 7))
+    pcs = {(chord.root + i) % 12 for i in ivs}
     must = _must(chord)
+    heard = heard or {}
+    if heard:  # 근음 · 5음은 베이스가 받치니 조금만 부딪혀도 빼도 된다 (B 코드 위 멜로디 C에 패드 B), 3음 · 7음은 많이 부딪힐 때만
+        color = {(chord.root + i) % 12 for i in ivs if i not in (0, 7)}
+        dropped = {pc for pc in must
+                   if min((rub(q, heard) for q in range(low - GAP, high + GAP + 1) if q % 12 == pc), default=0.0)
+                   >= (HEAVY if pc in color else OVERLAP)}
+        must -= dropped
+        # 장3음을 뺐으면 그 위에서 울리던 4음(멜로디)을 넣을 수 있게 — G 코드 위 멜로디 C면 B 대신 C로 Gsus4.
+        # 단3음은 반음 위가 장3음이라 넣으면 장조가 돼서 빼기만 한다
+        fourth = (chord.root + 5) % 12
+        if chord.quality in SUS and (chord.root + 4) % 12 in dropped and any(m % 12 == fourth for m in heard):
+            pcs.add(fourth)
     options = []
     for p in prev:
         near = {p - (p - pc) % 12 for pc in pcs} | {p - (p - pc) % 12 + 12 for pc in pcs}
         options.append(sorted((q for q in near if low - GAP <= q <= high + GAP), key=lambda q: abs(q - p))[:4])
+    rubs = {q: rub(q, heard) for opts in options for q in opts} if heard else {}
     best = None
     for combo in product(*options):
         if len(set(combo)) < len(combo) or not must <= {q % 12 for q in combo}:
             continue
-        cost = sum(abs(a - b) for a, b in zip(combo, prev))
+        cost = sum(abs(a - b) for a, b in zip(combo, prev)) + RUB * sum(rubs.get(q, 0.0) for q in combo)
         voiced = sorted(combo)  # 이웃한 두 음이 반음이면 탁하다 (Dm9의 E F를 붙여 쌓던 것) — 반음 6개 움직임만큼 피한다
         cost += CLUSTER * sum(1 for x, y in zip(voiced, voiced[1:]) if y - x == 1)
         if best is None or cost < best[0]:
@@ -138,15 +183,18 @@ def shape(version: int) -> list[int]:
     return [x + rng.choice((-2, -1, 1, 2)) for x in base]
 
 
-def voicings(chords: list[ChordSpan], low: int, high: int, center: int, version: int = 1) -> list[list[int]]:
-    """코드마다 4음. 앞 코드에서 가장 덜 움직이게 잇고, 가운데에서 너무 멀어지면 다시 가운데에서. 음역 [low, high] 안."""
+def voicings(chords: list[ChordSpan], low: int, high: int, center: int, version: int = 1,
+             heard: list[dict[int, float]] | None = None) -> list[list[int]]:
+    """코드마다 4음. 앞 코드에서 가장 덜 움직이게 잇고, 가운데에서 너무 멀어지면 다시 가운데에서. 음역 [low, high] 안.
+    heard(코드마다 같이 울리는 다른 트랙 음, heard_with)가 있으면 그 음들과 반음으로 부딪히지 않게 고른다."""
     seed = [center + x for x in shape(version)]
     out: list[list[int]] = []
     prev: list[int] = seed
-    for c in chords:
-        v = lead(prev, c, low, high)
+    for i, c in enumerate(chords):
+        h = heard[i] if heard else None
+        v = lead(prev, c, low, high, h)
         if abs(mean(v) - center) > DRIFT:
-            v = lead(seed, c, low, high)
+            v = lead(seed, c, low, high, h)
         out.append(v)
         prev = v
     return out
@@ -312,7 +360,7 @@ def chord_notes(
     played = [n.velocity for t in project.tracks if not t.is_drum for n in t.notes]
     softer = STAB_SOFTER if pattern == "stab" else SOFTER
     velocity = max(35, min(90, round(median(played) * softer))) if played else 64
-    voiced = voicings(chords, low, high, center, version)
+    voiced = voicings(chords, low, high, center, version, heard_with(project, chords, start, end))
     if not any(n.start < end and n.start + n.duration > start for t in project.tracks if not t.is_drum for n in t.notes):
         voiced = [_with_root(v, c, floor) for c, v in zip(chords, voiced)]
     if pattern == "stab":
@@ -326,8 +374,26 @@ def chord_notes(
             notes += [Note(pitch=p, start=round(s, 4), duration=round(e - s, 4), velocity=velocity) for p in voicing]
     pitches = [n.pitch for n in notes]
     names = {"stab": STAB_NAMES, "arpeggio": ARP_NAMES}.get(pattern)
-    feel = f"{names[(version - 1) % len(names)]}" if names else ""
+    chords, eased = _eased(chords, voiced)
+    feel = " · ".join(x for x in (names[(version - 1) % len(names)] if names else "", eased) if x)
     return notes, PadPlan(program, min(pitches), max(pitches), chords, feel)
+
+
+def _eased(chords: list[ChordSpan], voiced: list[list[int]]) -> tuple[list[ChordSpan], str]:
+    """부딪힘을 피하느라 바뀐 코드: 3음 대신 4음을 넣은 코드는 sus4 이름으로 바꾸고(검사가 4음을 코드 밖으로 보지 않게),
+    3음 · 7음을 뺀 코드와 함께 결과에 적을 말 (LLM이 "코드대로 깔았다"고만 하지 않게)."""
+    out, sus, thin = [], 0, 0
+    for c, v in zip(chords, voiced):
+        have = {p % 12 for p in v}
+        if c.quality in SUS and (c.root + 4) % 12 not in have and (c.root + 5) % 12 in have:
+            base, *slash = c.name.split("/")
+            c = replace(c, quality=SUS[c.quality], name="/".join([base + "sus4", *slash]))
+            sus += 1
+        elif {pc for pc in _must(c) if (pc - c.root) % 12 not in (0, 7)} - have:
+            thin += 1
+        out.append(c)
+    words = ([f"멜로디와 부딪히지 않게 sus4로 바꾼 코드 {sus}개"] if sus else []) + ([f"3음 · 7음을 뺀 코드 {thin}개"] if thin else [])
+    return out, " · ".join(words)
 
 
 def pad_notes(

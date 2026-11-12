@@ -4,7 +4,8 @@
 - 음: 코드가 바뀌는 첫 음은 근음 (슬래시 코드면 그 베이스 음). 나머지는 스타일대로
   - root: 근음만 · root_fifth: 근음과 5음을 번갈아 · octave: 근음과 한 옥타브 위를 번갈아
   - walking: 4분음표로 근음 → 코드 음 → 코드 음 → 다음 근음으로 이어 주는 음 (재즈)
-- 이어 주는 음: 코드의 마지막 음이 짧으면(1박 이하) 다음 근음의 반음 · 온음 위나 아래 중 조성 음계에 드는 음으로 (워킹은 늘)
+- 이어 주는 음: 코드의 마지막 음이 짧으면(1박 이하) 다음 근음의 반음 · 온음 위나 아래 중 조성 음계에 드는 음으로 (워킹은 늘).
+  그때 울리는 코드 음 · 멜로디와 반음으로 부딪히는 음은 되도록 피한다 (Am 위에서 C로 가는 B 대신 D에서 내려오기)
 - 음역: 근음은 E1 ~ D#2 (4현 베이스가 편한 자리), 5음 · 옥타브 · 코드 음은 그 위로. 워킹은 근음을 바로 앞 음에서 가장 가까운
   옥타브(E1 ~ B2)로 골라 선이 이어지게 한다 (늘 같은 높이면 G2까지 올라갔다가 다음 근음 F1로 한 옥타브 넘게 떨어졌다)
 - 소리: 신스 리드 · 일렉트로닉 킷 · 신스 베이스가 있으면 신스 베이스(옥타브는 신스 베이스 2), 스트링 · 관악기 편성이면
@@ -19,7 +20,7 @@ from dataclasses import dataclass, field
 from statistics import median
 
 from app.generate.check import SCALES
-from app.generate.chords import ELECTRONIC_KITS, follow
+from app.generate.chords import ELECTRONIC_KITS, OVERLAP, follow
 from app.harmony import ChordSpan, analyze
 from app.harmony.analyze import KeyInfo, decide_key
 from app.harmony.reharm import INTERVALS
@@ -90,13 +91,23 @@ def _root_pitch(pc: int, near: int | None = None) -> int:
     return min((q for q in (low, low + 12) if q <= WALK_HIGH), key=lambda q: abs(q - near))
 
 
-def _approach(next_root: int, scale: set[int], above: bool = False, avoid: int | None = None) -> int:
+def _approach(next_root: int, scale: set[int], above: bool = False, avoid: int | None = None,
+              rubs: frozenset[int] = frozenset()) -> int:
     """다음 근음(음 높이)으로 이어 주는 음: 반음 아래 · 위, 온음 아래 · 위 중 음계에 드는 첫 음.
-    above: 위에서 내려오며 다가갈 때 (위 음부터 본다). avoid: 바로 앞 음 (같은 음을 두 번 치지 않게)."""
-    for d in ((1, -1, 2, -2) if above else (-1, 1, -2, 2)):
-        if (next_root + d) % 12 in scale and next_root + d != avoid:
-            return next_root + d
-    return next_root - 1
+    above: 위에서 내려오며 다가갈 때 (위 음부터 본다). avoid: 바로 앞 음 (같은 음을 두 번 치지 않게).
+    rubs: 그때 위에서 울리는 음과 반음으로 부딪히는 음 이름(0~11) — 되도록 피한다. 다음 근음 C로 가는 B가
+    지금 코드(Am)의 C · 멜로디의 C와 같이 울려 편곡 점검에 걸렸다."""
+    fits = [next_root + d for d in ((1, -1, 2, -2) if above else (-1, 1, -2, 2))
+            if (next_root + d) % 12 in scale and next_root + d != avoid]
+    return next((q for q in fits if q % 12 not in rubs), fits[0] if fits else next_root - 1)
+
+
+def _rubs(chord: ChordSpan, others: list[Note], start: float, end: float) -> frozenset[int]:
+    """[start, end)에 칠 베이스 음이 피할 음 이름: 지금 코드 음 · 그동안 0.5박 넘게 같이 울리는 다른 트랙 음의 반음 아래
+    (베이스가 가장 낮아서, 위 음이 반음 + 옥타브들 위면 단2 · 단9로 부딪힌다)."""
+    above = {(chord.root + i) % 12 for i in INTERVALS.get(chord.quality, (0, 4, 7))}
+    above |= {n.pitch % 12 for n in others if min(end, n.start + n.duration) - max(start, n.start) >= OVERLAP}
+    return frozenset((pc - 1) % 12 for pc in above)
 
 
 def _bass_pc(chord: ChordSpan) -> int:
@@ -121,7 +132,8 @@ def _pitches(chord: ChordSpan, n: int, style: str) -> list[int]:
     return out
 
 
-def _walk(chord: ChordSpan, n: int, root: int, target: int | None, scale: set[int]) -> list[int]:
+def _walk(chord: ChordSpan, n: int, root: int, target: int | None, scale: set[int],
+          rubs: frozenset[int] = frozenset()) -> list[int]:
     """워킹 베이스 한 코드 (4분음표 n개): 근음 → 다음 근음(target) 쪽으로 한 방향으로 걷고 → 마지막은 target 바로 옆 음.
     가운데 음은 코드 음을 먼저, 없으면 음계 음(지나가는 음). 다음 근음이 가까우면(4도 안쪽) 다른 옥타브의 근음으로 걸어가고,
     그것도 음역 밖이거나 사이에 디딜 음이 없으면 한 번 돌아 온다 (낮은 자리면 위로).
@@ -138,7 +150,7 @@ def _walk(chord: ChordSpan, n: int, root: int, target: int | None, scale: set[in
     goal = target if target is not None else root
     if target is not None and abs(goal - root) < 5:
         goal = next((q for q in (goal + 12, goal - 12) if ROOT_LOW <= q <= WALK_HIGH and 5 <= abs(q - root) <= 12), goal)
-    last = _approach(goal, scale, above=root > goal) if target is not None else None
+    last = _approach(goal, scale, above=root > goal, rubs=rubs) if target is not None else None
     if last is not None and abs(last - root) > middle:  # 한 방향으로 걷기: 근음과 이어 주는 음 사이에서
         lo, hi = sorted((root, last))
         for k in range(1, middle + 1):
@@ -152,7 +164,7 @@ def _walk(chord: ChordSpan, n: int, root: int, target: int | None, scale: set[in
         for k in range(1, middle + 1):
             line.append(nearest(root + turn * (1 - (k - 1) / max(1, middle) * 0.6)))
     if last is not None and n > 1:
-        line.append(_approach(goal, scale, above=line[-1] > goal, avoid=line[-1]))
+        line.append(_approach(goal, scale, above=line[-1] > goal, avoid=line[-1], rubs=rubs))
     return line[:n]
 
 
@@ -195,6 +207,7 @@ def bass_notes(
     played = [n.velocity for t in project.tracks if not t.is_drum for n in t.notes]
     velocity = max(60, min(110, round(median(played)))) if played else 90
     notes: list[Note] = []
+    others = [n for t in project.tracks if not t.is_drum for n in t.notes]  # 위에서 울리는 음 (이어 주는 음이 부딪히지 않게)
     prev: int | None = None  # 워킹: 바로 앞 음
     for k, c in enumerate(chords):
         s, e = max(c.start, start), min(c.end, end)
@@ -203,15 +216,16 @@ def bass_notes(
             first_len = (mine[0][0] if mine else e) - s
             mine = [(s, min(first_len, LONGEST if rhythm is None else first_len))] + mine
         nxt = chords[k + 1] if k + 1 < len(chords) and abs(chords[k + 1].start - c.end) < 1e-6 else None
+        last_start, last_len = mine[-1]
+        rubs = _rubs(c, others, last_start, min(last_start + last_len, e))  # 이어 주는 음(마지막 음) 자리에서 피할 음
         if style == "walking":
             root = _root_pitch(_bass_pc(c), prev)
             target = _root_pitch(_bass_pc(nxt), root) if nxt is not None else None  # 다음 코드는 이어 주는 음에서 가까운 옥타브로 시작
-            pitches = _walk(c, len(mine), root, target, scale)
+            pitches = _walk(c, len(mine), root, target, scale, rubs)
         else:
             pitches = _pitches(c, len(mine), style)
-            last_start, last_len = mine[-1]
             if nxt is not None and len(mine) > 1 and min(last_len, e - last_start) <= APPROACH:
-                pitches[-1] = _approach(_root_pitch(_bass_pc(nxt)), scale)
+                pitches[-1] = _approach(_root_pitch(_bass_pc(nxt)), scale, rubs=rubs)
         prev = pitches[-1]
         for (h, d), p in zip(mine, pitches):
             dur = min(d, e - h)

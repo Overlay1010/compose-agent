@@ -161,13 +161,61 @@ def test_lift_passes_when_the_range_really_gets_fuller():
 
 
 def test_problems_are_reported_in_summary_and_card():
-    """말한 진행이 멜로디와 안 맞으면 점검에 걸리고, 결과 · 화면 카드에 그대로 나온다."""
-    song = lofi("Lead")
-    r = run_tool(song, "arrange", {"progression": ["Am", "F", "C", "G"], "parts": [{"role": "pad"}, {"role": "bass"}]})
-    assert "점검에서 걸린 것: 반음으로 부딪히는 음이" in r.summary
+    """피할 수 없는 부딪힘(멜로디가 C#을 계속 끄는데 진행은 C — 베이스 근음 C)은 점검에 걸리고, 결과 · 화면 카드에 그대로 나온다.
+    (예전엔 Am-F-C-G 진행으로 걸렸는데, 이제 화음 · 베이스가 피해서 안 걸린다)"""
+    lead = Track(id="t1", name="Lead", program=80, notes=notes(*[(73, b * 4.0, 4.0) for b in range(4)]))
+    song = Project(id="s", tracks=[lead])
+    r = run_tool(song, "arrange", {"progression": ["C"], "parts": [{"role": "pad"}, {"role": "bass"}]})
+    assert "점검에서 걸린 것: 반음으로 부딪히는 음이" in r.summary and "Bass C" in r.summary
     assert r.view["arrange"]["problems"] and r.data["review"]["clash_beats"] > 2
+    assert not any(c.a == "Pad" or c.b == "Pad" for c in clashes(r.project, {t.id for t in added(song, r.project)}))
     json.dumps(r.data)
     json.dumps(r.view)
+
+
+# ---------- 부딪힘 피하기 (생성기) ----------
+
+
+def melody(pitch: int, bars: int = 4, beats: float = 4.0) -> Project:
+    return Project(id="m", tracks=[Track(id="t1", name="Lead", program=80,
+                                         notes=notes(*[(pitch, b * 4.0, beats) for b in range(bars)]))])
+
+
+def test_pad_turns_major_chord_into_sus4_under_held_fourth():
+    """G 코드 위에서 멜로디가 C를 끌면 패드의 B(3음)가 단9로 부딪힌다 → B 대신 C로 Gsus4. 계획 · 결과에도 sus4로."""
+    song = melody(72)  # C5
+    r = run_tool(song, "generate_chords", {"progression": ["G"]})
+    pad = added(song, r.project)[0]
+    pcs = {n.pitch % 12 for n in pad.notes}
+    assert 11 not in pcs and 0 in pcs and {7, 2} <= pcs
+    assert "sus4로 바꾼 코드 4개" in r.summary and r.checks == []  # 4음 C를 코드 밖으로 보지 않는다
+    assert "점검에서 걸린 것" not in r.summary
+
+
+def test_pad_drops_root_or_fifth_before_the_third():
+    """근음 · 5음은 베이스가 받치니 조금만 부딪혀도 뺀다. Am 위 멜로디 F(5음 E와 단9) → E를 빼고 A · C는 둔다."""
+    song = melody(77)  # F5
+    r = run_tool(song, "generate_chords", {"progression": ["Am"]})
+    pcs = {n.pitch % 12 for n in added(song, r.project)[0].notes}
+    assert 4 not in pcs and {9, 0} <= pcs
+    assert "sus4" not in r.summary and r.checks == []
+
+
+def test_short_passing_note_keeps_the_third():
+    """멜로디가 반 박만 지나가면(0.5박) 3음을 빼지 않는다 — 점검도 0.5박 넘게 겹쳐야 센다."""
+    song = melody(72, beats=0.25)
+    pcs = {n.pitch % 12 for n in added(song, run_tool(song, "generate_chords", {"progression": ["G"]}).project)[0].notes}
+    assert {7, 11, 2} <= pcs
+
+
+def test_bass_approach_avoids_note_under_current_chord_tone():
+    """Am → C로 이어 줄 때 반음 아래 B는 지금 코드(Am)의 C와 단9로 부딪힌다 → 위에서 내려오는 D로."""
+    song = melody(76)
+    r = run_tool(song, "generate_bassline", {"progression": ["Am", "C"], "version": 2})  # 4분음표 리듬 (마지막 음이 1박)
+    bass = added(song, r.project)[0]
+    last_of_am = max((n for n in bass.notes if n.start < 4), key=lambda n: n.start)
+    assert last_of_am.pitch % 12 == 2
+    assert r.checks == []
 
 
 def test_one_failing_part_does_not_stop_the_rest():
