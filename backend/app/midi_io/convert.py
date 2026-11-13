@@ -168,10 +168,13 @@ def _name_for_midi(name: str) -> str:
 
 
 def _name_from_midi(name: str) -> str:
+    """트랙 이름. 보이지 않는 제어 문자는 뺀다 — 이름이 NUL 한 글자로 저장된 샘플팩 MIDI(Cymatics Sphinx)가 빈칸 이름이 돼
+    점검 결과에 "Chords가 (빈칸)와 겹쳐요"로 나왔다. 빼고 나서 비면 부르는 쪽이 "Track n"으로."""
     try:
-        return name.encode("latin-1").decode("utf-8")
+        name = name.encode("latin-1").decode("utf-8")
     except (UnicodeEncodeError, UnicodeDecodeError):
-        return name  # 원래 latin-1 이름(예: "Café")이거나 이미 풀린 이름
+        pass  # 원래 latin-1 이름(예: "Café")이거나 이미 풀린 이름
+    return re.sub(r"[\x00-\x1f\x7f]", "", name)
 
 
 def project_to_midi_bytes(project: Project) -> bytes:

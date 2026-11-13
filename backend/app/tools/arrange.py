@@ -38,8 +38,13 @@ LEVELS: tuple[DensityLevel, ...] = ("low", "mid", "high")
 # 장르마다 어울리는 기본값 (계획에 말이 없을 때만). 생성기는 곡 편성으로 소리를 고르는데, 신스 리드가 있는 곡에서 "재즈풍"이라고
 # 해도 신스 베이스가 나왔다 (기준선 L4) — 장르를 말했으면 장르를 먼저 본다
 GENRE_BASS_STYLE = {"jazz": "walking", "house": "octave"}
-GENRE_BASS = {"jazz": 32, "soul": 33, "funk": 36, "rock": 34, "latin": 32, "house": 38, "trap": 38}  # 어쿠스틱 · 핑거 · 슬랩 · 피크 · 신스
-GENRE_KEYS = {"jazz": 0, "soul": 4, "lofi": 4, "boombap": 4, "rock": 0, "latin": 0, "funk": 4}  # 피아노 · 전자 피아노
+GENRE_BASS = {"jazz": 32, "soul": 33, "funk": 36, "rock": 34, "latin": 32, "house": 38, "trap": 38,
+              "lofi": 33}  # 어쿠스틱 · 핑거 · 슬랩 · 피크 · 신스
+GENRE_KEYS = {"jazz": 0, "soul": 4, "lofi": 0, "boombap": 4, "rock": 0, "latin": 0, "funk": 4}  # 피아노 · 전자 피아노
+# 로파이: 사각파 리드 멜로디 곡에 "로파이 느낌으로"라고 했더니 편성을 전자 음악으로 보고 신스 베이스 · 헤일로 패드 · 전자 피아노가
+# 깔려 "진짜 유치한 악기들"이라는 말을 들었다 (2026-11-13). 고음질 녹음이 있는 피아노(Salamander) · 핑거 베이스로,
+# 패드는 고음질 녹음이 없어 신스 느낌이 덜한 따뜻한 패드로
+GENRE_PAD = {"lofi": 89}
 
 
 class PartPlan(BaseModel):
@@ -139,8 +144,8 @@ def _run_part(project: Project, part: PartPlan, args: ArrangeArgs, song_bars: in
             progression=args.progression, bars_per_chord=args.bars_per_chord, bars=part.bars,
         ))
     program = part.program
-    if program is None and part.role == "keys":
-        program = GENRE_KEYS.get(args.style or "")
+    if program is None:
+        program = {"keys": GENRE_KEYS, "pad": GENRE_PAD}.get(part.role, {}).get(args.style or "")
     return generate_chords(project, GenerateChordsArgs(
         pattern=PATTERN[part.role], height=part.height or height, program=program,  # type: ignore[arg-type]
         progression=args.progression, bars_per_chord=args.bars_per_chord, bars=part.bars,

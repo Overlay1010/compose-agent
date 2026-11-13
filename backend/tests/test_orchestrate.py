@@ -110,6 +110,15 @@ def test_genre_picks_bass_and_keys_sounds():
     assert by_name(r.project, "Kick").program == 32  # 재즈 킷
 
 
+def test_lofi_uses_recorded_instruments_not_synths():
+    """사각파 리드 곡이라도 '로파이'면 신스 베이스 · 헤일로 패드 대신 핑거 베이스 · 피아노 · 따뜻한 패드 ("유치한 악기들", 2026-11-13)."""
+    song = lofi("Lead")
+    r = run_tool(song, "arrange", {"style": "lofi", "parts": [{"role": "bass"}, {"role": "pad"}, {"role": "keys"}]})
+    assert by_name(r.project, "Bass").program == 33
+    assert by_name(r.project, "Pad").program == 89
+    assert by_name(r.project, "Chords").program == 0
+
+
 def test_said_sound_wins_over_genre():
     song = lofi("Lead")
     r = run_tool(song, "arrange", {"style": "jazz", "parts": [{"role": "bass", "program": 33, "bass_style": "root"}]})

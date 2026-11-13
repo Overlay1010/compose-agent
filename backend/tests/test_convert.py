@@ -181,3 +181,15 @@ def test_korean_track_names_export_and_come_back():
     ])
     back = midi_bytes_to_project(project_to_midi_bytes(p))  # 예전에는 UnicodeEncodeError
     assert [t.name for t in back.tracks] == ["탑노트", "Café 멜로디 #1"]
+
+
+def test_control_characters_dropped_from_track_names():
+    """이름이 NUL 한 글자로 저장된 파일(샘플팩 MIDI)은 빈칸 이름 대신 "Track 1". 이름 속 제어 문자도 뺀다."""
+    pm = pretty_midi.PrettyMIDI()
+    for name in ("\x00", "Lead\x00"):
+        inst = pretty_midi.Instrument(program=0, name=name)
+        inst.notes.append(pretty_midi.Note(velocity=90, pitch=60, start=0, end=0.5))
+        pm.instruments.append(inst)
+    buf = io.BytesIO()
+    pm.write(buf)
+    assert [t.name for t in midi_bytes_to_project(buf.getvalue()).tracks] == ["Track 1", "Lead"]
