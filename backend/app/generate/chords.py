@@ -274,19 +274,78 @@ def place(progression: list[str], start: float, end: float, beats: float) -> lis
     return out
 
 
+FILL_MAX = 8  # 마디. 곡 중간에 이보다 길게 아무 음도 없는 곳은 일부러 비운 구간(브레이크)일 수 있어 채우지 않는다
+PHRASE, BLOCK = 4, 8  # 마디. 루프 음악은 4마디 진행을 8마디 묶음 안에서 되풀이하는 일이 많다
+
+
+def fill_rests(chords: list[ChordSpan], bpb: float) -> tuple[list[ChordSpan], list[tuple[int, int, int | None]]]:
+    """곡 중간에 아무 음도 없어 코드를 못 읽은 마디(N.C. — 멜로디만 있는 곡에서 멜로디가 쉬는 곳)를 채운다.
+    마디마다 같은 8마디 묶음의 다른 4마디(뒤 먼저, 그다음 앞) → 8마디 앞 · 뒤의 같은 자리 진행을 옮겨 오고, 그것도 없으면
+    앞 코드를 이어 끈다. 곡 앞뒤의 빈 곳(멜로디가 아직 안 나옴 · 끝난 뒤)과 FILL_MAX마디보다 긴 빈 곳은 그대로.
+    lofi_groove 멜로디만 남기면 9~12마디가 비는데, 원래 곡은 9~12마디가 13~16마디와 같은 진행(Dm9 · G13 · Cmaj9)이었다.
+    반환: (N.C.를 뺀 코드들, 채운 구간 [(시작 마디, 끝 마디, 옮겨 온 거리(마디) 또는 None — 이어 끔 · 섞임)])."""
+    known = [c for c in chords if c.root is not None]
+    if not known:
+        return [], []
+
+    def whole(bar: int) -> bool:  # 그 마디(0부터)가 읽은 코드로 꽉 덮였나
+        s, e = bar * bpb, (bar + 1) * bpb
+        return sum(max(0.0, min(e, c.end) - max(s, c.start)) for c in known) >= bpb - 1e-6
+
+    out = list(known)
+    filled: list[tuple[int, int, int | None]] = []
+    for gap in (c for c in chords if c.root is None and c.start > known[0].start and c.end < known[-1].end + 1e-6):
+        a, b = math.ceil(gap.start / bpb - 1e-6), math.floor(gap.end / bpb + 1e-6)  # 빈 곳에 통째로 든 마디 [a, b)
+        if not 1 <= b - a <= FILL_MAX:
+            continue
+        moves = set()
+        for bar in range(a, b):
+            near = [bar + PHRASE, bar - PHRASE] if (bar % BLOCK) < PHRASE else [bar - PHRASE, bar + PHRASE]
+            near = [s for s in near if s // BLOCK == bar // BLOCK] + [bar - BLOCK, bar + BLOCK]
+            src = next((s for s in near if s >= 0 and whole(s)), None)
+            if src is None:  # 옮겨 올 진행이 없으면 앞 코드를 이어 끈다
+                prev = max((c for c in out if c.start < bar * bpb - 1e-6), key=lambda c: c.start)
+                out.append(replace(prev, start=bar * bpb, end=(bar + 1) * bpb))
+                moves.add(None)
+                continue
+            shift = (bar - src) * bpb
+            for c in known:
+                s, e = max(c.start, src * bpb), min(c.end, (src + 1) * bpb)
+                if e - s > 1e-6:
+                    out.append(replace(c, start=s + shift, end=e + shift))
+            moves.add(src - bar)
+        filled.append((a + 1, b, moves.pop() if len(moves) == 1 else None))
+    return sorted(out, key=lambda c: c.start), filled
+
+
+def filled_text(filled: list[tuple[int, int, int | None]], start: float, end: float, bpb: float) -> str:
+    """결과 요약에 적을 말: 멜로디가 쉬어 코드를 못 읽어 채운 마디 (그 범위에 걸친 것만)."""
+    words = []
+    for a, b, move in filled:
+        if (b * bpb) <= start + 1e-6 or (a - 1) * bpb >= end - 1e-6:
+            continue
+        how = (f"{a + move}~{b + move}마디 진행을 되풀이해" if move is not None else "앞뒤 진행으로")
+        words.append(f"{a}~{b}마디는 멜로디가 쉬어 코드를 못 읽어 {how} 채웠어요")
+    return " · ".join(words)
+
+
 def follow(
     project: Project, start: float, end: float | None, progression: list[str] | None, bars_per_chord: float = 1.0,
-) -> tuple[list[ChordSpan], float]:
-    """따라갈 코드와 끝 박. progression(직접 말한 진행)이 있으면 곡 길이만큼 되풀이하고(곡이 한 바퀴보다 짧으면 한 바퀴),
-    없으면 곡의 코드(분석)에서 [start, end)에 걸친 것 (N.C. 빼고). 반주 · 베이스 생성기가 같이 쓴다."""
+) -> tuple[list[ChordSpan], float, str]:
+    """따라갈 코드와 끝 박, 채운 마디 말. progression(직접 말한 진행)이 있으면 곡 길이만큼 되풀이하고(곡이 한 바퀴보다 짧으면 한 바퀴),
+    없으면 곡의 코드(분석)에서 [start, end)에 걸친 것 — 곡 중간에 멜로디가 쉬어 못 읽은 마디는 fill_rests로 채운다.
+    반주 · 베이스 생성기가 같이 쓴다."""
     if progression:
         beats = bars_per_chord * project.beats_per_bar
         if end is None:
             end = max(song_end(project), start + len(progression) * beats)
-        return place(progression, start, end, beats), end
+        return place(progression, start, end, beats), end, ""
     a = analyze(project)
+    bpb = project.beats_per_bar
+    chords, filled = fill_rests(a.chords, bpb)
     end = a.chords[-1].end if end is None and a.chords else (end or 0.0)
-    return [c for c in a.chords if c.root is not None and c.end > start + 1e-6 and c.start < end - 1e-6], end
+    return ([c for c in chords if c.end > start + 1e-6 and c.start < end - 1e-6], end,
+            filled_text(filled, start, end, bpb))
 
 
 def song_end(project: Project) -> float:
@@ -346,7 +405,7 @@ def chord_notes(
     progression의 모르는 코드 이름은 ValueError."""
     program = comp_program(project, pattern) if program is None else program
     bpb = project.beats_per_bar
-    chords, end = follow(project, start, end, progression, bars_per_chord)
+    chords, end, filled = follow(project, start, end, progression, bars_per_chord)
     if not chords:
         return [], PadPlan(program, 0, 0)
     low, high = pad_window(project, start, end)
@@ -375,7 +434,7 @@ def chord_notes(
     pitches = [n.pitch for n in notes]
     names = {"stab": STAB_NAMES, "arpeggio": ARP_NAMES}.get(pattern)
     chords, eased = _eased(chords, voiced)
-    feel = " · ".join(x for x in (names[(version - 1) % len(names)] if names else "", eased) if x)
+    feel = " · ".join(x for x in (names[(version - 1) % len(names)] if names else "", eased, filled) if x)
     return notes, PadPlan(program, min(pitches), max(pitches), chords, feel)
 
 

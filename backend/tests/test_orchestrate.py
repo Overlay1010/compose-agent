@@ -137,8 +137,8 @@ def test_lift_makes_hats_busier_in_that_range():
 
 
 def test_lift_that_drums_cannot_fill_gets_a_layer():
-    """하이햇만 촘촘하게 해서는 안 차면 코드가 그 구간에만 반주를 더한다. 이 곡은 멜로디가 9~12마디에서 쉬어 읽을 코드가 없어
-    화음 · 베이스가 다 비고 드럼만 남는다 — 그래도 꽉 찼다고 하지 않고, 왜 안 찼는지(드럼만 있는 마디)를 적는다."""
+    """하이햇만 촘촘하게 해서는 안 차면 코드가 그 구간에만 반주를 더한다. 이 곡은 멜로디가 9~12마디에서 쉬는데,
+    예전엔 읽을 코드가 없어 화음 · 베이스가 비고 드럼만 남았다 — 이제 13~16마디 진행을 되풀이해 채워서 실제로 꽉 찬다."""
     song = lofi("Lead")
     r = run_tool(song, "arrange", {"style": "lofi", "parts": [{"role": "drums"}, {"role": "bass"}, {"role": "pad"}],
                                    "lift": [{"bars": [9, 16], "energy": "higher"}]})
@@ -148,8 +148,39 @@ def test_lift_that_drums_cannot_fill_gets_a_layer():
     assert min(n.start for n in keys.notes) >= 32 - 1e-6
     assert "그 구간에만 반주를 더했어요" in r.summary
     lift = r.data["review"]["lifts"][0]
-    assert not lift["ok"] and lift["drum_only_bars"] == [9, 10, 11, 12]
-    assert "9~12마디는 드럼 말고 아무것도 안 울려요" in r.summary
+    assert lift["ok"] and "drum_only_bars" not in lift
+    pad = by_name(r.project, "Pad")
+    assert any(32 <= n.start < 48 for n in pad.notes)  # 9~12마디에도 패드가 있다
+    assert "9~12마디는 멜로디가 쉬어 코드를 못 읽어 13~16마디 진행을 되풀이해 채웠어요" in detail(r)
+
+
+def test_rest_fill_copies_phrase_and_keeps_song_edges_and_long_breaks():
+    """멜로디가 쉬어 못 읽은 곡 중간 마디는 같은 8마디 묶음의 다른 4마디 → 8마디 앞뒤 진행으로, 옮길 게 없으면 앞 코드를 이어 끈다.
+    곡 앞뒤(멜로디가 아직 안 나옴 · 끝난 뒤)와 8마디보다 긴 빈 곳(일부러 비운 브레이크일 수 있음)은 채우지 않는다."""
+    from app.generate.chords import fill_rests
+    from app.harmony import ChordSpan
+
+    def span(bar: int, name: str | None, bars: int = 1) -> ChordSpan:
+        root = None if name is None else {"C": 0, "D": 2, "F": 5, "G": 7, "A": 9}[name[0]]
+        return ChordSpan(bar * 4.0, (bar + bars) * 4.0, root, root, name or "N.C.", "", "", "", 1.0)
+
+    # 0~7마디 진행 C F G A | C F G A, 8~11마디 N.C., 12~15마디 D G C F → 8~11마디는 같은 묶음의 12~15마디로
+    song = [span(b, n) for b, n in enumerate("CFGACFGA")] + [span(8, None, 4)] + [span(12 + i, n) for i, n in enumerate("DGCF")]
+    out, filled = fill_rests(song, 4.0)
+    assert [c.name for c in out if 32 <= c.start < 48] == ["D", "G", "C", "F"] and filled == [(9, 12, 4)]
+    # 같은 묶음이 통째로 비면 8마디 앞 같은 자리 (9~16마디 = 1~8마디)
+    song = [span(b, n) for b, n in enumerate("CFGACFGA")] + [span(8, None, 8)] + [span(16, "D", 1)]
+    out, filled = fill_rests(song, 4.0)
+    assert [c.name for c in out if 32 <= c.start < 64] == list("CFGACFGA") and filled == [(9, 16, -8)]
+    # 곡 앞뒤 N.C.는 그대로, 9마디 넘게 빈 곳도 그대로
+    edges = [span(0, None, 2), span(2, "C"), span(3, "F"), span(4, None, 2)]
+    assert fill_rests(edges, 4.0) == ([edges[1], edges[2]], [])
+    long = [span(0, "C"), span(1, None, 9), span(10, "F")]
+    assert fill_rests(long, 4.0)[1] == []
+    # 옮길 진행이 없으면(짧은 곡) 앞 코드를 이어 끈다
+    short = [span(0, "C"), span(1, "F"), span(2, None, 1), span(3, "G")]
+    out, filled = fill_rests(short, 4.0)
+    assert [c.name for c in out] == ["C", "F", "F", "G"] and filled == [(3, 3, None)]
 
 
 def test_lift_passes_when_the_range_really_gets_fuller():

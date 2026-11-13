@@ -1,7 +1,7 @@
 import pytest
 
 from app.generate.check import check, playable
-from app.generate.chords import comp_program, pad_notes, pad_program, parse_chord
+from app.generate.chords import comp_program, fill_rests, pad_notes, pad_program, parse_chord
 from app.harmony import analyze
 from app.harmony.reharm import INTERVALS
 from app.models.project import Note, Project, Track
@@ -107,7 +107,8 @@ def test_pad_on_every_sample_passes_the_checks(name):
         r, pad = pad_of(p)
     except ToolError:  # 코드가 없는 곡 (드럼만)
         return
-    assert r.checks == [] and not check(pad.notes, pad.program, chords=analyze(p).chords)
+    chords = fill_rests(analyze(p).chords, p.beats_per_bar)[0]  # 멜로디가 쉬어 못 읽은 마디는 생성기처럼 채운 코드로 (lofi_melody 9~12마디)
+    assert r.checks == [] and not check(pad.notes, pad.program, chords=chords)
 
 
 def test_check_finds_each_kind_of_mistake():

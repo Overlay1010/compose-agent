@@ -175,7 +175,7 @@ def bass_notes(
     """[start, end) 박에 코드대로 베이스. 코드가 없는 구간(N.C.)은 비운다. progression의 모르는 코드 이름은 ValueError."""
     program = bass_program(project, style) if program is None else program
     bpb = project.beats_per_bar
-    chords, end = follow(project, start, end, progression, bars_per_chord)
+    chords, end, filled = follow(project, start, end, progression, bars_per_chord)
     if not chords:
         return [], BassPlan(program, 0, 0)
     if progression:
@@ -238,4 +238,5 @@ def bass_notes(
         feel = "드럼 킥에 맞춤"
     else:
         feel = RHYTHM_NAMES[BASS_RHYTHMS.index(tuple(rhythm))] + (" (킥 없음)" if not kicks else "")
+    feel = " · ".join(x for x in (feel, filled) if x)  # 멜로디가 쉬어 채운 마디도 결과에 (chords.fill_rests)
     return notes, BassPlan(program, min(pitches_all), max(pitches_all), chords, key, feel)
