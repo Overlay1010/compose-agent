@@ -22,7 +22,8 @@ from random import Random
 from statistics import mean, median
 
 from app.generate.check import playable
-from app.harmony import ChordSpan, analyze
+from app.harmony import ChordSpan
+from app.harmony.harmonize import song_chords
 from app.harmony.analyze import melody_ids
 from app.harmony.reharm import INTERVALS
 from app.harmony.voicing import revoice
@@ -340,7 +341,7 @@ def follow(
         if end is None:
             end = max(song_end(project), start + len(progression) * beats)
         return place(progression, start, end, beats), end, ""
-    a = analyze(project)
+    a = song_chords(project)  # 화음 트랙이 없는(멜로디 · 베이스만 있는) 곡은 멜로디에 코드를 붙인다 (app/harmony/harmonize.py)
     bpb = project.beats_per_bar
     chords, filled = fill_rests(a.chords, bpb)
     end = a.chords[-1].end if end is None and a.chords else (end or 0.0)

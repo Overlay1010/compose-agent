@@ -21,7 +21,8 @@ from statistics import median
 
 from app.generate.check import SCALES
 from app.generate.chords import ELECTRONIC_KITS, OVERLAP, follow
-from app.harmony import ChordSpan, analyze
+from app.harmony import ChordSpan
+from app.harmony.harmonize import song_chords
 from app.harmony.analyze import KeyInfo, decide_key
 from app.harmony.reharm import INTERVALS
 from app.midi_io.convert import KICKS
@@ -185,7 +186,7 @@ def bass_notes(
                 hist[(c.root + i) % 12] += c.end - c.start
         key = decide_key(hist, chords)
     else:
-        key = analyze(project).key
+        key = song_chords(project).key  # 코드를 붙인 곡이면 붙일 때 쓴 조성 (follow와 같게)
     scale = {(key.tonic + i) % 12 for i in SCALES[key.mode]}
 
     # 리듬: 킥 → 정해 둔 리듬 순으로 버전마다 다음 (워킹은 늘 4분음표)
